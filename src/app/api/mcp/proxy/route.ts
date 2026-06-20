@@ -54,7 +54,7 @@ async function handleProxyRequest(request: Request): Promise<Response> {
     );
   }
 
-  const context = await getUserContext(tokenUser.entraGroups);
+  const context = await getUserContext(tokenUser.entraGroups, undefined, tokenUser.userId);
 
   // Build a map from sanitized-server-id → original McpServerConfig
   const serverMap = new Map<string, McpServerConfig>(

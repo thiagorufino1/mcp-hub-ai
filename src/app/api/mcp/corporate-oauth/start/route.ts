@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   }
 
   // Verify user has access to this MCP via their groups
-  const context = await getUserContext(session.user.groups);
+  const context = await getUserContext(session.user.groups, undefined, session.user.id);
   const mcp = context.mcpServers.find((s) => s.id === body.data.mcpServerId);
   if (!mcp) {
     return Response.json({ error: "MCP not found or not accessible." }, { status: 404 });

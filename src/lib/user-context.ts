@@ -19,6 +19,7 @@ export type UserContext = {
 export async function getUserContext(
   entraGroups: string[],
   selectedModel?: string,
+  userId?: string,
 ): Promise<UserContext> {
   const empty: UserContext = { mcpServers: [], skills: [], allowedModels: [], llmConfig: null };
 
@@ -54,6 +55,31 @@ export async function getUserContext(
         });
       }
       for (const model of policy.allowedModels) modelSet.add(model);
+    }
+
+    // Inject per-user OAuth tokens for oauth_delegated MCPs
+    if (userId && mcpMap.size > 0) {
+      const connections = await prisma.userMcpConnection.findMany({
+        where: {
+          userId,
+          mcpServerId: { in: [...mcpMap.keys()] },
+          status: "connected",
+        },
+        select: { mcpServerId: true, accessToken: true, tokenType: true },
+      });
+
+      for (const conn of connections) {
+        const dbMcp = mcpMap.get(conn.mcpServerId);
+        if (dbMcp) {
+          mcpMap.set(conn.mcpServerId, {
+            ...dbMcp,
+            headers: {
+              ...((dbMcp.headers as Record<string, string>) ?? {}),
+              Authorization: `${conn.tokenType ?? "Bearer"} ${conn.accessToken}`,
+            },
+          });
+        }
+      }
     }
 
     // Validate selectedModel against the union of policy allowedModels AND the LLM's own allowedModels.

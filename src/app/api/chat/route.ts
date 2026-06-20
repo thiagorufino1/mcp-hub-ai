@@ -134,7 +134,7 @@ export async function POST(request: Request) {
   const body = parsed.data as ChatRequestBody;
 
   // Resolve corporate context from user's Entra groups, passing selectedModel for override
-  const corporateContext = await getUserContext(session.user.groups, body.selectedModel ?? undefined);
+  const corporateContext = await getUserContext(session.user.groups, body.selectedModel ?? undefined, session.user.id);
 
   // LLM config: corporate DB config takes precedence over client-provided.
   // corporateContext.llmConfig is already a resolved LLMConfig (built by getUserContext with selectedModel applied).

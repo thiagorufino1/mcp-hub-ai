@@ -7,7 +7,7 @@ export async function GET() {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const context = await getUserContext(session.user.groups);
+  const context = await getUserContext(session.user.groups, undefined, session.user.id);
 
   return Response.json({
     allowedModels: context.allowedModels,

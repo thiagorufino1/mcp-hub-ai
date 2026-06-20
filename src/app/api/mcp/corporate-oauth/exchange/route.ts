@@ -25,7 +25,7 @@ export async function POST(request: Request) {
   }
 
   // Verify user has access to this MCP and fetch OAuth credentials from DB (not from client)
-  const context = await getUserContext(session.user.groups);
+  const context = await getUserContext(session.user.groups, undefined, session.user.id);
   const accessible = context.mcpServers.some((s) => s.id === body.data.mcpServerId);
   if (!accessible) {
     return Response.json({ error: "MCP not found or not accessible." }, { status: 404 });

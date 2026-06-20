@@ -8,7 +8,7 @@ export const metadata = { title: "My Connections — MCP Hub" };
 export default async function ConnectionsPage() {
   const user = await requireAuth();
 
-  const context = await getUserContext(user.groups ?? []);
+  const context = await getUserContext(user.groups ?? [], undefined, user.id);
 
   const delegatedDbMcps = await prisma.mcpServer.findMany({
     where: {
