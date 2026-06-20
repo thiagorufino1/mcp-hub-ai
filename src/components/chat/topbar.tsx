@@ -250,6 +250,40 @@ export function Topbar({
 
             <Tooltip>
               <TooltipTrigger asChild>
+                <Link href="/connections" aria-label="My Connections" className="inline-flex">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 rounded-full bg-white/[0.07] text-white/92 shadow-[0_6px_18px_rgba(8,24,64,0.08)] backdrop-blur-[4px] transition-colors hover:bg-white/[0.10] hover:text-white"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                    </svg>
+                  </Button>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent
+                side="bottom"
+                className="z-[999] border-none bg-slate-950 px-3 py-1.5 text-[11.5px] font-medium text-slate-100 shadow-2xl shadow-black/80"
+              >
+                My Connections
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
                 <Link href="/settings" aria-label="Settings" className="inline-flex">
                   <Button
                     variant="ghost"
