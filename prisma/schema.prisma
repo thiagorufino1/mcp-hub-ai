@@ -55,3 +55,64 @@ model VerificationToken {
 
   @@unique([identifier, token])
 }
+
+model McpServer {
+  id           String         @id @default(cuid())
+  name         String
+  description  String?
+  transport    String
+  command      String?
+  args         String[]       @default([])
+  url          String?
+  env          Json           @default("{}")
+  headers      Json           @default("{}")
+  authType     String         @default("none")
+  sharedSecret String?
+  enabled      Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  policies     AccessPolicy[]
+}
+
+model Skill {
+  id          String         @id @default(cuid())
+  name        String
+  description String?
+  content     String         @db.Text
+  enabled     Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  policies    AccessPolicy[]
+}
+
+model LlmConfig {
+  id            String   @id @default(cuid())
+  displayName   String
+  provider      String
+  credentials   Json     @default("{}")
+  allowedModels String[] @default([])
+  enabled       Boolean  @default(true)
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model EntraGroup {
+  id           String        @id @default(cuid())
+  entraGroupId String        @unique
+  displayName  String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  policy       AccessPolicy?
+}
+
+model AccessPolicy {
+  id            String       @id @default(cuid())
+  groupId       String       @unique
+  group         EntraGroup   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  allowedModels String[]     @default([])
+  mcpServers    McpServer[]
+  skills        Skill[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
