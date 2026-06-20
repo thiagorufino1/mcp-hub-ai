@@ -79,13 +79,12 @@ export async function POST(request: Request) {
       state,
     });
 
+    // Only return values needed by the browser for the popup + exchange request.
+    // clientId, clientSecret, tokenEndpoint stay server-side — re-discovered on exchange.
     return Response.json({
       authorizationUrl,
-      clientId,
-      clientSecret,
       codeVerifier,
       state,
-      tokenEndpoint: discovery.tokenEndpoint,
     });
   } catch (error) {
     return Response.json(
