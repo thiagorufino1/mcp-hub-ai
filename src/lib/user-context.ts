@@ -90,8 +90,15 @@ function dbMcpToConfig(mcp: {
   env: unknown;
   headers: unknown;
   authType: string;
+  sharedSecret: string | null;
   enabled: boolean;
 }): McpServerConfig {
+  const baseHeaders = (mcp.headers as Record<string, string>) ?? {};
+  const resolvedHeaders =
+    mcp.authType === "shared_key" && mcp.sharedSecret
+      ? { ...baseHeaders, Authorization: `Bearer ${mcp.sharedSecret}` }
+      : baseHeaders;
+
   return {
     id: mcp.id,
     name: mcp.name,
@@ -101,7 +108,7 @@ function dbMcpToConfig(mcp: {
     args: mcp.args,
     url: mcp.url ?? undefined,
     env: (mcp.env as Record<string, string>) ?? {},
-    headers: (mcp.headers as Record<string, string>) ?? {},
+    headers: resolvedHeaders,
     authMode: "none",
     oauth: undefined,
     tools: [],
