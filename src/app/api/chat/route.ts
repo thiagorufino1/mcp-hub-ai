@@ -4,6 +4,7 @@ import type { ToolSet } from "ai";
 import { z } from "zod";
 
 import { auth } from "@/lib/auth";
+import { getUserContext } from "@/lib/user-context";
 import { getModel } from "@/lib/ai-provider";
 import { getApprovedTools } from "@/lib/mcp-authorization";
 import { createInspectableServerConfig, inspectMcpServer } from "@/lib/mcp-client";
@@ -79,6 +80,9 @@ const ChatRequestBodySchema = z.object({
     .optional(),
   mcpServers: z.array(McpServerSchema).max(40).optional(),
   requestId: z.string().min(1).max(120).optional(),
+  skillId: z.string().optional(),
+  selectedModel: z.string().max(120).optional(),
+  skillContent: z.string().optional(),
   llmConfig: z.object({ provider: z.string() }).passthrough().optional(),
 });
 
@@ -129,11 +133,35 @@ export async function POST(request: Request) {
 
   const body = parsed.data as ChatRequestBody;
 
-  if (!body.llmConfig) {
-    return streamMockResponse(body);
+  // Resolve corporate context from user's Entra groups
+  const corporateContext = await getUserContext(session.user.groups);
+
+  // LLM config: corporate DB config takes precedence over client-provided.
+  // corporateContext.llmConfig is already a resolved LLMConfig (built by getUserContext).
+  const resolvedLlmConfig: LLMConfig | null = corporateContext.llmConfig
+    ?? (body.llmConfig as LLMConfig | undefined ?? null);
+
+  // Merge MCPs: corporate first, then personal from body
+  const personalMcps = (body.mcpServers ?? []) as McpServerConfig[];
+  const allMcpServers: McpServerConfig[] = [...corporateContext.mcpServers, ...personalMcps];
+
+  // Skill content injection
+  const selectedSkill = body.skillId
+    ? corporateContext.skills.find((s) => s.id === body.skillId)
+    : undefined;
+
+  const effectiveBody = {
+    ...body,
+    llmConfig: resolvedLlmConfig ?? undefined,
+    mcpServers: allMcpServers,
+    skillContent: selectedSkill?.content,
+  };
+
+  if (!resolvedLlmConfig) {
+    return streamMockResponse(effectiveBody as ChatRequestBody);
   }
 
-  return streamWithAISDK(body);
+  return streamWithAISDK(effectiveBody as ChatRequestBody);
 }
 
 async function streamWithAISDK(body: ChatRequestBody) {
@@ -167,6 +195,7 @@ async function streamWithAISDK(body: ChatRequestBody) {
           messages: buildConversation(
             userPrompt,
             body.customPrompt,
+            body.skillContent,
             body.messages ?? [],
             resolvedServers,
           ),
@@ -282,6 +311,7 @@ async function resolveLiveMcpServers(mcpServers: McpServerConfig[]) {
 function buildConversation(
   userPrompt: string,
   customPrompt: string | undefined,
+  skillContent: string | undefined,
   messages: Array<Pick<Message, "content" | "role">>,
   mcpServers: McpServerConfig[],
 ): ModelMessage[] {
@@ -295,7 +325,7 @@ function buildConversation(
     "For pie and donut charts, keep labels in `labels` and values in the first series data array.",
     "Always put the chart block after a short textual introduction and before the explanation.",
   ].join(" ");
-  const instructions = [defaultPrompt, customPrompt, contextPrompt]
+  const instructions = [defaultPrompt, skillContent, customPrompt, contextPrompt]
     .filter(Boolean)
     .join("\n\n");
 
