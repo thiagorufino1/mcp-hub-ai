@@ -56,11 +56,22 @@ export async function getUserContext(
       for (const model of policy.allowedModels) modelSet.add(model);
     }
 
+    // Validate selectedModel against the union of policy allowedModels AND the LLM's own allowedModels.
+    // A model must appear in BOTH to be accepted — prevents clients from requesting arbitrary models
+    // against corporate provider credentials.
+    const llmAllowedSet = new Set(defaultLlm?.allowedModels ?? []);
+    const validatedModel =
+      selectedModel &&
+      modelSet.has(selectedModel) &&
+      llmAllowedSet.has(selectedModel)
+        ? selectedModel
+        : undefined;
+
     return {
       mcpServers: [...mcpMap.values()].map(dbMcpToConfig),
       skills: [...skillMap.values()],
       allowedModels: [...modelSet],
-      llmConfig: defaultLlm ? buildLlmConfig(defaultLlm, selectedModel) : null,
+      llmConfig: defaultLlm ? buildLlmConfig(defaultLlm, validatedModel) : null,
     };
   } catch (error) {
     console.error("[getUserContext] Failed to resolve user context:", error);
@@ -108,6 +119,8 @@ export function buildLlmConfig(
   selectedModel?: string,
 ): LLMConfig | null {
   const creds = (llm.credentials as Record<string, string>) ?? {};
+  // selectedModel is already validated upstream in getUserContext; enforce again as defense-in-depth
+  if (selectedModel && !llm.allowedModels.includes(selectedModel)) return null;
   const model = selectedModel || llm.allowedModels[0] || "";
 
   if (!model) return null;
