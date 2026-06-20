@@ -15,9 +15,7 @@ export async function resolveTokenUser(
   const record = await prisma.personalToken.findUnique({
     where: { tokenHash },
     include: {
-      user: {
-        include: { accounts: { select: { provider: true } } },
-      },
+      user: { select: { id: true, entraGroups: true } },
     },
   });
 
@@ -28,10 +26,5 @@ export async function resolveTokenUser(
     .update({ where: { id: record.id }, data: { lastUsedAt: new Date() } })
     .catch(() => undefined);
 
-  // Entra groups are stored on the session JWT, not in the DB User record.
-  // For token-based auth we can't get JWT groups — use the entraGroups array if we store it,
-  // or fall back to looking up the user's AccessPolicies directly in getUserContext.
-  // For now return empty groups — getUserContext handles empty-groups gracefully (returns empty context).
-  // In Phase 5 we'll store groups on the User record.
-  return { userId: record.userId, entraGroups: [] };
+  return { userId: record.userId, entraGroups: record.user.entraGroups };
 }

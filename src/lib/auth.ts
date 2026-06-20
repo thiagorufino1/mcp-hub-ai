@@ -38,6 +38,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.groups = groups;
       session.user.isAdmin = adminGroupId.length > 0 && groups.includes(adminGroupId);
 
+      // Persist entraGroups to DB so token-based auth (MCP proxy) can resolve them
+      if (session.user.id && groups.length >= 0) {
+        void prisma
+          .user
+          .updateMany({
+            where: { id: session.user.id },
+            data: { entraGroups: groups },
+          })
+          .catch(() => undefined);
+      }
+
       return session;
     },
   },
