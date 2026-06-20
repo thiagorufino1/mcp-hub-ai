@@ -34,6 +34,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const groups = Array.isArray(token.groups) ? (token.groups as string[]) : [];
       const adminGroupId = process.env.ADMIN_GROUP_ID ?? "";
 
+      session.user.id = token.sub ?? "";
       session.user.groups = groups;
       session.user.isAdmin = adminGroupId.length > 0 && groups.includes(adminGroupId);
 
