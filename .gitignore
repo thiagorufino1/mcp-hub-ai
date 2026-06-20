@@ -52,7 +52,6 @@ pnpm-debug.log*
 Thumbs.db
 
 # Local scratch files
-CLAUDE.md
 RELEASE_AGENT_GUIDE.md
 current-ui.png
 jira.md
