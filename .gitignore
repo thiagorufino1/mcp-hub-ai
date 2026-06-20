@@ -1,0 +1,63 @@
+node_modules/
+
+# Next.js build output
+.next/
+.next-package/
+out/
+
+# Package build/publish artifacts
+.npm-package/
+*.tgz
+
+# Tooling caches
+.turbo/
+.vercel/
+.cache/
+.eslintcache
+npm-cache/
+.npm/
+coverage/
+dist/
+*.tsbuildinfo
+
+# IDEs and local agent tooling
+.idea/
+.vscode/
+.claude/
+.playwright-mcp/
+.playwright-cli/
+
+# Local environment files
+.env
+.env.*
+.envrc
+!.env.example
+
+# Test and browser artifacts
+playwright-report/
+test-results/
+lighthouse-*.json
+playwright-*.png
+*.trace
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Local scratch files
+CLAUDE.md
+RELEASE_AGENT_GUIDE.md
+current-ui.png
+jira.md
+docs/superpowers/
+tmp/
+temp/
+
+/src/generated/prisma
