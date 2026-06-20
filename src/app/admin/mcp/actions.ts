@@ -16,6 +16,9 @@ export type McpServerRow = {
   headers: Record<string, string>;
   authType: string;
   sharedSecret: string | null;
+  oauthClientId: string | null;
+  oauthClientSecret: string | null;
+  oauthScopes: string | null;
   enabled: boolean;
 };
 
@@ -39,6 +42,9 @@ export async function createMcp(formData: FormData): Promise<void> {
       headers: JSON.parse(headersRaw) as Record<string, string>,
       authType: (formData.get("authType") as string) ?? "none",
       sharedSecret: (formData.get("sharedSecret") as string | null) || null,
+      oauthClientId: (formData.get("oauthClientId") as string | null) || null,
+      oauthClientSecret: (formData.get("oauthClientSecret") as string | null) || null,
+      oauthScopes: (formData.get("oauthScopes") as string | null) || null,
       enabled: formData.get("enabled") === "true",
     },
   });
@@ -67,6 +73,9 @@ export async function updateMcp(id: string, formData: FormData): Promise<void> {
       headers: JSON.parse(headersRaw) as Record<string, string>,
       authType: (formData.get("authType") as string) ?? "none",
       sharedSecret: (formData.get("sharedSecret") as string | null) || null,
+      oauthClientId: (formData.get("oauthClientId") as string | null) || null,
+      oauthClientSecret: (formData.get("oauthClientSecret") as string | null) || null,
+      oauthScopes: (formData.get("oauthScopes") as string | null) || null,
       enabled: formData.get("enabled") === "true",
     },
   });

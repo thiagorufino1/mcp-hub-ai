@@ -22,6 +22,7 @@ type Props = {
 export function McpForm({ open, onClose, mcp }: Props) {
   const formRef = useRef<HTMLFormElement>(null);
   const [transport, setTransport] = useState(mcp?.transport ?? "streamable-http");
+  const [authType, setAuthType] = useState(mcp?.authType ?? "none");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -100,7 +101,8 @@ export function McpForm({ open, onClose, mcp }: Props) {
             <select
               id="authType"
               name="authType"
-              defaultValue={mcp?.authType ?? "none"}
+              value={authType}
+              onChange={(e) => setAuthType(e.target.value)}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
               <option value="none">None</option>
@@ -109,6 +111,39 @@ export function McpForm({ open, onClose, mcp }: Props) {
               <option value="oauth_delegated">OAuth Delegated (per user)</option>
             </select>
           </div>
+
+          {authType === "oauth_delegated" && (
+            <>
+              <div className="space-y-1">
+                <Label htmlFor="oauthClientId">OAuth Client ID</Label>
+                <Input
+                  id="oauthClientId"
+                  name="oauthClientId"
+                  defaultValue={mcp?.oauthClientId ?? ""}
+                  placeholder="Leave blank to use dynamic registration"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="oauthClientSecret">OAuth Client Secret</Label>
+                <Input
+                  id="oauthClientSecret"
+                  name="oauthClientSecret"
+                  type="password"
+                  defaultValue={mcp?.oauthClientSecret ?? ""}
+                  placeholder="Leave blank to use dynamic registration"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="oauthScopes">OAuth Scopes</Label>
+                <Input
+                  id="oauthScopes"
+                  name="oauthScopes"
+                  defaultValue={mcp?.oauthScopes ?? ""}
+                  placeholder="e.g. read:user repo"
+                />
+              </div>
+            </>
+          )}
 
           <div className="space-y-1">
             <Label htmlFor="sharedSecret">Shared Secret / API Key</Label>
