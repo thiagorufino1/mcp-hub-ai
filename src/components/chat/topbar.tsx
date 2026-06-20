@@ -3,6 +3,7 @@
 import { IconBrandGithub } from "@tabler/icons-react";
 import { CircleFlag } from "react-circle-flags";
 import { useState } from "react";
+import Link from "next/link";
 
 import { useAppPreferences } from "@/components/providers/app-preferences-provider";
 import { useTheme } from "@/components/providers/theme-provider";
@@ -244,6 +245,26 @@ export function Topbar({
                 className="z-[999] border-none bg-slate-950 px-3 py-1.5 text-[11.5px] font-medium text-slate-100 shadow-2xl shadow-black/80"
               >
                 {t("topbar.configureLlm")}
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link href="/settings" aria-label="Settings" className="inline-flex">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 rounded-full bg-white/[0.07] text-white/92 shadow-[0_6px_18px_rgba(8,24,64,0.08)] backdrop-blur-[4px] transition-colors hover:bg-white/[0.10] hover:text-white"
+                  >
+                    <Settings className="size-4" />
+                  </Button>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent
+                side="bottom"
+                className="z-[999] border-none bg-slate-950 px-3 py-1.5 text-[11.5px] font-medium text-slate-100 shadow-2xl shadow-black/80"
+              >
+                Settings
               </TooltipContent>
             </Tooltip>
 

@@ -50,6 +50,12 @@ export default async function AdminLayout({
         </nav>
         <div className="border-t pt-3 mt-auto flex flex-col gap-2">
           <Link
+            href="/settings"
+            className="rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+          >
+            Settings
+          </Link>
+          <Link
             href="/chat"
             className="rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
           >
