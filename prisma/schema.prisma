@@ -21,6 +21,7 @@ model User {
   accounts      Account[]
   sessions      Session[]
   tokens        PersonalToken[]
+  connections   UserMcpConnection[]
 }
 
 model Account {
@@ -58,21 +59,25 @@ model VerificationToken {
 }
 
 model McpServer {
-  id           String         @id @default(cuid())
-  name         String
-  description  String?
-  transport    String
-  command      String?
-  args         String[]       @default([])
-  url          String?
-  env          Json           @default("{}")
-  headers      Json           @default("{}")
-  authType     String         @default("none")
-  sharedSecret String?
-  enabled      Boolean        @default(true)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  policies     AccessPolicy[]
+  id                String         @id @default(cuid())
+  name              String
+  description       String?
+  transport         String
+  command           String?
+  args              String[]       @default([])
+  url               String?
+  env               Json           @default("{}")
+  headers           Json           @default("{}")
+  authType          String         @default("none")
+  sharedSecret      String?
+  oauthClientId     String?
+  oauthClientSecret String?
+  oauthScopes       String?
+  enabled           Boolean        @default(true)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  connections       UserMcpConnection[]
+  policies          AccessPolicy[]
 }
 
 model Skill {
@@ -126,4 +131,22 @@ model PersonalToken {
   tokenHash  String    @unique
   lastUsedAt DateTime?
   createdAt  DateTime  @default(now())
+}
+
+model UserMcpConnection {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mcpServerId  String
+  mcpServer    McpServer @relation(fields: [mcpServerId], references: [id], onDelete: Cascade)
+  accessToken  String    @db.Text
+  refreshToken String?   @db.Text
+  tokenType    String    @default("Bearer")
+  expiresAt    DateTime?
+  scope        String?
+  status       String    @default("connected")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([userId, mcpServerId])
 }
