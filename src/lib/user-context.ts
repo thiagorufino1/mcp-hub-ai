@@ -16,7 +16,10 @@ export type UserContext = {
   llmConfig: LLMConfig | null;
 };
 
-export async function getUserContext(entraGroups: string[]): Promise<UserContext> {
+export async function getUserContext(
+  entraGroups: string[],
+  selectedModel?: string,
+): Promise<UserContext> {
   const empty: UserContext = { mcpServers: [], skills: [], allowedModels: [], llmConfig: null };
 
   if (entraGroups.length === 0) return empty;
@@ -57,7 +60,7 @@ export async function getUserContext(entraGroups: string[]): Promise<UserContext
       mcpServers: [...mcpMap.values()].map(dbMcpToConfig),
       skills: [...skillMap.values()],
       allowedModels: [...modelSet],
-      llmConfig: defaultLlm ? buildLlmConfig(defaultLlm) : null,
+      llmConfig: defaultLlm ? buildLlmConfig(defaultLlm, selectedModel) : null,
     };
   } catch (error) {
     console.error("[getUserContext] Failed to resolve user context:", error);

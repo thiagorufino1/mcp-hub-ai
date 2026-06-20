@@ -133,13 +133,13 @@ export async function POST(request: Request) {
 
   const body = parsed.data as ChatRequestBody;
 
-  // Resolve corporate context from user's Entra groups
-  const corporateContext = await getUserContext(session.user.groups);
+  // Resolve corporate context from user's Entra groups, passing selectedModel for override
+  const corporateContext = await getUserContext(session.user.groups, body.selectedModel ?? undefined);
 
   // LLM config: corporate DB config takes precedence over client-provided.
-  // corporateContext.llmConfig is already a resolved LLMConfig (built by getUserContext).
-  const resolvedLlmConfig: LLMConfig | null = corporateContext.llmConfig
-    ?? (body.llmConfig as LLMConfig | undefined ?? null);
+  // corporateContext.llmConfig is already a resolved LLMConfig (built by getUserContext with selectedModel applied).
+  const resolvedLlmConfig: LLMConfig | null =
+    corporateContext.llmConfig ?? (body.llmConfig as LLMConfig | undefined ?? null);
 
   // Merge MCPs: corporate first, then personal from body
   const personalMcps = (body.mcpServers ?? []) as McpServerConfig[];
