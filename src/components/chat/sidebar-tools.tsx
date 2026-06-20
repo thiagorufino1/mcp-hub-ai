@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 
 import { LlmConfigSection } from "@/components/chat/llm-config-section";
