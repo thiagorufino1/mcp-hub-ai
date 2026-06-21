@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import {
   deleteNamespace,
@@ -10,9 +10,10 @@ import {
 } from "./actions";
 import { NamespaceForm } from "@/components/admin/namespace-form";
 import { WorkspaceForm } from "@/components/admin/workspace-form";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Bot, Layers3, PencilLine, Search, Trash2 } from "@/components/ui/icons";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 type Option = { id: string; displayName: string };
 type SkillOption = { id: string; name: string };
@@ -38,124 +39,284 @@ export function WorkspacesAdminClient({
 }) {
   const [workspaceForm, setWorkspaceForm] = useState<WorkspaceRow | null | undefined>();
   const [namespaceForm, setNamespaceForm] = useState<NamespaceRow | null | undefined>();
+  const [wsSearch, setWsSearch] = useState("");
+  const [nsSearch, setNsSearch] = useState("");
+
+  const filteredWorkspaces = useMemo(() => {
+    const q = wsSearch.trim().toLowerCase();
+    return q
+      ? workspaces.filter((w) =>
+          [w.name, w.slug, w.description].some((v) => v?.toLowerCase().includes(q)),
+        )
+      : workspaces;
+  }, [workspaces, wsSearch]);
+
+  const filteredNamespaces = useMemo(() => {
+    const q = nsSearch.trim().toLowerCase();
+    return q
+      ? namespaces.filter((n) =>
+          [n.name, n.slug, n.description].some((v) => v?.toLowerCase().includes(q)),
+        )
+      : namespaces;
+  }, [namespaces, nsSearch]);
 
   return (
     <div className="portal-page">
-      <div className="portal-page-heading">
-        <h1 className="text-2xl font-bold">Workspaces & Namespaces</h1>
-        <p className="text-sm text-muted-foreground">
-          Compose governed agents for chat and publish curated MCP endpoints.
-        </p>
+      <div className="portal-page-heading flex-row items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Workspaces & Namespaces</h1>
+          <p className="text-sm text-muted-foreground">Governed chat agents and curated MCP endpoints.</p>
+        </div>
       </div>
 
+      {/* Workspaces */}
       <section className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold">Workspaces / Agents</h2>
-            <p className="text-sm text-muted-foreground">
-              Model, prompt, skills, namespace and audience.
-            </p>
+            <h2 className="text-lg font-semibold">Workspaces</h2>
+            <p className="text-sm text-muted-foreground">Chat agents with model, prompt, skills and access control.</p>
           </div>
-          <Button onClick={() => setWorkspaceForm(null)}>Add workspace</Button>
+          <Button onClick={() => setWorkspaceForm(null)}>+ Add workspace</Button>
         </div>
-        <div className="grid gap-4 lg:grid-cols-2">
-          {workspaces.map((workspace) => (
-            <Card key={workspace.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <CardTitle>{workspace.name}</CardTitle>
-                    <CardDescription>/{workspace.slug}</CardDescription>
-                  </div>
-                  <div className="flex gap-1">
-                    {workspace.isDefault ? <Badge>default</Badge> : null}
-                    <Badge variant={workspace.enabled ? "outline" : "secondary"}>
-                      {workspace.enabled ? "enabled" : "disabled"}
-                    </Badge>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-3">
-                <p className="text-sm text-muted-foreground">
-                  {workspace.description || "No description."}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {workspace.skills.length} skills · max {workspace.maxSteps} steps
-                </p>
-                <div className="flex justify-end gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => setWorkspaceForm(workspace)}>
-                    Edit
-                  </Button>
-                  <form action={async () => deleteWorkspace(workspace.id)}>
-                    <Button variant="ghost" size="sm" type="submit">Delete</Button>
-                  </form>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-          {workspaces.length === 0 ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>No workspaces</CardTitle>
-                <CardDescription>Create the first governed agent.</CardDescription>
-              </CardHeader>
-            </Card>
-          ) : null}
-        </div>
-      </section>
 
-      <section className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">MCP Namespaces</h2>
-            <p className="text-sm text-muted-foreground">
-              Curated tool catalogs exposed through one Streamable HTTP endpoint.
-            </p>
-          </div>
-          <Button onClick={() => setNamespaceForm(null)}>Add namespace</Button>
+        <div className="relative max-w-sm">
+          <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            value={wsSearch}
+            onChange={(e) => setWsSearch(e.target.value)}
+            placeholder="Search workspaces..."
+            className="pl-9 text-[var(--color-text-secondary)]"
+          />
         </div>
-        <div className="portal-table-shell">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/50">
+
+        <div className="portal-table-shell overflow-x-auto">
+          <table className="w-full min-w-[860px] text-left text-sm text-[var(--color-text-secondary)]">
+            <thead>
               <tr>
-                <th className="px-4 py-3 text-left">Namespace</th>
-                <th className="px-4 py-3 text-left">Tools</th>
-                <th className="px-4 py-3 text-left">Endpoint</th>
+                <th className="px-4 py-3">Workspace</th>
+                <th className="px-4 py-3">LLM</th>
+                <th className="px-4 py-3">Skills</th>
+                <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {namespaces.map((namespace) => (
-                <tr key={namespace.id} className="border-b last:border-0">
-                  <td className="px-4 py-3">
-                    <p className="font-medium">{namespace.name}</p>
-                    <div className="mt-1 flex gap-1">
-                      <Badge variant={namespace.published ? "default" : "secondary"}>
-                        {namespace.published ? "published" : "private"}
-                      </Badge>
-                      {!namespace.enabled ? <Badge variant="secondary">disabled</Badge> : null}
+              {filteredWorkspaces.map((ws) => (
+                <tr
+                  key={ws.id}
+                  className="border-t border-[var(--color-border)] transition-colors hover:bg-[var(--color-surface-muted)]/55"
+                >
+                  <td className="px-4 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[var(--color-surface-muted)]">
+                        <Bot className="size-4 text-muted-foreground" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-[var(--color-text-secondary)]">{ws.name}</p>
+                        <p className="font-mono text-xs text-muted-foreground">/{ws.slug}</p>
+                      </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3">{namespace.mcpServerIds.length} MCP{namespace.mcpServerIds.length !== 1 ? "s" : ""}</td>
-                  <td className="px-4 py-3 font-mono text-xs">
-                    /api/mcp/namespaces/{namespace.slug}
+                  <td className="px-4 py-4 text-xs text-muted-foreground">
+                    {llms.find((l) => l.id === ws.llmConfigId)?.displayName ?? (
+                      <span className="italic">Automatic</span>
+                    )}
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => setNamespaceForm(namespace)}>
-                        Edit
+                  <td className="px-4 py-4 text-xs text-muted-foreground">
+                    {ws.skills.length > 0 ? ws.skills.map((s) => s.name).join(", ") : (
+                      <span className="italic">None</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex flex-wrap gap-1">
+                      {ws.isDefault ? (
+                        <span className="inline-flex items-center rounded-full border border-[var(--color-primary)] bg-[var(--color-primary)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--color-primary)]">
+                          default
+                        </span>
+                      ) : null}
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                          ws.enabled
+                            ? "border-[var(--color-success)] bg-[var(--color-success-soft)] text-[var(--color-success)]"
+                            : "border-[var(--color-border)] bg-[var(--color-surface-muted)] text-muted-foreground",
+                        )}
+                      >
+                        {ws.enabled ? "enabled" : "disabled"}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 rounded-full text-muted-foreground"
+                        onClick={() => setWorkspaceForm(ws)}
+                        title="Edit"
+                      >
+                        <PencilLine />
                       </Button>
-                      <form action={async () => deleteNamespace(namespace.id)}>
-                        <Button variant="ghost" size="sm" type="submit">Delete</Button>
+                      <form action={async () => { await deleteWorkspace(ws.id); }}>
+                        <Button
+                          type="submit"
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 rounded-full text-[var(--color-error)] hover:bg-[var(--color-error-soft)]"
+                          title="Delete"
+                        >
+                          <Trash2 />
+                        </Button>
                       </form>
                     </div>
                   </td>
                 </tr>
               ))}
-              {namespaces.length === 0 ? (
+              {filteredWorkspaces.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
-                    No namespaces configured.
+                  <td colSpan={5} className="px-4 py-12 text-center">
+                    <p className="font-semibold">
+                      {workspaces.length === 0 ? "No workspaces configured" : "No workspaces found"}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {workspaces.length === 0
+                        ? "Create the first agent workspace."
+                        : "Try a different search term."}
+                    </p>
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* Namespaces */}
+      <section className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">MCP Namespaces</h2>
+            <p className="text-sm text-muted-foreground">Curated MCP server collections exposed as a single endpoint.</p>
+          </div>
+          <Button onClick={() => setNamespaceForm(null)}>+ Add namespace</Button>
+        </div>
+
+        <div className="relative max-w-sm">
+          <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            value={nsSearch}
+            onChange={(e) => setNsSearch(e.target.value)}
+            placeholder="Search namespaces..."
+            className="pl-9 text-[var(--color-text-secondary)]"
+          />
+        </div>
+
+        <div className="portal-table-shell overflow-x-auto">
+          <table className="w-full min-w-[860px] text-left text-sm text-[var(--color-text-secondary)]">
+            <thead>
+              <tr>
+                <th className="px-4 py-3">Namespace</th>
+                <th className="px-4 py-3">MCP Servers</th>
+                <th className="px-4 py-3">Access</th>
+                <th className="px-4 py-3">Endpoint</th>
+                <th className="px-4 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredNamespaces.map((ns) => (
+                <tr
+                  key={ns.id}
+                  className="border-t border-[var(--color-border)] transition-colors hover:bg-[var(--color-surface-muted)]/55"
+                >
+                  <td className="px-4 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[var(--color-surface-muted)]">
+                        <Layers3 className="size-4 text-muted-foreground" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-[var(--color-text-secondary)]">{ns.name}</p>
+                        <p className="font-mono text-xs text-muted-foreground">/{ns.slug}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 text-xs text-muted-foreground">
+                    {ns.mcpServerIds.length} server{ns.mcpServerIds.length !== 1 ? "s" : ""}
+                  </td>
+                  <td className="px-4 py-4">
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                        ns.allUsers
+                          ? "border-[var(--color-primary)] bg-[var(--color-primary)]/10 text-[var(--color-primary)]"
+                          : "border-[var(--color-border)] bg-[var(--color-surface-muted)] text-muted-foreground",
+                      )}
+                    >
+                      {ns.allUsers
+                        ? "All users"
+                        : `${ns.groups.length} group${ns.groups.length !== 1 ? "s" : ""}`}
+                    </span>
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex flex-wrap gap-1">
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                          ns.published
+                            ? "border-[var(--color-success)] bg-[var(--color-success-soft)] text-[var(--color-success)]"
+                            : "border-[var(--color-border)] bg-[var(--color-surface-muted)] text-muted-foreground",
+                        )}
+                      >
+                        {ns.published ? "published" : "private"}
+                      </span>
+                      {!ns.enabled ? (
+                        <span className="inline-flex items-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          disabled
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 font-mono text-[10px] text-muted-foreground">
+                      /api/mcp/namespaces/{ns.slug}
+                    </p>
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 rounded-full text-muted-foreground"
+                        onClick={() => setNamespaceForm(ns)}
+                        title="Edit"
+                      >
+                        <PencilLine />
+                      </Button>
+                      <form action={async () => { await deleteNamespace(ns.id); }}>
+                        <Button
+                          type="submit"
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 rounded-full text-[var(--color-error)] hover:bg-[var(--color-error-soft)]"
+                          title="Delete"
+                        >
+                          <Trash2 />
+                        </Button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {filteredNamespaces.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-12 text-center">
+                    <p className="font-semibold">
+                      {namespaces.length === 0 ? "No namespaces configured" : "No namespaces found"}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {namespaces.length === 0
+                        ? "Create a namespace to publish MCP endpoints."
+                        : "Try a different search term."}
+                    </p>
                   </td>
                 </tr>
               ) : null}
