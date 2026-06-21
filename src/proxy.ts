@@ -12,6 +12,7 @@ export default auth((req) => {
   if (
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/mcp/proxy") ||
+    pathname.startsWith("/api/mcp/namespaces") ||
     pathname === "/login" ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/icon")
