@@ -29,15 +29,24 @@ export async function getUserContext(
 ): Promise<UserContext> {
   const empty: UserContext = { mcpServers: [], skills: [], allowedModels: [], llmConfig: null, llmConfigId: null };
 
-  if (entraGroups.length === 0) return empty;
-
   try {
-    const [policies, defaultLlm] = await Promise.all([
-      prisma.accessPolicy.findMany({
-        where: { group: { entraGroupId: { in: entraGroups } } },
+    const [workspaces, defaultLlm] = await Promise.all([
+      prisma.workspace.findMany({
+        where: { enabled: true },
         include: {
-          mcpServers: { where: { enabled: true } },
+          groups: { select: { entraGroupId: true } },
+          users: { select: { id: true } },
           skills: { where: { enabled: true } },
+          llmConfig: true,
+          namespace: {
+            where: { enabled: true },
+            include: {
+              servers: {
+                where: { enabled: true, mcpServer: { enabled: true } },
+                include: { mcpServer: true },
+              },
+            },
+          },
         },
       }),
       prisma.llmConfig.findFirst({
@@ -46,13 +55,30 @@ export async function getUserContext(
       }),
     ]);
 
-    const mcpMap = new Map<string, (typeof policies)[0]["mcpServers"][0]>();
+    const accessible = workspaces.filter((ws) => {
+      if (ws.groups.length === 0 && ws.users.length === 0) return true;
+      return (
+        ws.groups.some((g) => entraGroups.includes(g.entraGroupId)) ||
+        ws.users.some((u) => u.id === (userId ?? ""))
+      );
+    });
+
+    const mcpMap = new Map<string, {
+      id: string; name: string; description: string | null; transport: string;
+      command: string | null; args: string[]; url: string | null;
+      env: unknown; headers: unknown; authType: string; sharedSecret: string | null; enabled: boolean;
+    }>();
     const skillMap = new Map<string, SkillOption>();
     const modelSet = new Set<string>();
+    let resolvedLlm: typeof defaultLlm = null;
 
-    for (const policy of policies) {
-      for (const mcp of policy.mcpServers) mcpMap.set(mcp.id, mcp);
-      for (const skill of policy.skills) {
+    for (const ws of accessible) {
+      if (ws.namespace) {
+        for (const entry of ws.namespace.servers) {
+          mcpMap.set(entry.mcpServer.id, entry.mcpServer);
+        }
+      }
+      for (const skill of ws.skills) {
         skillMap.set(skill.id, {
           id: skill.id,
           name: skill.name,
@@ -60,7 +86,16 @@ export async function getUserContext(
           content: skill.content,
         });
       }
-      for (const model of policy.allowedModels) modelSet.add(model);
+      if (ws.llmConfig) {
+        for (const m of ws.llmConfig.allowedModels) modelSet.add(m);
+        if (!resolvedLlm || ws.llmConfig.isDefault) resolvedLlm = ws.llmConfig;
+      }
+    }
+
+    // Fall back to global default LLM if no workspace provided one
+    if (!resolvedLlm) resolvedLlm = defaultLlm;
+    if (resolvedLlm) {
+      for (const m of resolvedLlm.allowedModels) modelSet.add(m);
     }
 
     // Filter out MCPs the user has explicitly disabled
@@ -78,7 +113,6 @@ export async function getUserContext(
         userId,
         [...mcpMap.keys()],
       );
-
       for (const [mcpServerId, authorization] of delegatedHeaders) {
         const dbMcp = mcpMap.get(mcpServerId);
         if (dbMcp) {
@@ -93,10 +127,7 @@ export async function getUserContext(
       }
     }
 
-    // Validate selectedModel against the union of policy allowedModels AND the LLM's own allowedModels.
-    // A model must appear in BOTH to be accepted — prevents clients from requesting arbitrary models
-    // against corporate provider credentials.
-    const llmAllowedSet = new Set(defaultLlm?.allowedModels ?? []);
+    const llmAllowedSet = new Set(resolvedLlm?.allowedModels ?? []);
     const validatedModel =
       selectedModel &&
       modelSet.has(selectedModel) &&
@@ -108,8 +139,8 @@ export async function getUserContext(
       mcpServers: [...mcpMap.values()].map(dbMcpToConfig),
       skills: [...skillMap.values()],
       allowedModels: [...modelSet],
-      llmConfig: defaultLlm ? buildLlmConfig(defaultLlm, validatedModel) : null,
-      llmConfigId: defaultLlm?.id ?? null,
+      llmConfig: resolvedLlm ? buildLlmConfig(resolvedLlm, validatedModel) : null,
+      llmConfigId: resolvedLlm?.id ?? null,
     };
   } catch (error) {
     console.error("[getUserContext] Failed to resolve user context:", error);
