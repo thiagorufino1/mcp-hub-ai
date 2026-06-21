@@ -4,6 +4,7 @@ import AdmZip from "adm-zip";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth-helpers";
+import { logAudit } from "@/lib/audit";
 
 export type ParsedSkill = {
   name: string;
@@ -107,8 +108,8 @@ export type SkillRow = {
 };
 
 export async function createSkill(formData: FormData): Promise<void> {
-  await requireAdmin();
-  await prisma.skill.create({
+  const user = await requireAdmin();
+  const skill = await prisma.skill.create({
     data: {
       name: formData.get("name") as string,
       description: (formData.get("description") as string | null) || null,
@@ -116,11 +117,12 @@ export async function createSkill(formData: FormData): Promise<void> {
       enabled: formData.get("enabled") === "true",
     },
   });
+  logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "skill.create", resource: "Skill", resourceId: skill.id, metadata: { name: skill.name } });
   revalidatePath("/admin/skills");
 }
 
 export async function updateSkill(id: string, formData: FormData): Promise<void> {
-  await requireAdmin();
+  const user = await requireAdmin();
   await prisma.skill.update({
     where: { id },
     data: {
@@ -130,11 +132,13 @@ export async function updateSkill(id: string, formData: FormData): Promise<void>
       enabled: formData.get("enabled") === "true",
     },
   });
+  logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "skill.update", resource: "Skill", resourceId: id, metadata: { name: formData.get("name") as string } });
   revalidatePath("/admin/skills");
 }
 
 export async function deleteSkill(id: string): Promise<void> {
-  await requireAdmin();
+  const user = await requireAdmin();
   await prisma.skill.delete({ where: { id } });
+  logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "skill.delete", resource: "Skill", resourceId: id });
   revalidatePath("/admin/skills");
 }

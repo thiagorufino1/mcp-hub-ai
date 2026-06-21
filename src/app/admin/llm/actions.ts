@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth-helpers";
+import { logAudit } from "@/lib/audit";
 import {
   decryptSecretJson,
   encryptSecretJson,
@@ -27,7 +28,7 @@ export type LlmConfigRow = {
 };
 
 export async function createLlm(formData: FormData): Promise<void> {
-  await requireAdmin();
+  const user = await requireAdmin();
 
   const provider = formData.get("provider") as string;
   const credentials = buildCredentials(provider, formData);
@@ -55,11 +56,12 @@ export async function createLlm(formData: FormData): Promise<void> {
   });
 
   await verifyLlmConfig(llm.id);
+  logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "llm.create", resource: "LlmConfig", resourceId: llm.id, metadata: { provider, displayName: formData.get("displayName") as string } });
   revalidatePath("/admin/llm");
 }
 
 export async function updateLlm(id: string, formData: FormData): Promise<void> {
-  await requireAdmin();
+  const user = await requireAdmin();
 
   const provider = formData.get("provider") as string;
   const existing = await prisma.llmConfig.findUnique({
@@ -95,20 +97,24 @@ export async function updateLlm(id: string, formData: FormData): Promise<void> {
     });
   });
 
+  logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "llm.update", resource: "LlmConfig", resourceId: id, metadata: { provider } });
   revalidatePath("/admin/llm");
 }
 
 export async function deleteLlm(id: string): Promise<void> {
-  await requireAdmin();
+  const user = await requireAdmin();
+  const existing = await prisma.llmConfig.findUnique({ where: { id }, select: { displayName: true } });
   await prisma.llmConfig.delete({ where: { id } });
+  logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "llm.delete", resource: "LlmConfig", resourceId: id, metadata: { displayName: existing?.displayName } });
   revalidatePath("/admin/llm");
 }
 
 export async function testLlmConfig(
   id: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  await requireAdmin();
+  const user = await requireAdmin();
   const result = await verifyLlmConfig(id);
+  logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "llm.test", resource: "LlmConfig", resourceId: id, metadata: { ok: result.ok } });
   revalidatePath("/admin/llm");
   return result;
 }

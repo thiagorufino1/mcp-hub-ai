@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth-helpers";
+import { logAudit } from "@/lib/audit";
 import {
   decryptSecret,
   encryptSecret,
@@ -54,7 +55,7 @@ export type McpServerRow = {
 };
 
 export async function createMcp(formData: FormData): Promise<void> {
-  await requireAdmin();
+  const user = await requireAdmin();
 
   const transport = formData.get("transport") as string;
   const envRaw = (formData.get("env") as string | null) ?? "{}";
@@ -92,11 +93,12 @@ export async function createMcp(formData: FormData): Promise<void> {
   });
 
   await inspectMcpConfig(mcp.id, false);
+  logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "mcp.create", resource: "McpServer", resourceId: mcp.id, metadata: { name: mcp.name } });
   revalidatePath("/admin/mcp");
 }
 
 export async function updateMcp(id: string, formData: FormData): Promise<void> {
-  await requireAdmin();
+  const user = await requireAdmin();
 
   const transport = formData.get("transport") as string;
   const envRaw = (formData.get("env") as string | null) ?? "{}";
@@ -151,6 +153,7 @@ export async function updateMcp(id: string, formData: FormData): Promise<void> {
     }),
   ]);
 
+  logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "mcp.update", resource: "McpServer", resourceId: id, metadata: { name: formData.get("name") as string } });
   revalidatePath("/admin/mcp");
 }
 
@@ -159,7 +162,7 @@ export async function setMcpToolEnabled(
   toolId: string,
   enabled: boolean,
 ): Promise<void> {
-  await requireAdmin();
+  const user = await requireAdmin();
   await prisma.mcpToolRegistry.updateMany({
     where: { id: toolId, mcpServerId },
     data: {
@@ -167,6 +170,7 @@ export async function setMcpToolEnabled(
       permissionMode: enabled ? "allow" : "blocked",
     },
   });
+  logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: enabled ? "mcp.tool.enable" : "mcp.tool.disable", resource: "McpToolRegistry", resourceId: toolId, metadata: { mcpServerId } });
   revalidatePath("/admin/mcp");
 }
 
@@ -175,7 +179,7 @@ export async function setMcpToolPermission(
   toolId: string,
   permissionMode: "allow" | "approval" | "blocked",
 ): Promise<void> {
-  await requireAdmin();
+  const user = await requireAdmin();
   await prisma.mcpToolRegistry.updateMany({
     where: { id: toolId, mcpServerId },
     data: {
@@ -183,15 +187,17 @@ export async function setMcpToolPermission(
       permissionMode,
     },
   });
+  logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "mcp.tool.permission", resource: "McpToolRegistry", resourceId: toolId, metadata: { mcpServerId, permissionMode } });
   revalidatePath("/admin/mcp");
 }
 
 export async function setMcpEnabled(id: string, enabled: boolean): Promise<void> {
-  await requireAdmin();
+  const user = await requireAdmin();
   await prisma.mcpServer.update({
     where: { id },
     data: { enabled },
   });
+  logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: enabled ? "mcp.enable" : "mcp.disable", resource: "McpServer", resourceId: id });
   revalidatePath("/admin/mcp");
 }
 
@@ -205,8 +211,10 @@ export async function refreshMcpConfig(
 }
 
 export async function deleteMcp(id: string): Promise<void> {
-  await requireAdmin();
+  const user = await requireAdmin();
+  const existing = await prisma.mcpServer.findUnique({ where: { id }, select: { name: true } });
   await prisma.mcpServer.delete({ where: { id } });
+  logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "mcp.delete", resource: "McpServer", resourceId: id, metadata: { name: existing?.name } });
   revalidatePath("/admin/mcp");
 }
 

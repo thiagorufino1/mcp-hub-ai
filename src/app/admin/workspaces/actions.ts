@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "@/lib/auth-helpers";
+import { logAudit } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 
 export type NamespaceRow = {
@@ -38,7 +39,7 @@ export type WorkspaceRow = {
 };
 
 export async function saveNamespace(formData: FormData): Promise<void> {
-  await requireAdmin();
+  const user = await requireAdmin();
   const id = optionalString(formData, "id");
   const allUsers = formData.get("allUsers") === "true";
   const groupIds = allUsers ? [] : formData.getAll("groupIds").map(String);
@@ -55,8 +56,9 @@ export async function saveNamespace(formData: FormData): Promise<void> {
     slug: normalizeSlug(requiredString(formData, "slug")),
   };
 
+  let savedId: string;
   if (id) {
-    await prisma.mcpNamespace.update({
+    const ns = await prisma.mcpNamespace.update({
       where: { id },
       data: {
         ...data,
@@ -69,8 +71,9 @@ export async function saveNamespace(formData: FormData): Promise<void> {
         },
       },
     });
+    savedId = ns.id;
   } else {
-    await prisma.mcpNamespace.create({
+    const ns = await prisma.mcpNamespace.create({
       data: {
         description: data.description,
         enabled: data.enabled,
@@ -87,18 +90,21 @@ export async function saveNamespace(formData: FormData): Promise<void> {
         },
       },
     });
+    savedId = ns.id;
   }
+  logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: id ? "workspace.update" : "workspace.create", resource: "McpNamespace", resourceId: savedId, metadata: { name: formData.get("name") as string } });
   revalidatePath("/admin/workspaces");
 }
 
 export async function deleteNamespace(id: string): Promise<void> {
-  await requireAdmin();
+  const user = await requireAdmin();
   await prisma.mcpNamespace.delete({ where: { id } });
+  logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "workspace.delete", resource: "McpNamespace", resourceId: id });
   revalidatePath("/admin/workspaces");
 }
 
 export async function saveWorkspace(formData: FormData): Promise<void> {
-  await requireAdmin();
+  const user = await requireAdmin();
   const id = optionalString(formData, "id");
   const isDefault = formData.get("isDefault") === "true";
   const skillIds = formData.getAll("skillIds").map(String);
@@ -122,16 +128,18 @@ export async function saveWorkspace(formData: FormData): Promise<void> {
     systemPrompt: optionalString(formData, "systemPrompt"),
   };
 
-  await prisma.$transaction(async (tx) => {
+  const savedId = await prisma.$transaction(async (tx) => {
     if (isDefault) {
       await tx.workspace.updateMany({
         where: id ? { id: { not: id } } : undefined,
         data: { isDefault: false },
       });
     }
-    if (id) await tx.workspace.update({ where: { id }, data });
-    else {
-      await tx.workspace.create({
+    if (id) {
+      await tx.workspace.update({ where: { id }, data });
+      return id;
+    } else {
+      const ws = await tx.workspace.create({
         data: {
           ...data,
           groups: { connect: groupIds.map((groupId) => ({ id: groupId })) },
@@ -139,14 +147,17 @@ export async function saveWorkspace(formData: FormData): Promise<void> {
           users: { connect: userIds.map((userId) => ({ id: userId })) },
         },
       });
+      return ws.id;
     }
   });
+  logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: id ? "workspace.update" : "workspace.create", resource: "Workspace", resourceId: savedId, metadata: { name: formData.get("name") as string } });
   revalidatePath("/admin/workspaces");
 }
 
 export async function deleteWorkspace(id: string): Promise<void> {
-  await requireAdmin();
+  const user = await requireAdmin();
   await prisma.workspace.delete({ where: { id } });
+  logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "workspace.delete", resource: "Workspace", resourceId: id });
   revalidatePath("/admin/workspaces");
 }
 
