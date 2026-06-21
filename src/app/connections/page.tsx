@@ -9,43 +9,85 @@ export const metadata = { title: "My Connections — MCP Hub" };
 export default async function ConnectionsPage() {
   const user = await requireAuth();
 
+  // 1. MCPs via AccessPolicy (groups)
   const context = await getUserContext(user.groups ?? [], undefined, user.id);
+  const policyMcpIds = new Set(context.mcpServers.map((s) => s.id));
 
-  const delegatedDbMcps = await prisma.mcpServer.findMany({
+  // 2. MCPs via workspaces the user has access to → namespace → servers
+  const accessibleWorkspaces = await prisma.workspace.findMany({
     where: {
-      id: { in: context.mcpServers.map((s) => s.id) },
-      authType: "oauth_delegated",
       enabled: true,
+      OR: [
+        { groups: { some: { entraGroupId: { in: user.groups ?? [] } } } },
+        { users: { some: { id: user.id } } },
+        // no groups/users = open to all
+        { AND: [{ groups: { none: {} } }, { users: { none: {} } }] },
+      ],
     },
-    select: { id: true, name: true, description: true, url: true },
+    select: { namespaceId: true },
   });
 
-  const connections = await prisma.userMcpConnection.findMany({
-    where: { userId: user.id, mcpServerId: { in: delegatedDbMcps.map((m) => m.id) } },
-    select: { expiresAt: true, mcpServerId: true, status: true, updatedAt: true },
+  const namespaceIds = accessibleWorkspaces
+    .map((w) => w.namespaceId)
+    .filter((id): id is string => id !== null);
+
+  const namespaceMcpIds: string[] = [];
+  if (namespaceIds.length > 0) {
+    const nsServers = await prisma.namespaceMcpServer.findMany({
+      where: { namespaceId: { in: namespaceIds }, enabled: true },
+      select: { mcpServerId: true },
+    });
+    namespaceMcpIds.push(...nsServers.map((s) => s.mcpServerId));
+  }
+
+  // 3. Merge all unique MCP ids
+  const allMcpIds = [...new Set([...policyMcpIds, ...namespaceMcpIds])];
+
+  // 4. Fetch full MCP records
+  const allMcps = await prisma.mcpServer.findMany({
+    where: { id: { in: allMcpIds }, enabled: true },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      transport: true,
+      url: true,
+      authType: true,
+    },
+    orderBy: { name: "asc" },
   });
+
+  // 5. Fetch user's existing OAuth connections
+  const oauthIds = allMcps
+    .filter((m) => m.authType === "oauth_delegated")
+    .map((m) => m.id);
+
+  const connections = oauthIds.length > 0
+    ? await prisma.userMcpConnection.findMany({
+        where: { userId: user.id, mcpServerId: { in: oauthIds } },
+        select: { mcpServerId: true, status: true, updatedAt: true, expiresAt: true },
+      })
+    : [];
 
   const connectionMap = new Map(connections.map((c) => [c.mcpServerId, c]));
 
-  const items = delegatedDbMcps.map((mcp) => ({
-    id: mcp.id,
-    name: mcp.name,
-    description: mcp.description,
-    url: mcp.url,
-    connection: (() => {
-      const connection = connectionMap.get(mcp.id);
-      if (!connection) return null;
-      return {
-        status:
-          connection.status === "connected" &&
-          connection.expiresAt &&
-          connection.expiresAt <= new Date()
-            ? "expired"
-            : connection.status,
-        updatedAt: connection.updatedAt,
-      };
-    })(),
-  }));
+  const items = allMcps.map((mcp) => {
+    const conn = connectionMap.get(mcp.id) ?? null;
+    const isExpired = conn?.expiresAt && conn.expiresAt <= new Date();
+    return {
+      id: mcp.id,
+      name: mcp.name,
+      description: mcp.description,
+      transport: mcp.transport,
+      authType: mcp.authType,
+      connection: conn
+        ? {
+            status: conn.status === "connected" && isExpired ? "expired" : conn.status,
+            updatedAt: conn.updatedAt,
+          }
+        : null,
+    };
+  });
 
   return (
     <PortalShell isAdmin={user.isAdmin} section="My Connections" userName={user.name}>
