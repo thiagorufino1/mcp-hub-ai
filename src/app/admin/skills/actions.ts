@@ -50,11 +50,49 @@ export async function parseSkillFile(formData: FormData): Promise<ParsedSkill> {
 
   if (name.endsWith(".zip")) {
     const zip = new AdmZip(buf);
-    const entry =
-      zip.getEntry("SKILL.md") ??
-      zip.getEntries().find((e) => e.entryName.toLowerCase().endsWith(".md"));
-    if (!entry) throw new Error("No .md file found inside the ZIP.");
-    return parseFrontmatter(entry.getData().toString("utf8"));
+    const entries = zip.getEntries();
+
+    // Find SKILL.md (root preferred, else first .md found)
+    const skillEntry =
+      entries.find((e) => !e.isDirectory && e.name === "SKILL.md") ??
+      entries.find((e) => !e.isDirectory && e.name.toLowerCase() === "skill.md") ??
+      entries.find((e) => !e.isDirectory && e.entryName.toLowerCase().endsWith(".md"));
+
+    if (!skillEntry) throw new Error("No SKILL.md file found inside the ZIP.");
+
+    const parsed = parseFrontmatter(skillEntry.getData().toString("utf8"));
+
+    // Text file extensions to embed as additional context
+    const TEXT_EXTS = new Set([
+      ".md", ".txt", ".js", ".ts", ".jsx", ".tsx", ".py", ".sh", ".bash",
+      ".json", ".yaml", ".yml", ".toml", ".xml", ".html", ".css", ".sql",
+      ".env", ".ini", ".cfg", ".conf", ".rs", ".go", ".java", ".rb", ".php",
+    ]);
+
+    const MAX_FILE_BYTES = 512 * 1024; // 512 KB per file
+
+    const otherEntries = entries.filter((e) => {
+      if (e.isDirectory) return false;
+      if (e.entryName === skillEntry.entryName) return false;
+      const ext = e.name.includes(".") ? "." + e.name.split(".").pop()!.toLowerCase() : "";
+      return TEXT_EXTS.has(ext) && e.header.size <= MAX_FILE_BYTES;
+    });
+
+    if (otherEntries.length === 0) return parsed;
+
+    const embedded = otherEntries
+      .sort((a, b) => a.entryName.localeCompare(b.entryName))
+      .map((e) => {
+        const ext = e.name.includes(".") ? e.name.split(".").pop()!.toLowerCase() : "";
+        const fileContent = e.getData().toString("utf8");
+        return `\n\n### ${e.entryName}\n\`\`\`${ext}\n${fileContent}\n\`\`\``;
+      })
+      .join("");
+
+    return {
+      ...parsed,
+      content: parsed.content + "\n\n---\n\n## Included files" + embedded,
+    };
   }
 
   throw new Error("Unsupported file type. Use .zip, .md, or .skill.");
