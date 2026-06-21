@@ -30,7 +30,7 @@ export async function getUserContext(
   const empty: UserContext = { mcpServers: [], skills: [], allowedModels: [], llmConfig: null, llmConfigId: null };
 
   try {
-    const [workspaces, defaultLlm] = await Promise.all([
+    const [workspaces, directNamespaces, defaultLlm] = await Promise.all([
       prisma.workspace.findMany({
         where: { enabled: true },
         include: {
@@ -46,6 +46,22 @@ export async function getUserContext(
                 include: { mcpServer: true },
               },
             },
+          },
+        },
+      }),
+      prisma.mcpNamespace.findMany({
+        where: {
+          enabled: true,
+          OR: [
+            { groups: { some: { entraGroupId: { in: entraGroups.length > 0 ? entraGroups : ["__never__"] } } } },
+            ...(userId ? [{ users: { some: { id: userId } } }] : []),
+            { AND: [{ groups: { none: {} } }, { users: { none: {} } }] },
+          ],
+        },
+        include: {
+          servers: {
+            where: { enabled: true, mcpServer: { enabled: true } },
+            include: { mcpServer: true },
           },
         },
       }),
@@ -89,6 +105,13 @@ export async function getUserContext(
       if (ws.llmConfig) {
         for (const m of ws.llmConfig.allowedModels) modelSet.add(m);
         if (!resolvedLlm || ws.llmConfig.isDefault) resolvedLlm = ws.llmConfig;
+      }
+    }
+
+    // MCPs from namespaces the user has direct access to (McpNamespace.groups/users)
+    for (const ns of directNamespaces) {
+      for (const entry of ns.servers) {
+        mcpMap.set(entry.mcpServer.id, entry.mcpServer);
       }
     }
 
