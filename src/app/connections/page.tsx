@@ -43,7 +43,7 @@ export default async function ConnectionsPage() {
   // 3. Merge all unique MCP ids
   const allMcpIds = [...new Set([...policyMcpIds, ...namespaceMcpIds])];
 
-  // 4. Fetch full MCP records
+  // 4. Fetch full MCP records with tool count from registry
   const allMcps = await prisma.mcpServer.findMany({
     where: { id: { in: allMcpIds }, enabled: true },
     select: {
@@ -53,6 +53,7 @@ export default async function ConnectionsPage() {
       transport: true,
       url: true,
       authType: true,
+      _count: { select: { registryTools: { where: { enabled: true } } } },
     },
     orderBy: { name: "asc" },
   });
@@ -80,6 +81,7 @@ export default async function ConnectionsPage() {
       description: mcp.description,
       transport: mcp.transport,
       authType: mcp.authType,
+      toolCount: mcp._count.registryTools,
       connection: conn
         ? {
             status: conn.status === "connected" && isExpired ? "expired" : conn.status,

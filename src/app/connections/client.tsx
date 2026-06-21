@@ -12,6 +12,7 @@ type ConnectionItem = {
   description: string | null;
   transport: string;
   authType: string;
+  toolCount: number;
   connection: { status: string; updatedAt: Date } | null;
 };
 
@@ -148,6 +149,7 @@ export function ConnectionsClient({ items }: { items: ConnectionItem[] }) {
               <tr>
                 <th className="px-4 py-3">Tool</th>
                 <th className="px-4 py-3">Transport</th>
+                <th className="px-4 py-3">Tools</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Action</th>
               </tr>
@@ -173,6 +175,11 @@ export function ConnectionsClient({ items }: { items: ConnectionItem[] }) {
                       <span className="inline-flex items-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                         {item.transport}
                       </span>
+                    </td>
+                    <td className="px-4 py-4 text-xs text-muted-foreground">
+                      {item.toolCount > 0
+                        ? `${item.toolCount} tool${item.toolCount !== 1 ? "s" : ""}`
+                        : <span className="italic">Not inspected</span>}
                     </td>
                     <td className="px-4 py-4">
                       <StatusBadge authType={item.authType} status={status} />
