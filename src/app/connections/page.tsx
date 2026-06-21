@@ -30,7 +30,7 @@ export default async function ConnectionsPage() {
       slug: true,
       name: true,
       description: true,
-      _count: { select: { servers: { where: { enabled: true } } } },
+      _count: { select: { servers: { where: { enabled: true, mcpServer: { enabled: true } } } } },
     },
     orderBy: { name: "asc" },
   });
