@@ -150,10 +150,6 @@ export function SkillForm({ open, onClose, skill }: Props) {
               </div>
 
               {error && <p className="text-sm text-destructive">{error}</p>}
-
-              <div className="admin-form-footer">
-                <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-              </div>
             </>
           )}
 
@@ -181,18 +177,27 @@ export function SkillForm({ open, onClose, skill }: Props) {
                   className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm font-mono resize-y shadow-[0_1px_4px_rgba(15,23,42,0.06)] focus:border-[var(--color-primary)] focus:outline-none"
                 />
               </div>
-              <div className="flex items-center gap-2.5 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
-                <Switch id="sk-enabled" checked={enabled} onCheckedChange={setEnabled} aria-label="Enabled" />
-                <Label htmlFor="sk-enabled" className="cursor-pointer text-sm font-medium normal-case tracking-normal text-muted-foreground">
-                  Enabled
-                </Label>
-              </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
               <div className="admin-form-footer">
                 <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
                 <Button type="submit" disabled={isPending}>{isPending ? "Saving…" : "Save"}</Button>
               </div>
             </form>
+          )}
+
+          {/* Toggle — always visible regardless of active tab */}
+          <div className="flex items-center gap-2.5 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
+            <Switch id="sk-enabled" checked={enabled} onCheckedChange={setEnabled} aria-label="Enabled" />
+            <Label htmlFor="sk-enabled" className="cursor-pointer text-sm font-medium normal-case tracking-normal text-muted-foreground">
+              Enabled
+            </Label>
+          </div>
+
+          {/* Footer for upload tab */}
+          {tab === "upload" && !skill && (
+            <div className="admin-form-footer">
+              <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+            </div>
           )}
 
         </div>
