@@ -245,6 +245,22 @@ model UserMcpPreference {
   @@unique([userId, mcpServerId])
 }
 
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  userEmail  String?
+  action     String
+  resource   String
+  resourceId String?
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  @@index([action, createdAt])
+  @@index([userId, createdAt])
+  @@index([resource, createdAt])
+  @@index([createdAt])
+}
+
 model Workspace {
   id                   String        @id @default(cuid())
   slug                 String        @unique
