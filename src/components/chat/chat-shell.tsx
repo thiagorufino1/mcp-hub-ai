@@ -875,6 +875,7 @@ export function ChatShell({ isAdmin = false }: { isAdmin?: boolean }) {
           skillId: selectedSkillId ?? undefined,
           selectedModel: selectedModel ?? undefined,
           workspaceId: selectedWorkspaceId ?? undefined,
+          availableSkills: selectedSkillId ? undefined : userSkills,
         }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
@@ -1345,6 +1346,8 @@ export function ChatShell({ isAdmin = false }: { isAdmin?: boolean }) {
                 isSubmitting={isStreaming}
                 onStop={handleStop}
                 onSubmit={handleSubmit}
+                skills={userSkills}
+                onSkillSelect={setSelectedSkillId}
               />
             </div>
           </div>

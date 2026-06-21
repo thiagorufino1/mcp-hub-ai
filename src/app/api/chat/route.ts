@@ -87,6 +87,7 @@ const ChatRequestBodySchema = z.object({
   maxSteps: z.number().int().min(1).max(12).optional(),
   llmConfigId: z.string().min(1).optional(),
   skillContent: z.string().optional(),
+  availableSkills: z.array(z.object({ id: z.string(), name: z.string(), description: z.string().nullable().optional(), content: z.string() })).optional(),
   llmConfig: z.object({ provider: z.string() }).passthrough().optional(),
 });
 
@@ -180,6 +181,8 @@ export async function POST(request: Request) {
     llmConfigId: corporateContext.llmConfigId ?? undefined,
     mcpServers: allMcpServers,
     skillContent: selectedSkill?.content,
+    // When no skill selected, pass all available skills for auto-trigger
+    availableSkills: selectedSkill ? undefined : corporateContext.skills,
     maxSteps: workspaceContext?.maxSteps ?? 6,
     workspaceSystemPrompt: workspaceContext?.systemPrompt ?? undefined,
   };
@@ -224,6 +227,7 @@ async function streamWithAISDK(body: ChatRequestBody, userId: string) {
             body.customPrompt,
             body.workspaceSystemPrompt,
             body.skillContent,
+            body.availableSkills,
             body.messages ?? [],
             resolvedServers,
           ),
@@ -327,16 +331,42 @@ async function resolveLiveMcpServers(mcpServers: McpServerConfig[]) {
   return inspectedServers.filter((server) => server.connectionStatus === "connected");
 }
 
+function buildSkillsPrompt(
+  availableSkills: Array<{ id: string; name: string; description?: string | null; content: string }>,
+): string {
+  if (!availableSkills.length) return "";
+
+  const skillBlocks = availableSkills
+    .map((s) => {
+      const desc = s.description ? ` description="${sanitizePromptValue(s.description, 120)}"` : "";
+      return `<skill name="${sanitizePromptValue(s.name, 80)}"${desc}>\n${s.content}\n</skill>`;
+    })
+    .join("\n\n");
+
+  return [
+    "<available_skills>",
+    "You have access to the following skills. Apply the most relevant one automatically when the user's request matches its purpose.",
+    "If no skill matches, respond normally.",
+    "",
+    skillBlocks,
+    "</available_skills>",
+  ].join("\n");
+}
+
 function buildConversation(
   userPrompt: string,
   customPrompt: string | undefined,
   workspaceSystemPrompt: string | undefined,
   skillContent: string | undefined,
+  availableSkills: Array<{ id: string; name: string; description?: string | null; content: string }> | undefined,
   messages: Array<Pick<Message, "content" | "role">>,
   mcpServers: McpServerConfig[],
 ): ModelMessage[] {
   const contextualServers = mcpServers.filter((s) => s.connectionStatus === "connected");
   const contextPrompt = buildMcpContext(contextualServers);
+  const autoSkillsPrompt = !skillContent && availableSkills?.length
+    ? buildSkillsPrompt(availableSkills)
+    : undefined;
   const defaultPrompt = [
     "You are a helpful assistant with access to MCP tools. Use the available tools when they help answer the user's request accurately.",
     "When the user asks for a visual chart or graph, you can render one directly in the chat using a fenced code block with language `chart` followed by valid JSON.",
@@ -345,7 +375,7 @@ function buildConversation(
     "For pie and donut charts, keep labels in `labels` and values in the first series data array.",
     "Always put the chart block after a short textual introduction and before the explanation.",
   ].join(" ");
-  const instructions = [defaultPrompt, workspaceSystemPrompt, skillContent, customPrompt, contextPrompt]
+  const instructions = [defaultPrompt, workspaceSystemPrompt, autoSkillsPrompt, skillContent, customPrompt, contextPrompt]
     .filter(Boolean)
     .join("\n\n");
 
