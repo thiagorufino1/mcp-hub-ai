@@ -17,27 +17,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 type Option = { id: string; displayName: string };
 type SkillOption = { id: string; name: string };
 type LlmOption = { id: string; displayName: string; allowedModels: string[] };
-type ToolOption = {
-  id: string;
-  name: string;
-  displayName: string | null;
-  description: string | null;
-  serverName: string;
-};
+type McpOption = { id: string; name: string; description: string | null; transport: string };
 
 export function WorkspacesAdminClient({
   groups,
   llms,
+  mcpServers,
   namespaces,
-  registryTools,
   skills,
   users,
   workspaces,
 }: {
   groups: Option[];
   llms: LlmOption[];
+  mcpServers: McpOption[];
   namespaces: NamespaceRow[];
-  registryTools: ToolOption[];
   skills: SkillOption[];
   users: Array<{ id: string; name: string | null; email: string | null }>;
   workspaces: WorkspaceRow[];
@@ -142,7 +136,7 @@ export function WorkspacesAdminClient({
                       {!namespace.enabled ? <Badge variant="secondary">disabled</Badge> : null}
                     </div>
                   </td>
-                  <td className="px-4 py-3">{namespace.tools.length}</td>
+                  <td className="px-4 py-3">{namespace.mcpServerIds.length} MCP{namespace.mcpServerIds.length !== 1 ? "s" : ""}</td>
                   <td className="px-4 py-3 font-mono text-xs">
                     /api/mcp/namespaces/{namespace.slug}
                   </td>
@@ -184,7 +178,7 @@ export function WorkspacesAdminClient({
         open={namespaceForm !== undefined}
         namespace={namespaceForm ?? undefined}
         groups={groups}
-        registryTools={registryTools}
+        mcpServers={mcpServers}
         users={users}
         onClose={() => setNamespaceForm(undefined)}
       />

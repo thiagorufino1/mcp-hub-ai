@@ -111,7 +111,7 @@ export function GroupForm({ open, onClose, group, mcpOptions, skillOptions }: Pr
               defaultValue={group?.policy?.allowedModels.join("\n") ?? ""}
               rows={3}
               placeholder={"gpt-4o\nclaude-sonnet-4-6"}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono resize-y"
+              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm font-mono resize-y shadow-[0_1px_4px_rgba(15,23,42,0.04)] focus:border-[var(--color-primary)] focus:outline-none"
             />
           </div>
 

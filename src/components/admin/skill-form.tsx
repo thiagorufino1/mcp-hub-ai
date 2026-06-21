@@ -54,7 +54,7 @@ export function SkillForm({ open, onClose, skill }: Props) {
               rows={14}
               required
               placeholder={"# Skill Name\n\nYou are a helpful assistant that...\n\n## Instructions\n\n- ..."}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono resize-y"
+              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm font-mono resize-y shadow-[0_1px_4px_rgba(15,23,42,0.04)] focus:border-[var(--color-primary)] focus:outline-none"
             />
           </div>
           <div className="flex items-center gap-2">

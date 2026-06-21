@@ -12,14 +12,10 @@ export type NamespaceRow = {
   description: string | null;
   enabled: boolean;
   published: boolean;
+  allUsers: boolean;
   groups: Array<{ id: string; displayName: string }>;
   users: Array<{ id: string; name: string | null; email: string | null }>;
-  tools: Array<{
-    registryToolId: string;
-    alias: string;
-    displayName: string | null;
-    description: string | null;
-  }>;
+  mcpServerIds: string[];
 };
 
 export type WorkspaceRow = {
@@ -44,31 +40,11 @@ export type WorkspaceRow = {
 export async function saveNamespace(formData: FormData): Promise<void> {
   await requireAdmin();
   const id = optionalString(formData, "id");
-  const toolIds = formData.getAll("toolIds").map(String);
-  const groupIds = formData.getAll("groupIds").map(String);
-  const userIds = formData.getAll("userIds").map(String);
-  const registryTools = await prisma.mcpToolRegistry.findMany({
-    where: { id: { in: toolIds }, enabled: true },
-    include: { mcpServer: { select: { id: true, name: true } } },
-  });
-  if (registryTools.length !== toolIds.length) {
-    throw new Error("One or more selected tools no longer exist or are disabled.");
-  }
+  const allUsers = formData.get("allUsers") === "true";
+  const groupIds = allUsers ? [] : formData.getAll("groupIds").map(String);
+  const userIds = allUsers ? [] : formData.getAll("userIds").map(String);
+  const mcpServerIds = formData.getAll("mcpServerIds").map(String);
 
-  const aliases = registryTools.map((tool) => {
-    const submitted = optionalString(formData, `toolAlias:${tool.id}`);
-    return {
-      alias: normalizeToolAlias(submitted || `${tool.mcpServer.name}_${tool.name}`),
-      description: optionalString(formData, `toolDescription:${tool.id}`),
-      displayName: optionalString(formData, `toolDisplayName:${tool.id}`),
-      registryToolId: tool.id,
-    };
-  });
-  if (new Set(aliases.map((tool) => tool.alias)).size !== aliases.length) {
-    throw new Error("Tool aliases must be unique within a namespace.");
-  }
-
-  const serverIds = [...new Set(registryTools.map((tool) => tool.mcpServerId))];
   const data = {
     description: optionalString(formData, "description"),
     enabled: formData.get("enabled") === "true",
@@ -86,14 +62,10 @@ export async function saveNamespace(formData: FormData): Promise<void> {
         ...data,
         servers: {
           deleteMany: {},
-          create: serverIds.map((mcpServerId, displayOrder) => ({
+          create: mcpServerIds.map((mcpServerId, displayOrder) => ({
             displayOrder,
             mcpServerId,
           })),
-        },
-        tools: {
-          deleteMany: {},
-          create: aliases,
         },
       },
     });
@@ -108,12 +80,11 @@ export async function saveNamespace(formData: FormData): Promise<void> {
         slug: data.slug,
         users: { connect: userIds.map((userId) => ({ id: userId })) },
         servers: {
-          create: serverIds.map((mcpServerId, displayOrder) => ({
+          create: mcpServerIds.map((mcpServerId, displayOrder) => ({
             displayOrder,
             mcpServerId,
           })),
         },
-        tools: { create: aliases },
       },
     });
   }

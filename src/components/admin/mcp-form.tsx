@@ -56,7 +56,7 @@ function toRecord(items: KeyValueItem[]) {
 }
 
 const fieldClass =
-  "h-10 rounded-xl border-[#dbe4f1] bg-[var(--color-surface)] text-[13px] shadow-[0_1px_4px_rgba(15,23,42,0.04)] focus-visible:border-[var(--color-primary)] focus-visible:ring-0";
+  "h-10 rounded-xl border-[var(--color-border)] bg-white dark:bg-[var(--color-surface-muted)] text-[13px] shadow-[0_1px_4px_rgba(15,23,42,0.06)] focus-visible:border-[var(--color-primary)] focus-visible:ring-0";
 const labelClass =
   "text-xs font-medium uppercase tracking-wide text-muted-foreground";
 

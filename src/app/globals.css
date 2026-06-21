@@ -132,7 +132,6 @@ button,
 
 input,
 textarea {
-  background-color: transparent;
   color: inherit;
 }
 
@@ -542,6 +541,18 @@ textarea {
   text-transform: uppercase;
 }
 
+/* Text inputs inside admin dialogs — explicit white background */
+.admin-dialog input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]) {
+  background: #ffffff;
+  color: var(--color-text-primary);
+}
+
+@media (prefers-color-scheme: dark) {
+  .admin-dialog input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]) {
+    background: var(--color-surface-muted);
+  }
+}
+
 .admin-dialog select {
   min-height: 40px;
   width: 100%;
@@ -658,4 +669,16 @@ textarea {
 
 .thinking-dot {
   animation: pulse-dot 1.4s ease-in-out infinite;
+}
+
+/* ── Input backgrounds ── */
+/* Override Tailwind preflight / any reset that makes inputs transparent */
+input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
+textarea {
+  background-color: #ffffff !important;
+}
+
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
+.dark textarea {
+  background-color: var(--color-surface-muted) !important;
 }

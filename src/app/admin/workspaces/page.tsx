@@ -6,7 +6,7 @@ export const metadata = { title: "Workspaces & Namespaces — Admin" };
 
 export default async function WorkspacesAdminPage() {
   await requireAdmin();
-  const [workspaces, namespaces, groups, users, skills, llms, registryTools] =
+  const [workspaces, namespaces, groups, users, skills, llms, mcpServers] =
     await Promise.all([
       prisma.workspace.findMany({
         orderBy: [{ isDefault: "desc" }, { name: "asc" }],
@@ -21,15 +21,7 @@ export default async function WorkspacesAdminPage() {
         include: {
           groups: { select: { id: true, displayName: true } },
           users: { select: { id: true, name: true, email: true } },
-          tools: {
-            orderBy: { alias: "asc" },
-            select: {
-              alias: true,
-              description: true,
-              displayName: true,
-              registryToolId: true,
-            },
-          },
+          servers: { select: { mcpServerId: true } },
         },
       }),
       prisma.entraGroup.findMany({
@@ -50,10 +42,10 @@ export default async function WorkspacesAdminPage() {
         orderBy: { displayName: "asc" },
         select: { id: true, displayName: true, allowedModels: true },
       }),
-      prisma.mcpToolRegistry.findMany({
-        where: { enabled: true, mcpServer: { enabled: true } },
-        orderBy: [{ mcpServer: { name: "asc" } }, { name: "asc" }],
-        include: { mcpServer: { select: { name: true } } },
+      prisma.mcpServer.findMany({
+        where: { enabled: true },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, description: true, transport: true },
       }),
     ]);
 
@@ -61,13 +53,11 @@ export default async function WorkspacesAdminPage() {
     <WorkspacesAdminClient
       groups={groups}
       llms={llms}
-      namespaces={namespaces}
-      registryTools={registryTools.map((tool) => ({
-        description: tool.description,
-        displayName: tool.displayName,
-        id: tool.id,
-        name: tool.name,
-        serverName: tool.mcpServer.name,
+      mcpServers={mcpServers}
+      namespaces={namespaces.map((ns) => ({
+        ...ns,
+        allUsers: ns.groups.length === 0 && ns.users.length === 0,
+        mcpServerIds: ns.servers.map((s) => s.mcpServerId),
       }))}
       skills={skills}
       users={users}
