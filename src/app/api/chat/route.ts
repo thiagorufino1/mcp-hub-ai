@@ -7,14 +7,14 @@ import { auth } from "@/lib/auth";
 import { getUserContext } from "@/lib/user-context";
 import { getModel } from "@/lib/ai-provider";
 import { getApprovedTools } from "@/lib/mcp-authorization";
-import { createInspectableServerConfig, inspectMcpServer } from "@/lib/mcp-client";
-import { executeMcpTool } from "@/lib/mcp-client";
+import { executeGovernedMcpTool } from "@/lib/mcp-governance";
+import { resolveMcpServerTools } from "@/lib/mcp-tool-registry";
+import { resolveWorkspaceContext } from "@/lib/workspace-context";
+import { prisma } from "@/lib/db";
 import type { ChatStreamEvent, Message, TokenUsage } from "@/types/chat";
 import type { AppLocale } from "@/lib/i18n";
 import type { LLMConfig } from "@/types/llm-config";
 import type { McpServerConfig } from "@/types/mcp";
-
-const MCP_CHAT_SERVER_CACHE_TTL_MS = 12000;
 
 const McpServerSchema = z.object({
   authMode: z.enum(["none", "oauth"]).optional().default("none"),
@@ -82,6 +82,10 @@ const ChatRequestBodySchema = z.object({
   requestId: z.string().min(1).max(120).optional(),
   skillId: z.string().optional(),
   selectedModel: z.string().max(120).optional(),
+  workspaceId: z.string().min(1).max(120).optional(),
+  workspaceSystemPrompt: z.string().max(20000).optional(),
+  maxSteps: z.number().int().min(1).max(12).optional(),
+  llmConfigId: z.string().min(1).optional(),
   skillContent: z.string().optional(),
   llmConfig: z.object({ provider: z.string() }).passthrough().optional(),
 });
@@ -98,6 +102,7 @@ type ExecutableTool = {
     properties?: Record<string, object>;
     required?: string[];
   };
+  permissionMode: "allow" | "approval" | "blocked";
 };
 
 export async function POST(request: Request) {
@@ -133,8 +138,27 @@ export async function POST(request: Request) {
 
   const body = parsed.data as ChatRequestBody;
 
-  // Resolve corporate context from user's Entra groups, passing selectedModel for override
-  const corporateContext = await getUserContext(session.user.groups, body.selectedModel ?? undefined, session.user.id);
+  const workspaceContext = body.workspaceId
+    ? await resolveWorkspaceContext(
+        body.workspaceId,
+        session.user.id,
+        session.user.groups,
+        body.selectedModel,
+      )
+    : null;
+  if (body.workspaceId && !workspaceContext) {
+    return streamSingleEvent(
+      { type: "error", message: "Workspace not found or access denied." },
+      403,
+    );
+  }
+  const corporateContext =
+    workspaceContext ??
+    (await getUserContext(
+      session.user.groups,
+      body.selectedModel ?? undefined,
+      session.user.id,
+    ));
 
   // LLM config: corporate DB config takes precedence over client-provided.
   // corporateContext.llmConfig is already a resolved LLMConfig (built by getUserContext with selectedModel applied).
@@ -153,18 +177,21 @@ export async function POST(request: Request) {
   const effectiveBody = {
     ...body,
     llmConfig: resolvedLlmConfig ?? undefined,
+    llmConfigId: corporateContext.llmConfigId ?? undefined,
     mcpServers: allMcpServers,
     skillContent: selectedSkill?.content,
+    maxSteps: workspaceContext?.maxSteps ?? 6,
+    workspaceSystemPrompt: workspaceContext?.systemPrompt ?? undefined,
   };
 
   if (!resolvedLlmConfig) {
     return streamMockResponse(effectiveBody as ChatRequestBody);
   }
 
-  return streamWithAISDK(effectiveBody as ChatRequestBody);
+  return streamWithAISDK(effectiveBody as ChatRequestBody, session.user.id);
 }
 
-async function streamWithAISDK(body: ChatRequestBody) {
+async function streamWithAISDK(body: ChatRequestBody, userId: string) {
   const userPrompt = body.message?.trim();
 
   if (!userPrompt) {
@@ -195,13 +222,14 @@ async function streamWithAISDK(body: ChatRequestBody) {
           messages: buildConversation(
             userPrompt,
             body.customPrompt,
+            body.workspaceSystemPrompt,
             body.skillContent,
             body.messages ?? [],
             resolvedServers,
           ),
-          stopWhen: stepCountIs(6),
+          stopWhen: stepCountIs(body.maxSteps ?? 6),
           toolChoice: "auto",
-          tools: buildAiSdkTools(resolvedServers, body.requestId, enqueue),
+          tools: buildAiSdkTools(resolvedServers, body.requestId, userId, enqueue),
         });
 
         for await (const part of result.fullStream) {
@@ -238,11 +266,22 @@ async function streamWithAISDK(body: ChatRequestBody) {
           return;
         }
 
+        const usage = finalUsage ?? mapUsage(await result.totalUsage);
+        if (body.llmConfigId && usage) {
+          await prisma.llmConfig.updateMany({
+            where: { id: body.llmConfigId },
+            data: {
+              inputTokens: { increment: usage.inputTokens ?? 0 },
+              outputTokens: { increment: usage.outputTokens ?? 0 },
+              totalTokens: { increment: usage.totalTokens ?? 0 },
+            },
+          });
+        }
         enqueue({
           type: "message_end",
           id: assistantId,
           requestId: body.requestId,
-          usage: finalUsage ?? mapUsage(await result.totalUsage),
+          usage,
         });
       } catch (error) {
         enqueue({
@@ -273,28 +312,8 @@ async function resolveLiveMcpServers(mcpServers: McpServerConfig[]) {
 
   const inspectedServers = await Promise.all(
     enabledServers.map(async (server) => {
-      const lastCheckedAt = Number(server.lastCheckedAt);
-      const cacheIsFresh =
-        Number.isFinite(lastCheckedAt) &&
-        Date.now() - lastCheckedAt <= MCP_CHAT_SERVER_CACHE_TTL_MS;
-      const canReuseServerSnapshot =
-        server.connectionStatus === "connected" &&
-        server.tools.length > 0 &&
-        cacheIsFresh;
-
-      if (canReuseServerSnapshot) {
-        return server;
-      }
-
       try {
-        const result = await inspectMcpServer(
-          createInspectableServerConfig({
-            ...server,
-            connectionStatus: "pending",
-            tools: [],
-          }),
-        );
-        return result.server;
+        return await resolveMcpServerTools(server);
       } catch {
         return {
           ...server,
@@ -311,6 +330,7 @@ async function resolveLiveMcpServers(mcpServers: McpServerConfig[]) {
 function buildConversation(
   userPrompt: string,
   customPrompt: string | undefined,
+  workspaceSystemPrompt: string | undefined,
   skillContent: string | undefined,
   messages: Array<Pick<Message, "content" | "role">>,
   mcpServers: McpServerConfig[],
@@ -325,7 +345,7 @@ function buildConversation(
     "For pie and donut charts, keep labels in `labels` and values in the first series data array.",
     "Always put the chart block after a short textual introduction and before the explanation.",
   ].join(" ");
-  const instructions = [defaultPrompt, skillContent, customPrompt, contextPrompt]
+  const instructions = [defaultPrompt, workspaceSystemPrompt, skillContent, customPrompt, contextPrompt]
     .filter(Boolean)
     .join("\n\n");
 
@@ -350,6 +370,7 @@ function buildConversation(
 function buildAiSdkTools(
   mcpServers: McpServerConfig[],
   requestId: string | undefined,
+  userId: string,
   emitEvent: (event: ChatStreamEvent) => void,
 ): ToolSet {
   const contextualServers = mcpServers.filter((server) => server.connectionStatus === "connected");
@@ -368,6 +389,7 @@ function buildAiSdkTools(
         inputSchema: jsonSchema(
           executableTool.inputSchema as Parameters<typeof jsonSchema>[0],
         ),
+        needsApproval: executableTool.permissionMode === "approval",
         execute: async (input) => {
           const toolEventId = `tool-${crypto.randomUUID()}`;
           const args =
@@ -387,10 +409,15 @@ function buildAiSdkTools(
           });
 
           try {
-            const mcpResult = await executeMcpTool(
+            const mcpResult = await executeGovernedMcpTool(
               executableTool.server,
               executableTool.displayName,
               args,
+              {
+                source: "chat",
+                traceId: requestId ?? crypto.randomUUID(),
+                userId,
+              },
             );
             const resultText = extractToolResultText(mcpResult);
             const status = resultIndicatesError(mcpResult) ? "error" : "success";
@@ -534,6 +561,7 @@ function buildExecutableTools(mcpServers: McpServerConfig[]): ExecutableTool[] {
         },
       server,
       toolDescription: toolDefinition.description,
+      permissionMode: toolDefinition.permissionMode ?? "allow",
     })),
   );
 }

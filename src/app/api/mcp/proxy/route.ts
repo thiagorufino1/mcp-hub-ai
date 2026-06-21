@@ -7,11 +7,12 @@ import {
 
 import { getUserContext } from "@/lib/user-context";
 import { resolveTokenUser } from "@/lib/token-auth";
+import { executeGovernedMcpTool } from "@/lib/mcp-governance";
 import {
-  createInspectableServerConfig,
-  executeMcpTool,
-  inspectMcpServer,
-} from "@/lib/mcp-client";
+  getRegisteredToolPermission,
+  isRegisteredToolEnabled,
+  resolveMcpServerTools,
+} from "@/lib/mcp-tool-registry";
 import type { McpServerConfig } from "@/types/mcp";
 
 function extractBearer(request: Request): string | null {
@@ -55,6 +56,7 @@ async function handleProxyRequest(request: Request): Promise<Response> {
   }
 
   const context = await getUserContext(tokenUser.entraGroups, undefined, tokenUser.userId);
+  const traceId = request.headers.get("x-request-id") ?? crypto.randomUUID();
 
   // Build a map from sanitized-server-id → original McpServerConfig
   const serverMap = new Map<string, McpServerConfig>(
@@ -69,20 +71,28 @@ async function handleProxyRequest(request: Request): Promise<Response> {
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     const allTools: {
       name: string;
+      title?: string;
       description?: string;
       inputSchema: object;
+      annotations?: {
+        destructiveHint?: boolean;
+        readOnlyHint?: boolean;
+      };
     }[] = [];
 
     for (const mcpServer of context.mcpServers) {
       try {
-        const result = await inspectMcpServer(
-          createInspectableServerConfig({ ...mcpServer, connectionStatus: "pending", tools: [] }),
-        );
-        for (const tool of result.server.tools) {
+        const resolvedServer = await resolveMcpServerTools(mcpServer);
+        for (const tool of resolvedServer.tools) {
           allTools.push({
             name: buildToolName(mcpServer.id, tool.name),
+            title: tool.displayName,
             description: `[${mcpServer.name}] ${tool.description ?? ""}`.trim(),
             inputSchema: tool.inputSchema ?? { type: "object", properties: {} },
+            annotations: {
+              destructiveHint: tool.isDestructive ?? false,
+              readOnlyHint: tool.readOnly ?? false,
+            },
           });
         }
       } catch {
@@ -112,6 +122,19 @@ async function handleProxyRequest(request: Request): Promise<Response> {
       };
     }
 
+    if (!(await isRegisteredToolEnabled(mcpServer.id, parsed.toolName))) {
+      return {
+        content: [{ type: "text", text: `Tool is disabled or unknown: ${name}` }],
+        isError: true,
+      };
+    }
+    if ((await getRegisteredToolPermission(mcpServer.id, parsed.toolName)) === "approval") {
+      return {
+        content: [{ type: "text", text: `Tool requires interactive user approval: ${name}` }],
+        isError: true,
+      };
+    }
+
     // Build server config with approvalMode always to allow execution
     const execServer: McpServerConfig = {
       ...mcpServer,
@@ -120,10 +143,16 @@ async function handleProxyRequest(request: Request): Promise<Response> {
     };
 
     try {
-      const result = await executeMcpTool(
+      const result = await executeGovernedMcpTool(
         execServer,
         parsed.toolName,
         (args as Record<string, unknown>) ?? {},
+        {
+          personalTokenId: tokenUser.tokenId,
+          source: "proxy",
+          traceId,
+          userId: tokenUser.userId,
+        },
       );
       const content =
         result &&

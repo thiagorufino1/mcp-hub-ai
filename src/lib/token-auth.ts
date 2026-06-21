@@ -7,7 +7,7 @@ export function hashToken(raw: string): string {
 
 export async function resolveTokenUser(
   bearerToken: string,
-): Promise<{ userId: string; entraGroups: string[] } | null> {
+): Promise<{ userId: string; entraGroups: string[]; tokenId: string } | null> {
   if (!bearerToken || bearerToken.length < 16) return null;
 
   const tokenHash = hashToken(bearerToken);
@@ -26,5 +26,9 @@ export async function resolveTokenUser(
     .update({ where: { id: record.id }, data: { lastUsedAt: new Date() } })
     .catch(() => undefined);
 
-  return { userId: record.userId, entraGroups: record.user.entraGroups };
+  return {
+    userId: record.userId,
+    entraGroups: record.user.entraGroups,
+    tokenId: record.id,
+  };
 }

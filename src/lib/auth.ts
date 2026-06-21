@@ -31,10 +31,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return token;
     },
     async session({ session, token }) {
-      const groups = Array.isArray(token.groups) ? (token.groups as string[]) : [];
+      let groups = Array.isArray(token.groups) ? (token.groups as string[]) : [];
+      const dbUser = session.user.email
+        ? await prisma.user.findUnique({
+            where: { email: session.user.email },
+            select: { id: true, entraGroups: true },
+          })
+        : null;
+      if (groups.length === 0 && dbUser?.entraGroups.length) {
+        groups = dbUser.entraGroups;
+      }
       const adminGroupId = process.env.ADMIN_GROUP_ID ?? "";
 
-      session.user.id = token.sub ?? "";
+      session.user.id = dbUser?.id ?? token.sub ?? "";
       session.user.groups = groups;
       session.user.isAdmin = adminGroupId.length > 0 && groups.includes(adminGroupId);
 

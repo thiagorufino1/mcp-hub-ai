@@ -15,13 +15,13 @@ export function GroupsAdminClient({ groups, mcpOptions, skillOptions }: Props) {
   const [form, setForm] = useState<{ open: boolean; group?: GroupRow }>({ open: false });
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Groups & Access Policies</h1>
+    <div className="portal-page">
+      <div className="portal-page-heading flex-row items-center justify-between">
+        <div><h1 className="text-2xl font-bold">Groups & Access Policies</h1><p className="text-sm text-muted-foreground">Map Entra groups to models, skills and MCP servers.</p></div>
         <Button onClick={() => setForm({ open: true })}>+ Add Group</Button>
       </div>
 
-      <div className="rounded-md border">
+      <div className="portal-table-shell">
         <table className="w-full text-sm">
           <thead className="border-b bg-muted/50">
             <tr>

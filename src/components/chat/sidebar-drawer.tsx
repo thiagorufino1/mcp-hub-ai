@@ -9,6 +9,7 @@ import type { LLMConfig } from "@/types/llm-config";
 import type { McpServerConfig } from "@/types/mcp";
 import type { SystemPrompt } from "@/components/chat/system-prompt-section";
 import type { TokenUsage } from "@/types/chat";
+import type { WorkspaceOption } from "@/components/chat/workspace-selector";
 
 type Props = {
   isOpen: boolean;
@@ -38,6 +39,9 @@ type Props = {
   selectedModel: string | null;
   onSkillChange: (id: string | null) => void;
   onModelChange: (model: string) => void;
+  workspaces: WorkspaceOption[];
+  selectedWorkspaceId: string | null;
+  onWorkspaceChange: (id: string | null) => void;
 };
 
 export function SidebarDrawer({
@@ -68,6 +72,9 @@ export function SidebarDrawer({
   selectedModel,
   onSkillChange,
   onModelChange,
+  workspaces,
+  selectedWorkspaceId,
+  onWorkspaceChange,
 }: Props) {
   const titleId = useId();
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -150,6 +157,9 @@ export function SidebarDrawer({
             selectedModel={selectedModel}
             onSkillChange={onSkillChange}
             onModelChange={onModelChange}
+            workspaces={workspaces}
+            selectedWorkspaceId={selectedWorkspaceId}
+            onWorkspaceChange={onWorkspaceChange}
           />
         </div>
       </div>

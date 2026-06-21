@@ -8,20 +8,23 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  entraOid      String?   @unique
-  entraGroups   String[]
-  lastLoginAt   DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  accounts      Account[]
-  sessions      Session[]
-  tokens        PersonalToken[]
-  connections   UserMcpConnection[]
+  id             String              @id @default(cuid())
+  name           String?
+  email          String?             @unique
+  emailVerified  DateTime?
+  image          String?
+  entraOid       String?             @unique
+  entraGroups    String[]
+  lastLoginAt    DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  accounts       Account[]
+  sessions       Session[]
+  tokens         PersonalToken[]
+  connections    UserMcpConnection[]
+  toolExecutions McpToolExecution[]
+  workspaces     Workspace[]         @relation("WorkspaceUsers")
+  namespaces     McpNamespace[]      @relation("NamespaceUsers")
 }
 
 model Account {
@@ -59,25 +62,92 @@ model VerificationToken {
 }
 
 model McpServer {
-  id                String         @id @default(cuid())
-  name              String
-  description       String?
-  transport         String
-  command           String?
-  args              String[]       @default([])
-  url               String?
-  env               Json           @default("{}")
-  headers           Json           @default("{}")
-  authType          String         @default("none")
-  sharedSecret      String?
-  oauthClientId     String?
-  oauthClientSecret String?
-  oauthScopes       String?
-  enabled           Boolean        @default(true)
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
-  connections       UserMcpConnection[]
-  policies          AccessPolicy[]
+  id                  String               @id @default(cuid())
+  name                String
+  description         String?
+  transport           String
+  command             String?
+  args                String[]             @default([])
+  url                 String?
+  env                 Json                 @default("{}")
+  headers             Json                 @default("{}")
+  authType            String               @default("none")
+  sharedSecret        String?
+  oauthClientId       String?
+  oauthClientSecret   String?
+  oauthScopes         String?
+  enabled             Boolean              @default(true)
+  healthStatus        String               @default("unknown")
+  lastHealthCheckAt   DateTime?
+  lastLatencyMs       Int?
+  consecutiveFailures Int                  @default(0)
+  connectionTimeoutMs Int                  @default(10000)
+  toolTimeoutMs       Int                  @default(30000)
+  maxRetries          Int                  @default(1)
+  failureThreshold    Int                  @default(3)
+  circuitCooldownMs   Int                  @default(60000)
+  maxConcurrentCalls  Int                  @default(5)
+  rateLimitRequests   Int                  @default(60)
+  rateLimitWindowMs   Int                  @default(60000)
+  circuitState        String               @default("closed")
+  circuitOpenedAt     DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  connections         UserMcpConnection[]
+  policies            AccessPolicy[]
+  registryTools       McpToolRegistry[]
+  toolExecutions      McpToolExecution[]
+  namespaceMembers    NamespaceMcpServer[]
+}
+
+model McpToolRegistry {
+  id             String          @id @default(cuid())
+  mcpServerId    String
+  mcpServer      McpServer       @relation(fields: [mcpServerId], references: [id], onDelete: Cascade)
+  name           String
+  displayName    String?
+  description    String?         @db.Text
+  inputSchema    Json            @default("{}")
+  annotations    Json            @default("{}")
+  schemaHash     String
+  enabled        Boolean         @default(true)
+  permissionMode String          @default("allow")
+  readOnly       Boolean         @default(false)
+  destructive    Boolean         @default(false)
+  discoveredAt   DateTime        @default(now())
+  lastSeenAt     DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  namespaceTools NamespaceTool[]
+
+  @@unique([mcpServerId, name])
+  @@index([mcpServerId, enabled])
+  @@index([lastSeenAt])
+}
+
+model McpToolExecution {
+  id              String     @id @default(cuid())
+  mcpServerId     String?
+  mcpServer       McpServer? @relation(fields: [mcpServerId], references: [id], onDelete: SetNull)
+  actorUserId     String?
+  actorUser       User?      @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  personalTokenId String?
+  serverName      String
+  toolName        String
+  source          String
+  traceId         String?
+  status          String
+  latencyMs       Int
+  attemptCount    Int        @default(1)
+  arguments       Json       @default("{}")
+  errorMessage    String?    @db.Text
+  createdAt       DateTime   @default(now())
+
+  @@index([mcpServerId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([personalTokenId, createdAt])
+  @@index([source, createdAt])
+  @@index([status, createdAt])
+  @@index([traceId])
 }
 
 model Skill {
@@ -89,38 +159,47 @@ model Skill {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
   policies    AccessPolicy[]
+  workspaces  Workspace[]
 }
 
 model LlmConfig {
-  id            String   @id @default(cuid())
-  displayName   String
-  provider      String
-  credentials   Json     @default("{}")
-  allowedModels String[] @default([])
-  enabled       Boolean  @default(true)
-  isDefault     Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id             String      @id @default(cuid())
+  displayName    String
+  provider       String
+  credentials    Json        @default("{}")
+  allowedModels  String[]    @default([])
+  enabled        Boolean     @default(true)
+  isDefault      Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  workspaces     Workspace[]
+  inputTokens    Int         @default(0)
+  outputTokens   Int         @default(0)
+  totalTokens    Int         @default(0)
+  lastTestAt     DateTime?
+  lastTestStatus String      @default("unknown")
 }
 
 model EntraGroup {
-  id           String        @id @default(cuid())
-  entraGroupId String        @unique
+  id           String         @id @default(cuid())
+  entraGroupId String         @unique
   displayName  String
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
   policy       AccessPolicy?
+  workspaces   Workspace[]
+  namespaces   McpNamespace[]
 }
 
 model AccessPolicy {
-  id            String       @id @default(cuid())
-  groupId       String       @unique
-  group         EntraGroup   @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  allowedModels String[]     @default([])
+  id            String      @id @default(cuid())
+  groupId       String      @unique
+  group         EntraGroup  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  allowedModels String[]    @default([])
   mcpServers    McpServer[]
   skills        Skill[]
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 }
 
 model PersonalToken {
@@ -149,4 +228,85 @@ model UserMcpConnection {
   updatedAt    DateTime  @updatedAt
 
   @@unique([userId, mcpServerId])
+}
+
+model Workspace {
+  id                   String        @id @default(cuid())
+  slug                 String        @unique
+  name                 String
+  description          String?
+  systemPrompt         String?       @db.Text
+  model                String?
+  maxSteps             Int           @default(6)
+  approvalMode         String        @default("risk_based")
+  conversationStarters String[]      @default([])
+  enabled              Boolean       @default(true)
+  isDefault            Boolean       @default(false)
+  llmConfigId          String?
+  llmConfig            LlmConfig?    @relation(fields: [llmConfigId], references: [id], onDelete: SetNull)
+  namespaceId          String?
+  namespace            McpNamespace? @relation(fields: [namespaceId], references: [id], onDelete: SetNull)
+  skills               Skill[]
+  groups               EntraGroup[]
+  users                User[]        @relation("WorkspaceUsers")
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  @@index([enabled, isDefault])
+  @@index([llmConfigId])
+  @@index([namespaceId])
+}
+
+model McpNamespace {
+  id          String               @id @default(cuid())
+  slug        String               @unique
+  name        String
+  description String?
+  enabled     Boolean              @default(true)
+  published   Boolean              @default(false)
+  groups      EntraGroup[]
+  users       User[]               @relation("NamespaceUsers")
+  servers     NamespaceMcpServer[]
+  tools       NamespaceTool[]
+  workspaces  Workspace[]
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([enabled, published])
+}
+
+model NamespaceMcpServer {
+  id           String       @id @default(cuid())
+  namespaceId  String
+  namespace    McpNamespace @relation(fields: [namespaceId], references: [id], onDelete: Cascade)
+  mcpServerId  String
+  mcpServer    McpServer    @relation(fields: [mcpServerId], references: [id], onDelete: Cascade)
+  alias        String?
+  enabled      Boolean      @default(true)
+  displayOrder Int          @default(0)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([namespaceId, mcpServerId])
+  @@index([mcpServerId])
+  @@index([namespaceId, enabled, displayOrder])
+}
+
+model NamespaceTool {
+  id             String          @id @default(cuid())
+  namespaceId    String
+  namespace      McpNamespace    @relation(fields: [namespaceId], references: [id], onDelete: Cascade)
+  registryToolId String
+  registryTool   McpToolRegistry @relation(fields: [registryToolId], references: [id], onDelete: Cascade)
+  alias          String
+  displayName    String?
+  description    String?         @db.Text
+  enabled        Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([namespaceId, registryToolId])
+  @@unique([namespaceId, alias])
+  @@index([registryToolId])
+  @@index([namespaceId, enabled])
 }

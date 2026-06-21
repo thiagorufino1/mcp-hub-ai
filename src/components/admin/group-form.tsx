@@ -40,7 +40,7 @@ export function GroupForm({ open, onClose, group, mcpOptions, skillOptions }: Pr
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="admin-dialog max-w-xl">
         <DialogHeader>
           <DialogTitle>{group ? "Edit Group Policy" : "Add Group"}</DialogTitle>
         </DialogHeader>
@@ -63,7 +63,7 @@ export function GroupForm({ open, onClose, group, mcpOptions, skillOptions }: Pr
 
           <div className="space-y-2">
             <Label>MCP Servers</Label>
-            <div className="rounded-md border p-3 space-y-2 max-h-40 overflow-y-auto">
+            <div className="admin-form-card max-h-40 overflow-y-auto">
               {mcpOptions.length === 0 && (
                 <p className="text-sm text-muted-foreground">No MCP servers configured.</p>
               )}
@@ -84,7 +84,7 @@ export function GroupForm({ open, onClose, group, mcpOptions, skillOptions }: Pr
 
           <div className="space-y-2">
             <Label>Skills</Label>
-            <div className="rounded-md border p-3 space-y-2 max-h-40 overflow-y-auto">
+            <div className="admin-form-card max-h-40 overflow-y-auto">
               {skillOptions.length === 0 && (
                 <p className="text-sm text-muted-foreground">No skills configured.</p>
               )}
@@ -116,7 +116,7 @@ export function GroupForm({ open, onClose, group, mcpOptions, skillOptions }: Pr
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="admin-form-footer">
             <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
             <Button type="submit" disabled={isPending}>{isPending ? "Saving…" : "Save"}</Button>
           </div>

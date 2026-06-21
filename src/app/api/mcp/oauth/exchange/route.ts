@@ -9,6 +9,7 @@ const OAuthExchangeSchema = z.object({
   code: z.string().trim().min(1),
   codeVerifier: z.string().trim().min(1),
   redirectUri: z.string().trim().url(),
+  resourceUrl: z.string().trim().url(),
   state: z.string().trim().min(1),
   tokenEndpoint: z.string().trim().url(),
 });
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
         expiresAt: tokens.expiresAt,
         redirectUri: body.redirectUri,
         refreshToken: tokens.refreshToken,
+        resourceUrl: body.resourceUrl,
         scope: tokens.scope,
         tokenEndpoint: body.tokenEndpoint,
         tokenType: tokens.tokenType ?? "Bearer",

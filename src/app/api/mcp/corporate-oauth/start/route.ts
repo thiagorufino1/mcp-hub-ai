@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { createCorporateOAuthState } from "@/lib/corporate-oauth-state";
 import { prisma } from "@/lib/db";
 import { getUserContext } from "@/lib/user-context";
 import {
@@ -8,6 +9,10 @@ import {
   registerMcpOAuthClient,
 } from "@/lib/mcp-oauth";
 import { z } from "zod";
+import {
+  decryptSecret,
+  encryptSecret,
+} from "@/lib/secret-crypto";
 
 const StartSchema = z.object({
   mcpServerId: z.string().min(1),
@@ -25,6 +30,18 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid request." }, { status: 400 });
   }
 
+  const redirectUri = new URL(body.data.redirectUri);
+  const requestOrigin = new URL(request.url).origin;
+  const configuredOrigin = process.env.NEXTAUTH_URL
+    ? new URL(process.env.NEXTAUTH_URL).origin
+    : requestOrigin;
+  if (
+    redirectUri.pathname !== "/oauth/callback" ||
+    (redirectUri.origin !== requestOrigin && redirectUri.origin !== configuredOrigin)
+  ) {
+    return Response.json({ error: "Invalid OAuth redirect URI." }, { status: 400 });
+  }
+
   // Verify user has access to this MCP via their groups
   const context = await getUserContext(session.user.groups, undefined, session.user.id);
   const mcp = context.mcpServers.find((s) => s.id === body.data.mcpServerId);
@@ -38,19 +55,31 @@ export async function POST(request: Request) {
   // Fetch OAuth client credentials from DB
   const dbMcp = await prisma.mcpServer.findUnique({
     where: { id: body.data.mcpServerId },
-    select: { url: true, oauthClientId: true, oauthClientSecret: true, oauthScopes: true },
+    select: {
+      authType: true,
+      url: true,
+      oauthClientId: true,
+      oauthClientSecret: true,
+      oauthScopes: true,
+    },
   });
   if (!dbMcp?.url) {
     return Response.json({ error: "MCP has no URL." }, { status: 400 });
+  }
+  if (dbMcp.authType !== "oauth_delegated") {
+    return Response.json({ error: "MCP does not use delegated OAuth." }, { status: 400 });
   }
 
   try {
     const discovery = await discoverMcpOAuth(dbMcp.url);
     const { codeChallenge, codeVerifier } = await createPkcePair();
-    const state = crypto.randomUUID();
+    const state = createCorporateOAuthState(
+      session.user.id,
+      body.data.mcpServerId,
+    );
 
     let clientId = dbMcp.oauthClientId ?? null;
-    let clientSecret = dbMcp.oauthClientSecret ?? null;
+    let clientSecret = decryptSecret(dbMcp.oauthClientSecret) || null;
 
     // Dynamic registration fallback
     if (!clientId && discovery.registrationEndpoint) {
@@ -61,6 +90,15 @@ export async function POST(request: Request) {
       if (reg) {
         clientId = reg.clientId;
         clientSecret = reg.clientSecret ?? null;
+        await prisma.mcpServer.update({
+          where: { id: body.data.mcpServerId },
+          data: {
+            oauthClientId: clientId,
+            oauthClientSecret: clientSecret
+              ? encryptSecret(clientSecret)
+              : null,
+          },
+        });
       }
     }
 

@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "LlmConfig" ADD COLUMN     "inputTokens" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "lastTestAt" TIMESTAMP(3),
+ADD COLUMN     "lastTestStatus" TEXT NOT NULL DEFAULT 'unknown',
+ADD COLUMN     "outputTokens" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "totalTokens" INTEGER NOT NULL DEFAULT 0;

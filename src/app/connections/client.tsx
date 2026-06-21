@@ -12,14 +12,23 @@ type ConnectionItem = {
   connection: { status: string; updatedAt: Date } | null;
 };
 
-type ConnectionStatus = "connected" | "disconnected" | "pending" | "error";
+type ConnectionStatus =
+  | "connected"
+  | "disconnected"
+  | "expired"
+  | "pending"
+  | "error";
 
 export function ConnectionsClient({ items }: { items: ConnectionItem[] }) {
   const [statuses, setStatuses] = useState<Record<string, ConnectionStatus>>(
     Object.fromEntries(
       items.map((item) => [
         item.id,
-        item.connection?.status === "connected" ? "connected" : "disconnected",
+        item.connection?.status === "connected"
+          ? "connected"
+          : item.connection?.status === "expired"
+            ? "expired"
+            : "disconnected",
       ]),
     ),
   );
@@ -57,13 +66,18 @@ export function ConnectionsClient({ items }: { items: ConnectionItem[] }) {
       sessionStorage.setItem(`corp-oauth-${startData.state}`, JSON.stringify(pendingData));
 
       const popup = window.open(startData.authorizationUrl, "mcp-oauth", "width=600,height=700");
+      if (!popup) {
+        sessionStorage.removeItem(`corp-oauth-${startData.state}`);
+        setStatuses((s) => ({ ...s, [mcpId]: "error" }));
+        return;
+      }
 
       const handleMessage = async (event: MessageEvent) => {
         if (event.origin !== window.location.origin) return;
         if ((event.data as { type?: string } | null)?.type !== "mcp-oauth-callback") return;
 
         window.removeEventListener("message", handleMessage);
-        popup?.close();
+        popup.close();
 
         const { code, state, error } = event.data as { code?: string; state?: string; error?: string };
         if (error || !code || !state) {
@@ -78,6 +92,10 @@ export function ConnectionsClient({ items }: { items: ConnectionItem[] }) {
         }
         sessionStorage.removeItem(`corp-oauth-${state}`);
         const pending = JSON.parse(stored) as typeof pendingData;
+        if (pending.state !== state || pending.mcpServerId !== mcpId) {
+          setStatuses((s) => ({ ...s, [mcpId]: "error" }));
+          return;
+        }
 
         // Exchange body — server fetches client credentials from DB
         const exchangeRes = await fetch("/api/mcp/corporate-oauth/exchange", {
@@ -88,6 +106,7 @@ export function ConnectionsClient({ items }: { items: ConnectionItem[] }) {
             code,
             codeVerifier: pending.codeVerifier,
             redirectUri: pending.redirectUri,
+            state,
           }),
         });
 
@@ -99,6 +118,17 @@ export function ConnectionsClient({ items }: { items: ConnectionItem[] }) {
       };
 
       window.addEventListener("message", handleMessage);
+
+      const popupMonitor = window.setInterval(() => {
+        if (!popup.closed) return;
+        window.clearInterval(popupMonitor);
+        window.removeEventListener("message", handleMessage);
+        const pendingKey = `corp-oauth-${startData.state}`;
+        if (sessionStorage.getItem(pendingKey)) {
+          sessionStorage.removeItem(pendingKey);
+          setStatuses((s) => ({ ...s, [mcpId]: "disconnected" }));
+        }
+      }, 500);
     } catch {
       setStatuses((s) => ({ ...s, [mcpId]: "error" }));
     }
@@ -115,8 +145,8 @@ export function ConnectionsClient({ items }: { items: ConnectionItem[] }) {
   }, []);
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div className="space-y-1">
+    <div className="portal-page max-w-4xl">
+      <div className="portal-page-heading">
         <h1 className="text-2xl font-bold">My Connections</h1>
         <p className="text-sm text-muted-foreground">
           Connect your accounts for tools that require your personal authorization.
@@ -130,7 +160,7 @@ export function ConnectionsClient({ items }: { items: ConnectionItem[] }) {
       )}
 
       {items.length > 0 && (
-        <div className="rounded-md border divide-y">
+        <div className="portal-section divide-y p-0">
           {items.map((item) => {
             const status = statuses[item.id] ?? "disconnected";
             return (
@@ -150,7 +180,9 @@ export function ConnectionsClient({ items }: { items: ConnectionItem[] }) {
                           ? "secondary"
                           : status === "error"
                             ? "destructive"
-                            : "outline"
+                            : status === "expired"
+                              ? "secondary"
+                              : "outline"
                     }
                   >
                     {status === "pending" ? "Connecting…" : status}
@@ -162,7 +194,7 @@ export function ConnectionsClient({ items }: { items: ConnectionItem[] }) {
                       className="text-destructive hover:text-destructive"
                       onClick={() => void disconnect(item.id)}
                     >
-                      Disconnect
+                      Desvincular
                     </Button>
                   ) : (
                     <Button
@@ -170,7 +202,7 @@ export function ConnectionsClient({ items }: { items: ConnectionItem[] }) {
                       disabled={status === "pending"}
                       onClick={() => void connect(item.id)}
                     >
-                      Connect
+                      {status === "expired" ? "Vincular novamente" : "Vincular"}
                     </Button>
                   )}
                 </div>

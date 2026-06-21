@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
-import { executeMcpTool } from "@/lib/mcp-client";
 import { isToolExecutionAllowed } from "@/lib/mcp-authorization";
+import { executeGovernedMcpTool, McpGovernanceError } from "@/lib/mcp-governance";
 import type { McpServerConfig } from "@/types/mcp";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -100,12 +100,32 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await executeMcpTool(normalized.server, toolName, body.args);
+    const result = await executeGovernedMcpTool(
+      normalized.server,
+      toolName,
+      body.args,
+      {
+        source: "direct",
+        traceId: request.headers.get("x-request-id") ?? crypto.randomUUID(),
+        userId: session.user.id,
+      },
+    );
     return Response.json({ ok: true, result });
   } catch (error) {
+    const status =
+      error instanceof McpGovernanceError &&
+      ["rate_limit", "concurrency_limit", "circuit_open"].includes(error.code)
+        ? 429
+        : 422;
     return Response.json(
       { error: error instanceof Error ? error.message : "Failed to execute MCP tool." },
-      { status: 422 },
+      {
+        status,
+        headers:
+          error instanceof McpGovernanceError && error.retryAfterMs
+            ? { "Retry-After": String(Math.max(1, Math.ceil(error.retryAfterMs / 1000))) }
+            : undefined,
+      },
     );
   }
 }

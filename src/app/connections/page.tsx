@@ -2,6 +2,7 @@ import { requireAuth } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/db";
 import { getUserContext } from "@/lib/user-context";
 import { ConnectionsClient } from "./client";
+import { PortalShell } from "@/components/layout/portal-shell";
 
 export const metadata = { title: "My Connections — MCP Hub" };
 
@@ -21,7 +22,7 @@ export default async function ConnectionsPage() {
 
   const connections = await prisma.userMcpConnection.findMany({
     where: { userId: user.id, mcpServerId: { in: delegatedDbMcps.map((m) => m.id) } },
-    select: { mcpServerId: true, status: true, updatedAt: true },
+    select: { expiresAt: true, mcpServerId: true, status: true, updatedAt: true },
   });
 
   const connectionMap = new Map(connections.map((c) => [c.mcpServerId, c]));
@@ -31,8 +32,24 @@ export default async function ConnectionsPage() {
     name: mcp.name,
     description: mcp.description,
     url: mcp.url,
-    connection: connectionMap.get(mcp.id) ?? null,
+    connection: (() => {
+      const connection = connectionMap.get(mcp.id);
+      if (!connection) return null;
+      return {
+        status:
+          connection.status === "connected" &&
+          connection.expiresAt &&
+          connection.expiresAt <= new Date()
+            ? "expired"
+            : connection.status,
+        updatedAt: connection.updatedAt,
+      };
+    })(),
   }));
 
-  return <ConnectionsClient items={items} />;
+  return (
+    <PortalShell isAdmin={user.isAdmin} section="My Connections" userName={user.name}>
+      <ConnectionsClient items={items} />
+    </PortalShell>
+  );
 }

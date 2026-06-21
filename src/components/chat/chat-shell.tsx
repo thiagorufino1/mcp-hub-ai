@@ -29,6 +29,7 @@ import type { PendingMcpOAuth } from "@/lib/mcp-oauth-browser";
 import type { ChatStreamEvent, Message, ToolEvent } from "@/types/chat";
 import type { McpInspectResponse, McpServerConfig } from "@/types/mcp";
 import type { LLMConfig } from "@/types/llm-config";
+import type { WorkspaceOption } from "@/components/chat/workspace-selector";
 import { LEGACY_LLM_CONFIG_STORAGE_KEY } from "@/types/llm-config";
 
 const MESSAGE_STORAGE_KEY = "ai-chat-messages";
@@ -133,7 +134,7 @@ function normalizeStoredToolEvent(event: Partial<ToolEvent>): ToolEvent | null {
   };
 }
 
-export function ChatShell() {
+export function ChatShell({ isAdmin = false }: { isAdmin?: boolean }) {
   const { locale, t } = useAppPreferences();
   const [toolEvents, setToolEvents] = useState<ToolEvent[]>([]);
   const [mcpServers, setMcpServers] = useState<McpServerConfig[]>([]);
@@ -158,6 +159,9 @@ export function ChatShell() {
   const [hasCorporateLlm, setHasCorporateLlm] = useState(false);
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
+  const [workspaceStarters, setWorkspaceStarters] = useState<string[]>([]);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [scrollRequest, setScrollRequest] = useState(0);
   const currentAssistantIdRef = useRef<string | null>(null);
@@ -266,10 +270,20 @@ export function ChatShell() {
   useEffect(() => {
     fetch("/api/user/context")
       .then((res) => res.json())
-      .then((data: { skills: typeof userSkills; allowedModels: string[]; hasCorporateLlm: boolean }) => {
+      .then((data: {
+        skills: typeof userSkills;
+        allowedModels: string[];
+        hasCorporateLlm: boolean;
+        starters: string[];
+        workspaces: WorkspaceOption[];
+      }) => {
         setUserSkills(data.skills ?? []);
         setAllowedModels(data.allowedModels ?? []);
         setHasCorporateLlm(data.hasCorporateLlm ?? false);
+        setWorkspaceStarters(data.starters ?? []);
+        setWorkspaces(data.workspaces ?? []);
+        const defaultWorkspace = data.workspaces?.find((workspace) => workspace.isDefault);
+        if (defaultWorkspace) setSelectedWorkspaceId(defaultWorkspace.id);
         if (data.allowedModels?.length > 0) {
           setSelectedModel(data.allowedModels[0]);
         }
@@ -278,6 +292,29 @@ export function ChatShell() {
         // Silently ignore — user context is enhancement, not required
       });
   }, []);
+
+  useEffect(() => {
+    if (!selectedWorkspaceId) {
+      setWorkspaceStarters([]);
+      return;
+    }
+    fetch(`/api/user/context?workspaceId=${encodeURIComponent(selectedWorkspaceId)}`)
+      .then((response) => response.json())
+      .then((data: {
+        skills: typeof userSkills;
+        allowedModels: string[];
+        hasCorporateLlm: boolean;
+        starters: string[];
+      }) => {
+        setUserSkills(data.skills ?? []);
+        setAllowedModels(data.allowedModels ?? []);
+        setHasCorporateLlm(data.hasCorporateLlm ?? false);
+        setWorkspaceStarters(data.starters ?? []);
+        setSelectedSkillId(null);
+        setSelectedModel(data.allowedModels?.[0] ?? null);
+      })
+      .catch(() => undefined);
+  }, [selectedWorkspaceId]);
 
   useEffect(() => {
     if (!storageNotice) {
@@ -674,6 +711,7 @@ export function ChatShell() {
           code: callback.code,
           codeVerifier: stored.codeVerifier,
           redirectUri: stored.redirectUri,
+          resourceUrl: stored.resourceUrl,
           state: stored.state,
           tokenEndpoint: stored.tokenEndpoint,
         }),
@@ -836,6 +874,7 @@ export function ChatShell() {
           requestId,
           skillId: selectedSkillId ?? undefined,
           selectedModel: selectedModel ?? undefined,
+          workspaceId: selectedWorkspaceId ?? undefined,
         }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
@@ -1194,6 +1233,9 @@ export function ChatShell() {
     selectedModel,
     onSkillChange: setSelectedSkillId,
     onModelChange: setSelectedModel,
+    workspaces,
+    selectedWorkspaceId,
+    onWorkspaceChange: setSelectedWorkspaceId,
   };
   const showStarters =
     messages.length === 1 &&
@@ -1239,6 +1281,7 @@ export function ChatShell() {
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent">
         <Topbar
+          isAdmin={isAdmin}
           onNewConversation={handleNewConversation}
           onToggleSidebar={() => setIsSidebarOpen(true)}
           onCopySession={handleCopySession}
@@ -1270,6 +1313,17 @@ export function ChatShell() {
           </aside>
           <div className="flex h-full min-h-0 min-w-0 flex-1 max-w-[760px] flex-col overflow-hidden lg:max-w-none">
             <main className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-transparent">
+              {showStarters ? (
+                <div className="app-scroll overflow-y-auto px-4 pt-4">
+                  <ConversationStarters
+                    disabled={isStreaming}
+                    onSelect={async (prompt) => {
+                      await handleSubmit(prompt);
+                    }}
+                    workspaceStarters={workspaceStarters}
+                  />
+                </div>
+              ) : null}
               <ChatThread
                 isStreaming={isStreaming}
                 items={items}

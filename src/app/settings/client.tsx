@@ -8,9 +8,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { createToken, deleteToken } from "./actions";
 import type { TokenRow } from "./actions";
 
-type Props = { tokens: TokenRow[]; proxyUrl: string };
+type Props = {
+  tokens: TokenRow[];
+  proxyUrl: string;
+  namespaceEndpoints: Array<{ name: string; slug: string; url: string }>;
+};
 
-export function SettingsClient({ tokens, proxyUrl }: Props) {
+export function SettingsClient({ namespaceEndpoints, tokens, proxyUrl }: Props) {
   const [isPending, startTransition] = useTransition();
   const [newToken, setNewToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -30,14 +34,78 @@ export function SettingsClient({ tokens, proxyUrl }: Props) {
   }
 
   return (
-    <div className="space-y-8 max-w-2xl">
-      <div className="space-y-2">
+    <div className="portal-page max-w-4xl">
+      <div className="portal-page-heading">
         <h1 className="text-2xl font-bold">Settings</h1>
         <p className="text-sm text-muted-foreground">Manage your personal API tokens for MCP proxy access.</p>
       </div>
 
+      {namespaceEndpoints.length > 0 ? (
+        <section className="portal-section">
+          <h2 className="font-semibold">Published namespaces</h2>
+          {namespaceEndpoints.map((namespace) => {
+            const config = JSON.stringify({
+              mcpServers: {
+                [namespace.slug]: {
+                  type: "http",
+                  url: namespace.url,
+                  headers: { Authorization: "Bearer <your-token>" },
+                },
+              },
+            }, null, 2);
+            const vscodeConfig = JSON.stringify({
+              inputs: [{
+                id: "mcpHubToken",
+                type: "promptString",
+                description: "MCP Hub personal token",
+                password: true,
+              }],
+              servers: {
+                [namespace.slug]: {
+                  type: "http",
+                  url: namespace.url,
+                  headers: { Authorization: "Bearer ${input:mcpHubToken}" },
+                },
+              },
+            }, null, 2);
+            return (
+              <details key={namespace.slug} className="rounded-md border p-4">
+                <summary className="cursor-pointer text-sm font-medium">{namespace.name}</summary>
+                <div className="mt-3 flex flex-col gap-2">
+                  <code className="break-all rounded bg-muted px-3 py-2 text-xs">
+                    {namespace.url}
+                  </code>
+                  <p className="text-xs text-muted-foreground">
+                    Claude Desktop and Cursor configuration:
+                  </p>
+                  <pre className="overflow-x-auto rounded bg-muted p-3 text-xs">{config}</pre>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void navigator.clipboard.writeText(config)}
+                  >
+                    Copy configuration
+                  </Button>
+                  <p className="text-xs text-muted-foreground">VS Code `.vscode/mcp.json`:</p>
+                  <pre className="overflow-x-auto rounded bg-muted p-3 text-xs">{vscodeConfig}</pre>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void navigator.clipboard.writeText(vscodeConfig)}
+                  >
+                    Copy VS Code configuration
+                  </Button>
+                </div>
+              </details>
+            );
+          })}
+        </section>
+      ) : null}
+
       {/* MCP Proxy URL */}
-      <div className="rounded-md border p-4 space-y-2">
+      <section className="portal-section">
         <h2 className="font-semibold text-sm">MCP Proxy Endpoint</h2>
         <p className="text-xs text-muted-foreground">
           Connect VS Code, Claude Desktop, or any MCP client to this URL using your personal token.
@@ -47,10 +115,10 @@ export function SettingsClient({ tokens, proxyUrl }: Props) {
           Add to your MCP client config:{" "}
           <code className="text-xs">{"Authorization: Bearer <your-token>"}</code>
         </p>
-      </div>
+      </section>
 
       {/* Token list */}
-      <div className="space-y-3">
+      <section className="portal-section">
         <h2 className="font-semibold">Personal Tokens</h2>
         {tokens.length === 0 && (
           <p className="text-sm text-muted-foreground">No tokens yet. Generate one below.</p>
@@ -75,10 +143,10 @@ export function SettingsClient({ tokens, proxyUrl }: Props) {
             </div>
           ))}
         </div>
-      </div>
+      </section>
 
       {/* Generate token form */}
-      <div className="space-y-3">
+      <section className="portal-section">
         <h2 className="font-semibold">Generate New Token</h2>
         <form ref={formRef} action={handleCreate} className="flex gap-2">
           <div className="flex-1">
@@ -90,7 +158,7 @@ export function SettingsClient({ tokens, proxyUrl }: Props) {
           </Button>
         </form>
         {error && <p className="text-sm text-destructive">{error}</p>}
-      </div>
+      </section>
 
       {/* Show-once dialog */}
       <Dialog open={!!newToken} onOpenChange={(o) => { if (!o) setNewToken(null); }}>

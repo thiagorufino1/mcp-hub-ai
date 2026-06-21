@@ -1,6 +1,11 @@
 import { prisma } from "@/lib/db";
 import type { McpServerConfig } from "@/types/mcp";
 import type { LLMConfig } from "@/types/llm-config";
+import {
+  decryptSecret,
+  decryptSecretJson,
+} from "@/lib/secret-crypto";
+import { resolveDelegatedAuthorizationHeaders } from "@/lib/delegated-oauth";
 
 export type SkillOption = {
   id: string;
@@ -14,6 +19,7 @@ export type UserContext = {
   skills: SkillOption[];
   allowedModels: string[];
   llmConfig: LLMConfig | null;
+  llmConfigId: string | null;
 };
 
 export async function getUserContext(
@@ -21,7 +27,7 @@ export async function getUserContext(
   selectedModel?: string,
   userId?: string,
 ): Promise<UserContext> {
-  const empty: UserContext = { mcpServers: [], skills: [], allowedModels: [], llmConfig: null };
+  const empty: UserContext = { mcpServers: [], skills: [], allowedModels: [], llmConfig: null, llmConfigId: null };
 
   if (entraGroups.length === 0) return empty;
 
@@ -59,23 +65,19 @@ export async function getUserContext(
 
     // Inject per-user OAuth tokens for oauth_delegated MCPs
     if (userId && mcpMap.size > 0) {
-      const connections = await prisma.userMcpConnection.findMany({
-        where: {
-          userId,
-          mcpServerId: { in: [...mcpMap.keys()] },
-          status: "connected",
-        },
-        select: { mcpServerId: true, accessToken: true, tokenType: true },
-      });
+      const delegatedHeaders = await resolveDelegatedAuthorizationHeaders(
+        userId,
+        [...mcpMap.keys()],
+      );
 
-      for (const conn of connections) {
-        const dbMcp = mcpMap.get(conn.mcpServerId);
+      for (const [mcpServerId, authorization] of delegatedHeaders) {
+        const dbMcp = mcpMap.get(mcpServerId);
         if (dbMcp) {
-          mcpMap.set(conn.mcpServerId, {
+          mcpMap.set(mcpServerId, {
             ...dbMcp,
             headers: {
-              ...((dbMcp.headers as Record<string, string>) ?? {}),
-              Authorization: `${conn.tokenType ?? "Bearer"} ${conn.accessToken}`,
+              ...decryptSecretJson(dbMcp.headers),
+              Authorization: authorization,
             },
           });
         }
@@ -98,6 +100,7 @@ export async function getUserContext(
       skills: [...skillMap.values()],
       allowedModels: [...modelSet],
       llmConfig: defaultLlm ? buildLlmConfig(defaultLlm, validatedModel) : null,
+      llmConfigId: defaultLlm?.id ?? null,
     };
   } catch (error) {
     console.error("[getUserContext] Failed to resolve user context:", error);
@@ -105,7 +108,7 @@ export async function getUserContext(
   }
 }
 
-function dbMcpToConfig(mcp: {
+export function dbMcpToConfig(mcp: {
   id: string;
   name: string;
   description: string | null;
@@ -119,10 +122,17 @@ function dbMcpToConfig(mcp: {
   sharedSecret: string | null;
   enabled: boolean;
 }): McpServerConfig {
-  const baseHeaders = (mcp.headers as Record<string, string>) ?? {};
+  const baseHeaders = decryptSecretJson(mcp.headers);
+  const delegatedAuthorization =
+    mcp.authType === "oauth_delegated"
+      ? baseHeaders.Authorization?.trim()
+      : undefined;
   const resolvedHeaders =
     mcp.authType === "shared_key" && mcp.sharedSecret
-      ? { ...baseHeaders, Authorization: `Bearer ${mcp.sharedSecret}` }
+      ? {
+          ...baseHeaders,
+          Authorization: `Bearer ${decryptSecret(mcp.sharedSecret)}`,
+        }
       : baseHeaders;
 
   return {
@@ -133,15 +143,19 @@ function dbMcpToConfig(mcp: {
     command: mcp.command ?? undefined,
     args: mcp.args,
     url: mcp.url ?? undefined,
-    env: (mcp.env as Record<string, string>) ?? {},
+    env: decryptSecretJson(mcp.env),
     headers: resolvedHeaders,
-    authMode: "none",
+    authMode: mcp.authType === "oauth_delegated" ? "oauth" : "none",
     oauth: undefined,
     tools: [],
     connectionStatus: "pending",
     approvalMode: "always",
     approvedToolNames: [],
-    enabled: mcp.enabled,
+    enabled:
+      mcp.enabled &&
+      (mcp.authType !== "oauth_delegated" || Boolean(delegatedAuthorization)),
+    requiresUserAuthorization: mcp.authType === "oauth_delegated",
+    userAuthorizationStatus: delegatedAuthorization ? "connected" : "required",
     lastCheckedAt: undefined,
     errorMessage: undefined,
   };
@@ -151,7 +165,7 @@ export function buildLlmConfig(
   llm: { provider: string; credentials: unknown; allowedModels: string[] },
   selectedModel?: string,
 ): LLMConfig | null {
-  const creds = (llm.credentials as Record<string, string>) ?? {};
+  const creds = decryptSecretJson(llm.credentials);
   // selectedModel is already validated upstream in getUserContext; enforce again as defense-in-depth
   if (selectedModel && !llm.allowedModels.includes(selectedModel)) return null;
   const model = selectedModel || llm.allowedModels[0] || "";

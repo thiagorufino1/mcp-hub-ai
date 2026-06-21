@@ -5,6 +5,10 @@ import { useState } from "react";
 import { LlmConfigSection } from "@/components/chat/llm-config-section";
 import { ModelSelector } from "@/components/chat/model-selector";
 import { SkillsSelector } from "@/components/chat/skills-selector";
+import {
+  WorkspaceSelector,
+  type WorkspaceOption,
+} from "@/components/chat/workspace-selector";
 import { SystemPromptSection } from "@/components/chat/system-prompt-section";
 import type { SystemPrompt } from "@/components/chat/system-prompt-section";
 import { useAppPreferences } from "@/components/providers/app-preferences-provider";
@@ -57,6 +61,9 @@ type SidebarToolsContentProps = {
   selectedModel: string | null;
   onSkillChange: (id: string | null) => void;
   onModelChange: (model: string) => void;
+  workspaces: WorkspaceOption[];
+  selectedWorkspaceId: string | null;
+  onWorkspaceChange: (id: string | null) => void;
 };
 
 function getTransportMeta(server: McpServerConfig) {
@@ -341,6 +348,9 @@ export function SidebarToolsContent({
   selectedModel,
   onSkillChange,
   onModelChange,
+  workspaces,
+  selectedWorkspaceId,
+  onWorkspaceChange,
 }: SidebarToolsContentProps) {
   const { t } = useAppPreferences();
   const connectedCount = servers.filter((server) => server.connectionStatus === "connected").length;
@@ -361,9 +371,14 @@ export function SidebarToolsContent({
           </div>
         </div>
 
-        {(userSkills.length > 0 || allowedModels.length > 0) && (
+        {(workspaces.length > 0 || userSkills.length > 0 || allowedModels.length > 0) && (
           <div className="overflow-hidden rounded-2xl bg-[var(--color-surface)] ring-1 ring-black/[0.06] dark:ring-white/[0.06]" style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}>
             <div className="px-4 py-4 space-y-3">
+              <WorkspaceSelector
+                workspaces={workspaces}
+                selectedId={selectedWorkspaceId}
+                onChange={onWorkspaceChange}
+              />
               <SkillsSelector
                 skills={userSkills}
                 selectedId={selectedSkillId}

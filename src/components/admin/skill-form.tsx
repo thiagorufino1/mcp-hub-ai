@@ -32,7 +32,7 @@ export function SkillForm({ open, onClose, skill }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="admin-dialog max-w-2xl">
         <DialogHeader>
           <DialogTitle>{skill ? "Edit Skill" : "Add Skill"}</DialogTitle>
         </DialogHeader>
@@ -62,7 +62,7 @@ export function SkillForm({ open, onClose, skill }: Props) {
             <Label htmlFor="enabled">Enabled</Label>
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="admin-form-footer">
             <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
             <Button type="submit" disabled={isPending}>{isPending ? "Saving…" : "Save"}</Button>
           </div>

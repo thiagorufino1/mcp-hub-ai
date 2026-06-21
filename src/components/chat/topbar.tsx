@@ -8,18 +8,20 @@ import Link from "next/link";
 import { useAppPreferences } from "@/components/providers/app-preferences-provider";
 import { useTheme } from "@/components/providers/theme-provider";
 import { Button } from "@/components/ui/button";
-import { Boxes, Check, Copy, MessageSquarePlus, MoonStar, RefreshCw, Settings, Sun } from "@/components/ui/icons";
+import { Boxes, Check, Copy, MessageSquarePlus, MoonStar, RefreshCw, Settings, Shield, Sun } from "@/components/ui/icons";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { signOutAction } from "@/app/chat/actions";
 
 type Props = {
+  isAdmin?: boolean;
   onNewConversation?: () => void;
   onToggleSidebar?: () => void;
   onCopySession?: () => Promise<void>;
 };
 
 export function Topbar({
+  isAdmin = false,
   onNewConversation,
   onToggleSidebar,
   onCopySession,
@@ -227,6 +229,28 @@ export function Topbar({
                 GitHub
               </TooltipContent>
             </Tooltip>
+
+            {isAdmin ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/admin" aria-label="Admin" className="inline-flex">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 rounded-full bg-white/[0.07] text-white/92 shadow-[0_6px_18px_rgba(8,24,64,0.08)] backdrop-blur-[4px] transition-colors hover:bg-white/[0.10] hover:text-white"
+                    >
+                      <Shield className="size-4" />
+                    </Button>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="bottom"
+                  className="z-[999] border-none bg-slate-950 px-3 py-1.5 text-[11.5px] font-medium text-slate-100 shadow-2xl shadow-black/80"
+                >
+                  Administration
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
 
             <Tooltip>
               <TooltipTrigger asChild>

@@ -4,6 +4,7 @@ node_modules/
 .next/
 .next-package/
 out/
+next-env.d.ts
 
 # Package build/publish artifacts
 .npm-package/
@@ -55,8 +56,12 @@ Thumbs.db
 RELEASE_AGENT_GUIDE.md
 current-ui.png
 jira.md
-docs/superpowers/
 tmp/
 temp/
 
+# Agent tooling artifacts (plans, reports, diffs — not for version control)
+docs/superpowers/
+.superpowers/
+
+# Prisma generated client
 /src/generated/prisma

@@ -13,13 +13,13 @@ export function SkillsAdminClient({ skills }: Props) {
   const [form, setForm] = useState<{ open: boolean; skill?: SkillRow }>({ open: false });
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Skills</h1>
+    <div className="portal-page">
+      <div className="portal-page-heading flex-row items-center justify-between">
+        <div><h1 className="text-2xl font-bold">Skills</h1><p className="text-sm text-muted-foreground">Reusable instructions available to agents and groups.</p></div>
         <Button onClick={() => setForm({ open: true })}>+ Add Skill</Button>
       </div>
 
-      <div className="rounded-md border">
+      <div className="portal-table-shell">
         <table className="w-full text-sm">
           <thead className="border-b bg-muted/50">
             <tr>
