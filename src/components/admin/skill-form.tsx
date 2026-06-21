@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
 type Tab = "write" | "upload";
@@ -22,17 +23,20 @@ export function SkillForm({ open, onClose, skill }: Props) {
   const [name, setName] = useState(skill?.name ?? "");
   const [description, setDescription] = useState(skill?.description ?? "");
   const [content, setContent] = useState(skill?.content ?? "");
+  const [enabled, setEnabled] = useState(skill?.enabled ?? true);
 
   useEffect(() => {
     setName(skill?.name ?? "");
     setDescription(skill?.description ?? "");
     setContent(skill?.content ?? "");
+    setEnabled(skill?.enabled ?? true);
     setTab("write");
     setError(null);
   }, [skill, open]);
 
   function handleSave(formData: FormData) {
     setError(null);
+    formData.set("enabled", String(enabled));
     startTransition(async () => {
       try {
         if (skill) await updateSkill(skill.id, formData);
@@ -177,9 +181,11 @@ export function SkillForm({ open, onClose, skill }: Props) {
                   className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm font-mono resize-y shadow-[0_1px_4px_rgba(15,23,42,0.06)] focus:border-[var(--color-primary)] focus:outline-none"
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <input id="sk-enabled" name="enabled" type="checkbox" value="true" defaultChecked={skill?.enabled ?? true} className="h-4 w-4 rounded" />
-                <Label htmlFor="sk-enabled">Enabled</Label>
+              <div className="flex items-center gap-2.5 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
+                <Switch id="sk-enabled" checked={enabled} onCheckedChange={setEnabled} aria-label="Enabled" />
+                <Label htmlFor="sk-enabled" className="cursor-pointer text-sm font-medium normal-case tracking-normal text-muted-foreground">
+                  Enabled
+                </Label>
               </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
               <div className="admin-form-footer">
