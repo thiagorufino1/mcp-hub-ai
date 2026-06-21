@@ -8,6 +8,7 @@ export type AuditAction =
   | "mcp.delete"
   | "mcp.enable"
   | "mcp.disable"
+  | "mcp.refresh"
   | "mcp.tool.enable"
   | "mcp.tool.disable"
   | "mcp.tool.permission"

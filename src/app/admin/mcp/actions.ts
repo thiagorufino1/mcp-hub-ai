@@ -204,8 +204,16 @@ export async function setMcpEnabled(id: string, enabled: boolean): Promise<void>
 export async function refreshMcpConfig(
   id: string,
 ): Promise<{ ok: boolean; status?: string; error?: string }> {
-  await requireAdmin();
+  const user = await requireAdmin();
   const result = await inspectMcpConfig(id, true);
+  logAudit({
+    userId: user.id,
+    userEmail: user.email ?? undefined,
+    action: "mcp.refresh",
+    resource: "McpServer",
+    resourceId: id,
+    metadata: { ok: result.ok },
+  });
   revalidatePath("/admin/mcp");
   return result;
 }
