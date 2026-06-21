@@ -671,14 +671,17 @@ textarea {
   animation: pulse-dot 1.4s ease-in-out infinite;
 }
 
-/* ── Input backgrounds ── */
-/* Override Tailwind preflight / any reset that makes inputs transparent */
-input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
-textarea {
+/* ── Admin form input backgrounds (scoped — does not affect chat UI) ── */
+.admin-dialog input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
+.admin-dialog textarea,
+[data-admin-form] input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
+[data-admin-form] textarea {
   background-color: #ffffff !important;
 }
 
-.dark input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
-.dark textarea {
+.dark .admin-dialog input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
+.dark .admin-dialog textarea,
+.dark [data-admin-form] input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
+.dark [data-admin-form] textarea {
   background-color: var(--color-surface-muted) !important;
 }
