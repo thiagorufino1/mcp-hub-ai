@@ -174,6 +174,40 @@ async function buildWorkspaceServers(
     .filter((server) => server.approvedToolNames.length > 0);
 }
 
+export async function resolveWorkspaceBySlug(
+  slug: string,
+  userId: string,
+  entraGroups: string[],
+): Promise<ResolvedWorkspaceContext | null> {
+  const workspace = await prisma.workspace.findFirst({
+    where: { slug, enabled: true },
+    include: workspaceInclude,
+  });
+  if (!workspace || !canAccess(workspace, userId, entraGroups)) return null;
+
+  const llm =
+    workspace.llmConfig ??
+    (await prisma.llmConfig.findFirst({
+      where: { enabled: true, isDefault: true },
+      orderBy: { createdAt: "asc" },
+    }));
+  const allowedModels = llm?.allowedModels ?? [];
+
+  return {
+    allowedModels,
+    approvalMode: workspace.approvalMode,
+    id: workspace.id,
+    llmConfig: llm ? buildLlmConfig(llm) : null,
+    llmConfigId: llm?.id ?? null,
+    maxSteps: workspace.maxSteps,
+    mcpServers: await buildWorkspaceServers(workspace, userId),
+    name: workspace.name,
+    skills: workspace.skills,
+    starters: workspace.conversationStarters,
+    systemPrompt: workspace.systemPrompt,
+  };
+}
+
 function canAccess(
   resource: {
     groups: Array<{ entraGroupId: string }>;

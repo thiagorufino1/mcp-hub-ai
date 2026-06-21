@@ -7,6 +7,7 @@ import {
 
 import { getUserContext } from "@/lib/user-context";
 import { resolveTokenUser } from "@/lib/token-auth";
+import { resolveWorkspaceBySlug } from "@/lib/workspace-context";
 import { executeGovernedMcpTool } from "@/lib/mcp-governance";
 import {
   getRegisteredToolPermission,
@@ -55,12 +56,34 @@ async function handleProxyRequest(request: Request): Promise<Response> {
     );
   }
 
-  const context = await getUserContext(tokenUser.entraGroups, undefined, tokenUser.userId);
+  const url = new URL(request.url);
+  const workspaceSlug = url.searchParams.get("workspace");
+
+  let proxyServers: McpServerConfig[];
+
+  if (workspaceSlug) {
+    const wsContext = await resolveWorkspaceBySlug(
+      workspaceSlug,
+      tokenUser.userId,
+      tokenUser.entraGroups,
+    );
+    if (!wsContext) {
+      return new Response(
+        JSON.stringify({ error: "Workspace not found or not accessible." }),
+        { status: 404, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    proxyServers = wsContext.mcpServers;
+  } else {
+    const context = await getUserContext(tokenUser.entraGroups, undefined, tokenUser.userId);
+    proxyServers = context.mcpServers;
+  }
+
   const traceId = request.headers.get("x-request-id") ?? crypto.randomUUID();
 
   // Build a map from sanitized-server-id → original McpServerConfig
   const serverMap = new Map<string, McpServerConfig>(
-    context.mcpServers.map((s) => [sanitizeToken(s.id), s]),
+    proxyServers.map((s) => [sanitizeToken(s.id), s]),
   );
 
   const server = new Server(
@@ -80,7 +103,7 @@ async function handleProxyRequest(request: Request): Promise<Response> {
       };
     }[] = [];
 
-    for (const mcpServer of context.mcpServers) {
+    for (const mcpServer of proxyServers) {
       try {
         const resolvedServer = await resolveMcpServerTools(mcpServer);
         for (const tool of resolvedServer.tools) {
