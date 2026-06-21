@@ -1,15 +1,27 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 import { saveWorkspace, type WorkspaceRow } from "@/app/admin/workspaces/actions";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 
 type Option = { id: string; name: string };
+
+const BORDER = "border-[var(--color-border)]";
+const CARD = `rounded-2xl border ${BORDER} bg-[var(--color-surface)] p-4`;
+const SECTION_LABEL = "text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3";
+const SELECT_CLS = `h-10 w-full rounded-xl border ${BORDER} bg-white dark:bg-[var(--color-surface-muted)] px-3 py-2 text-sm shadow-[0_1px_4px_rgba(15,23,42,0.04)] focus:border-[var(--color-primary)] focus:outline-none`;
 
 export function WorkspaceForm({
   groups,
@@ -32,12 +44,23 @@ export function WorkspaceForm({
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const selectedGroups = new Set(workspace?.groups.map((group) => group.id) ?? []);
-  const selectedSkills = new Set(workspace?.skills.map((skill) => skill.id) ?? []);
-  const selectedUsers = new Set(workspace?.users.map((user) => user.id) ?? []);
+  const [enabled, setEnabled] = useState(workspace?.enabled ?? true);
+  const [isDefault, setIsDefault] = useState(workspace?.isDefault ?? false);
+
+  useEffect(() => {
+    setEnabled(workspace?.enabled ?? true);
+    setIsDefault(workspace?.isDefault ?? false);
+    setError(null);
+  }, [workspace, open]);
+
+  const selectedGroups = new Set(workspace?.groups.map((g) => g.id) ?? []);
+  const selectedSkills = new Set(workspace?.skills.map((s) => s.id) ?? []);
+  const selectedUsers = new Set(workspace?.users.map((u) => u.id) ?? []);
 
   function submit(formData: FormData) {
     setError(null);
+    formData.set("enabled", String(enabled));
+    formData.set("isDefault", String(isDefault));
     startTransition(async () => {
       try {
         await saveWorkspace(formData);
@@ -49,80 +72,164 @@ export function WorkspaceForm({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(value) => { if (!value) onClose(); }}>
-      <DialogContent className="admin-dialog max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{workspace ? "Edit workspace" : "Add workspace"}</DialogTitle>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent
+        className={`max-w-2xl gap-0 overflow-hidden rounded-2xl border ${BORDER} bg-[var(--color-surface)] p-0 shadow-[0_20px_48px_rgba(15,23,42,0.10)]`}
+      >
+        <DialogHeader className={`border-b ${BORDER} bg-[var(--color-surface)] px-6 py-4`}>
+          <DialogTitle className="text-base font-semibold">
+            {workspace ? "Edit workspace" : "Add workspace"}
+          </DialogTitle>
         </DialogHeader>
-        <form action={submit} className="flex flex-col gap-4">
+
+        <form action={submit}>
           <input type="hidden" name="id" value={workspace?.id ?? ""} />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Name" name="name" value={workspace?.name} required />
-            <Field label="Slug" name="slug" value={workspace?.slug} required />
-          </div>
-          <TextField label="Description" name="description" value={workspace?.description} rows={2} />
-          <TextField label="System prompt" name="systemPrompt" value={workspace?.systemPrompt} rows={5} />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <SelectField label="Namespace" name="namespaceId" value={workspace?.namespaceId} options={namespaces} />
-            <SelectField
-              label="LLM configuration"
-              name="llmConfigId"
-              value={workspace?.llmConfigId}
-              options={llms.map((llm) => ({ id: llm.id, name: llm.displayName }))}
-            />
-            <Field label="Preferred model" name="model" value={workspace?.model} />
-            <Field label="Maximum agent steps" name="maxSteps" value={String(workspace?.maxSteps ?? 6)} type="number" required />
-          </div>
-          <TextField
-            label="Conversation starters (one per line)"
-            name="conversationStarters"
-            value={workspace?.conversationStarters.join("\n")}
-            rows={4}
-          />
-          <CheckList label="Skills" name="skillIds" options={skills} selected={selectedSkills} />
-          <CheckList
-            label="Allowed groups"
-            name="groupIds"
-            options={groups.map((group) => ({ id: group.id, name: group.displayName }))}
-            selected={selectedGroups}
-          />
-          <CheckList
-            label="Allowed users"
-            name="userIds"
-            options={users.map((user) => ({
-              id: user.id,
-              name: user.name || user.email || user.id,
-            }))}
-            selected={selectedUsers}
-          />
-          <div className="flex flex-wrap gap-4">
-            <Check name="enabled" label="Enabled" checked={workspace?.enabled ?? true} />
-            <Check name="isDefault" label="Default workspace" checked={workspace?.isDefault ?? false} />
-          </div>
           <input type="hidden" name="approvalMode" value="risk_based" />
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
-          <div className="admin-form-footer">
+
+          <div className="app-scroll flex max-h-[calc(90vh-160px)] flex-col gap-5 overflow-y-auto bg-[var(--color-bg)] px-6 py-5">
+
+            {/* Basics */}
+            <div className={CARD}>
+              <p className={SECTION_LABEL}>Basics</p>
+              <div className="space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="ws-name">Name *</Label>
+                    <Input id="ws-name" name="name" defaultValue={workspace?.name ?? ""} required />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="ws-slug">Slug *</Label>
+                    <Input id="ws-slug" name="slug" defaultValue={workspace?.slug ?? ""} required />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="ws-desc">Description</Label>
+                  <Input id="ws-desc" name="description" defaultValue={workspace?.description ?? ""} />
+                </div>
+              </div>
+            </div>
+
+            {/* AI Config */}
+            <div className={CARD}>
+              <p className={SECTION_LABEL}>AI Configuration</p>
+              <div className="space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="ws-llm">LLM configuration</Label>
+                    <select id="ws-llm" name="llmConfigId" defaultValue={workspace?.llmConfigId ?? ""} className={SELECT_CLS}>
+                      <option value="">Automatic / none</option>
+                      {llms.map((l) => <option key={l.id} value={l.id}>{l.displayName}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="ws-ns">Namespace</Label>
+                    <select id="ws-ns" name="namespaceId" defaultValue={workspace?.namespaceId ?? ""} className={SELECT_CLS}>
+                      <option value="">Automatic / none</option>
+                      {namespaces.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="ws-model">Preferred model</Label>
+                    <Input id="ws-model" name="model" defaultValue={workspace?.model ?? ""} placeholder="e.g. gpt-4o" />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="ws-steps">Max agent steps</Label>
+                    <Input id="ws-steps" name="maxSteps" type="number" defaultValue={String(workspace?.maxSteps ?? 6)} required min={1} max={12} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Behavior */}
+            <div className={CARD}>
+              <p className={SECTION_LABEL}>Behavior</p>
+              <div className="space-y-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="ws-prompt">System prompt</Label>
+                  <Textarea id="ws-prompt" name="systemPrompt" defaultValue={workspace?.systemPrompt ?? ""} rows={5} placeholder="You are a helpful assistant..." />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="ws-starters">Conversation starters (one per line)</Label>
+                  <Textarea id="ws-starters" name="conversationStarters" defaultValue={workspace?.conversationStarters.join("\n") ?? ""} rows={3} placeholder={"Summarize recent PRs\nCreate a status report"} />
+                </div>
+              </div>
+            </div>
+
+            {/* Skills */}
+            {skills.length > 0 && (
+              <div className={CARD}>
+                <p className={SECTION_LABEL}>Skills</p>
+                <div className="flex max-h-44 flex-col gap-2 overflow-y-auto">
+                  {skills.map((s) => (
+                    <label key={s.id} className="flex items-center gap-2.5 text-sm font-medium text-[var(--color-text-primary)]">
+                      <input type="checkbox" name="skillIds" value={s.id} defaultChecked={selectedSkills.has(s.id)} className="h-4 w-4 rounded accent-[var(--color-primary)]" />
+                      {s.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Access */}
+            <div className={CARD}>
+              <p className={SECTION_LABEL}>Access control</p>
+              <div className="space-y-4">
+                {groups.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs font-medium text-muted-foreground">Groups</p>
+                    <div className="flex max-h-36 flex-col gap-2 overflow-y-auto">
+                      {groups.map((g) => (
+                        <label key={g.id} className="flex items-center gap-2.5 text-sm font-medium text-[var(--color-text-primary)]">
+                          <input type="checkbox" name="groupIds" value={g.id} defaultChecked={selectedGroups.has(g.id)} className="h-4 w-4 rounded accent-[var(--color-primary)]" />
+                          {g.displayName}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {users.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs font-medium text-muted-foreground">Individual users</p>
+                    <div className="flex max-h-36 flex-col gap-2 overflow-y-auto">
+                      {users.map((u) => (
+                        <label key={u.id} className="flex items-center gap-2.5 text-sm font-medium text-[var(--color-text-primary)]">
+                          <input type="checkbox" name="userIds" value={u.id} defaultChecked={selectedUsers.has(u.id)} className="h-4 w-4 rounded accent-[var(--color-primary)]" />
+                          {u.name ?? u.email ?? u.id}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {groups.length === 0 && users.length === 0 && (
+                  <p className="text-sm text-muted-foreground">No groups or users configured. Workspace will be available to all authenticated users.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Settings */}
+            <div className={CARD}>
+              <p className={SECTION_LABEL}>Settings</p>
+              <div className="space-y-3">
+                <div className={`flex items-center gap-2.5 rounded-xl border ${BORDER} px-4 py-3`}>
+                  <Switch id="ws-enabled" checked={enabled} onCheckedChange={setEnabled} aria-label="Enabled" />
+                  <Label htmlFor="ws-enabled" className="cursor-pointer text-sm font-medium normal-case tracking-normal text-muted-foreground">Enabled</Label>
+                </div>
+                <div className={`flex items-center gap-2.5 rounded-xl border ${BORDER} px-4 py-3`}>
+                  <Switch id="ws-default" checked={isDefault} onCheckedChange={setIsDefault} aria-label="Default workspace" />
+                  <Label htmlFor="ws-default" className="cursor-pointer text-sm font-medium normal-case tracking-normal text-muted-foreground">Default workspace</Label>
+                </div>
+              </div>
+            </div>
+
+            {error && <p className="text-sm text-destructive">{error}</p>}
+          </div>
+
+          <DialogFooter className={`flex-row items-center justify-end gap-2 border-t ${BORDER} bg-[var(--color-surface)] px-6 py-4`}>
             <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
             <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save"}</Button>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
   );
-}
-
-function Field({ label, name, required, type = "text", value }: { label: string; name: string; required?: boolean; type?: string; value?: string | null }) {
-  return <div className="flex flex-col gap-1"><Label htmlFor={name}>{label}</Label><Input id={name} name={name} type={type} defaultValue={value ?? ""} required={required} /></div>;
-}
-function TextField({ label, name, rows, value }: { label: string; name: string; rows: number; value?: string | null }) {
-  return <div className="flex flex-col gap-1"><Label htmlFor={name}>{label}</Label><Textarea id={name} name={name} rows={rows} defaultValue={value ?? ""} /></div>;
-}
-function SelectField({ label, name, options, value }: { label: string; name: string; options: Option[]; value?: string | null }) {
-  return <div className="flex flex-col gap-1"><Label htmlFor={name}>{label}</Label><select id={name} name={name} defaultValue={value ?? ""} className="h-10 w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm shadow-[0_1px_4px_rgba(15,23,42,0.04)] focus:border-[var(--color-primary)] focus:outline-none"><option value="">Automatic / none</option>{options.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</select></div>;
-}
-function CheckList({ label, name, options, selected }: { label: string; name: string; options: Option[]; selected: Set<string> }) {
-  return <fieldset className="flex flex-col gap-2 rounded-md border p-3"><legend className="px-1 text-sm font-medium">{label}</legend>{options.map((option) => <label key={option.id} className="flex items-center gap-2 text-sm"><input type="checkbox" name={name} value={option.id} defaultChecked={selected.has(option.id)} />{option.name}</label>)}{options.length === 0 ? <p className="text-sm text-muted-foreground">No options available.</p> : null}</fieldset>;
-}
-function Check({ checked, label, name }: { checked: boolean; label: string; name: string }) {
-  return <label className="flex items-center gap-2 text-sm"><input type="checkbox" name={name} value="true" defaultChecked={checked} />{label}</label>;
 }
