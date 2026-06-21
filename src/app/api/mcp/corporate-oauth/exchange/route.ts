@@ -5,6 +5,7 @@ import { discoverMcpOAuth, exchangeMcpOAuthCode } from "@/lib/mcp-oauth";
 import { getUserContext } from "@/lib/user-context";
 import { dbMcpToConfig } from "@/lib/user-context";
 import { resolveMcpServerTools } from "@/lib/mcp-tool-registry";
+import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 import {
   decryptSecret,
@@ -131,6 +132,14 @@ export async function POST(request: Request) {
         },
       );
     }
+
+    logAudit({
+      userId: session.user.id,
+      userEmail: session.user.email ?? undefined,
+      action: "user.oauth.connect",
+      resource: "McpServer",
+      resourceId: body.data.mcpServerId,
+    });
 
     return Response.json({ ok: true });
   } catch (error) {

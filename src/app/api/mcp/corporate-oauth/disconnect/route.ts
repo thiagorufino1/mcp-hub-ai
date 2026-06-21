@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
 const DisconnectSchema = z.object({ mcpServerId: z.string().min(1) });
@@ -17,6 +18,14 @@ export async function POST(request: Request) {
 
   await prisma.userMcpConnection.deleteMany({
     where: { userId: session.user.id, mcpServerId: body.data.mcpServerId },
+  });
+
+  logAudit({
+    userId: session.user.id,
+    userEmail: session.user.email ?? undefined,
+    action: "user.oauth.disconnect",
+    resource: "McpServer",
+    resourceId: body.data.mcpServerId,
   });
 
   return Response.json({ ok: true });
