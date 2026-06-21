@@ -12,8 +12,8 @@ const items = [
   { href: "/admin/workspaces", label: "Workspaces", icon: Boxes },
   { href: "/admin/llm", label: "LLM Config", icon: Bot },
   { href: "/admin/skills", label: "Skills", icon: Layers3 },
-  { href: "/admin/groups", label: "Groups & Access", icon: User },
-  { href: "/admin/audit", label: "MCP Audit", icon: Shield },
+  { href: "/admin/groups", label: "Entra Groups", icon: User },
+  { href: "/admin/audit", label: "Audit Log", icon: Shield },
 ];
 
 export function AdminNavigation() {
