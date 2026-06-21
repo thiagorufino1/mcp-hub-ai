@@ -10,6 +10,7 @@ const items = [
   { href: "/admin", label: "Dashboard", icon: Activity },
   { href: "/admin/mcp", label: "MCP Servers", icon: Cable },
   { href: "/admin/workspaces", label: "Workspaces", icon: Boxes },
+  { href: "/admin/namespaces", label: "Namespaces", icon: Layers3 },
   { href: "/admin/llm", label: "LLM Config", icon: Bot },
   { href: "/admin/skills", label: "Skills", icon: Layers3 },
   { href: "/admin/groups", label: "Entra Groups", icon: User },
