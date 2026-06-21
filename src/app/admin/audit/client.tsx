@@ -166,7 +166,7 @@ export function AuditClient({
           placeholder={tab === "activity" ? "Filter by action, user, resource…" : "Filter by tool, server, source…"}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="h-9 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--color-brand)] w-72"
+          className="h-9 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--color-brand)] w-full sm:w-72"
         />
       </div>
 
