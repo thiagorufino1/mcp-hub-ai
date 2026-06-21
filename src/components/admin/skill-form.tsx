@@ -23,7 +23,6 @@ export function SkillForm({ open, onClose, skill }: Props) {
   const [description, setDescription] = useState(skill?.description ?? "");
   const [content, setContent] = useState(skill?.content ?? "");
 
-  // Sync fields when skill prop changes (e.g. opening a different skill)
   useEffect(() => {
     setName(skill?.name ?? "");
     setDescription(skill?.description ?? "");
@@ -36,11 +35,8 @@ export function SkillForm({ open, onClose, skill }: Props) {
     setError(null);
     startTransition(async () => {
       try {
-        if (skill) {
-          await updateSkill(skill.id, formData);
-        } else {
-          await createSkill(formData);
-        }
+        if (skill) await updateSkill(skill.id, formData);
+        else await createSkill(formData);
         onClose();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to save.");
@@ -85,123 +81,115 @@ export function SkillForm({ open, onClose, skill }: Props) {
           <DialogTitle>{skill ? "Edit Skill" : "Add Skill"}</DialogTitle>
         </DialogHeader>
 
-        {/* Tab switcher — only for new skills */}
-        {!skill && (
-          <div className="flex gap-1 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-1">
-            {(["write", "upload"] as Tab[]).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => { setTab(t); setError(null); }}
+        {/* Single scrollable body — gets padding/bg from .admin-dialog > [data-dialog-body] */}
+        <div data-dialog-body="">
+
+          {/* Tab switcher — only for new skill */}
+          {!skill && (
+            <div className="flex gap-1 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-1">
+              {(["write", "upload"] as Tab[]).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => { setTab(t); setError(null); }}
+                  className={cn(
+                    "flex-1 rounded-xl py-1.5 text-xs font-semibold transition-all",
+                    tab === t
+                      ? "bg-white dark:bg-[var(--color-surface)] shadow-[0_2px_8px_rgba(15,23,42,0.08)] text-[var(--color-text-primary)]"
+                      : "text-muted-foreground hover:text-[var(--color-text-primary)]",
+                  )}
+                >
+                  {t === "write" ? "Write" : "Upload file"}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Upload panel */}
+          {tab === "upload" && !skill && (
+            <>
+              <div
+                role="button"
+                tabIndex={0}
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+                onClick={() => fileRef.current?.click()}
+                onKeyDown={(e) => e.key === "Enter" && fileRef.current?.click()}
                 className={cn(
-                  "flex-1 rounded-xl py-1.5 text-xs font-semibold transition-all",
-                  tab === t
-                    ? "bg-white dark:bg-[var(--color-surface)] shadow-[0_2px_8px_rgba(15,23,42,0.08)] text-[var(--color-text-primary)]"
-                    : "text-muted-foreground hover:text-[var(--color-text-primary)]",
+                  "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-14 text-center transition-colors select-none",
+                  dragOver
+                    ? "border-[var(--color-primary)] bg-[var(--color-primary)]/5"
+                    : "border-[var(--color-border)] hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-surface-muted)]",
+                  isPending && "pointer-events-none opacity-60",
                 )}
               >
-                {t === "write" ? "Write" : "Upload file"}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Upload tab */}
-        {tab === "upload" && !skill && (
-          <div className="flex flex-col gap-4">
-            <div
-              role="button"
-              tabIndex={0}
-              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={handleDrop}
-              onClick={() => fileRef.current?.click()}
-              onKeyDown={(e) => e.key === "Enter" && fileRef.current?.click()}
-              className={cn(
-                "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-14 text-center transition-colors select-none",
-                dragOver
-                  ? "border-[var(--color-primary)] bg-[var(--color-primary)]/5"
-                  : "border-[var(--color-border)] hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-surface-muted)]",
-                isPending && "pointer-events-none opacity-60",
-              )}
-            >
-              <svg className="size-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-              </svg>
-              <div>
-                <p className="text-sm font-medium text-[var(--color-text-secondary)]">
-                  {isPending ? "Parsing…" : "Drag and drop or click to upload"}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">.zip, .md, or .skill — max 5 MB</p>
+                <svg className="size-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                </svg>
+                <div>
+                  <p className="text-sm font-medium text-[var(--color-text-secondary)]">
+                    {isPending ? "Parsing…" : "Drag and drop or click to upload"}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">.zip, .md, or .skill — max 5 MB</p>
+                </div>
               </div>
-            </div>
 
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".zip,.md,.skill"
-              className="sr-only"
-              onChange={handleFileInput}
-            />
+              <input ref={fileRef} type="file" accept=".zip,.md,.skill" className="sr-only" onChange={handleFileInput} />
 
-            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 py-3 text-xs text-muted-foreground">
-              <p className="mb-1 font-medium text-[var(--color-text-secondary)]">File requirements</p>
-              <ul className="list-disc list-inside space-y-0.5">
-                <li>A <code>.md</code> or <code>.skill</code> file may include YAML frontmatter with <code>name</code> and <code>description</code></li>
-                <li>A <code>.zip</code> must contain a <code>SKILL.md</code> file</li>
-              </ul>
-            </div>
+              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 py-3 text-xs text-muted-foreground">
+                <p className="mb-1 font-medium text-[var(--color-text-secondary)]">File requirements</p>
+                <ul className="list-disc list-inside space-y-0.5">
+                  <li>A <code>.md</code> or <code>.skill</code> file may include YAML frontmatter with <code>name</code> and <code>description</code></li>
+                  <li>A <code>.zip</code> must contain a <code>SKILL.md</code> file</li>
+                </ul>
+              </div>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
+              {error && <p className="text-sm text-destructive">{error}</p>}
 
-            <div className="admin-form-footer">
-              <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-            </div>
-          </div>
-        )}
+              <div className="admin-form-footer">
+                <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+              </div>
+            </>
+          )}
 
-        {/* Write tab */}
-        {(tab === "write" || !!skill) && (
-          <form action={handleSave} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="sk-name">Name *</Label>
-              <Input id="sk-name" name="name" value={name} onChange={(e) => setName(e.target.value)} required />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="sk-desc">Description</Label>
-              <Input id="sk-desc" name="description" value={description} onChange={(e) => setDescription(e.target.value)} />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="sk-content">Content (Markdown) *</Label>
-              <textarea
-                id="sk-content"
-                name="content"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                rows={13}
-                required
-                placeholder={"# Skill Name\n\nYou are a helpful assistant that...\n\n## Instructions\n\n- ..."}
-                className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm font-mono resize-y shadow-[0_1px_4px_rgba(15,23,42,0.06)] focus:border-[var(--color-primary)] focus:outline-none"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                id="sk-enabled"
-                name="enabled"
-                type="checkbox"
-                value="true"
-                defaultChecked={skill?.enabled ?? true}
-                className="h-4 w-4 rounded"
-              />
-              <Label htmlFor="sk-enabled">Enabled</Label>
-            </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <div className="admin-form-footer">
-              <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-              <Button type="submit" disabled={isPending}>{isPending ? "Saving…" : "Save"}</Button>
-            </div>
-          </form>
-        )}
+          {/* Write panel */}
+          {(tab === "write" || !!skill) && (
+            <form action={handleSave} className="contents">
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="sk-name">Name *</Label>
+                <Input id="sk-name" name="name" value={name} onChange={(e) => setName(e.target.value)} required />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="sk-desc">Description</Label>
+                <Input id="sk-desc" name="description" value={description} onChange={(e) => setDescription(e.target.value)} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="sk-content">Content (Markdown) *</Label>
+                <textarea
+                  id="sk-content"
+                  name="content"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  rows={13}
+                  required
+                  placeholder={"# Skill Name\n\nYou are a helpful assistant that...\n\n## Instructions\n\n- ..."}
+                  className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm font-mono resize-y shadow-[0_1px_4px_rgba(15,23,42,0.06)] focus:border-[var(--color-primary)] focus:outline-none"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input id="sk-enabled" name="enabled" type="checkbox" value="true" defaultChecked={skill?.enabled ?? true} className="h-4 w-4 rounded" />
+                <Label htmlFor="sk-enabled">Enabled</Label>
+              </div>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              <div className="admin-form-footer">
+                <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+                <Button type="submit" disabled={isPending}>{isPending ? "Saving…" : "Save"}</Button>
+              </div>
+            </form>
+          )}
+
+        </div>
       </DialogContent>
     </Dialog>
   );
