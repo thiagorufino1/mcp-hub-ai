@@ -19,6 +19,15 @@ type ConnectionItem = {
   connection: { status: string; updatedAt: Date } | null;
 };
 
+type NamespaceItem = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  mcpCount: number;
+  endpointUrl: string;
+};
+
 type OAuthStatus = "connected" | "disconnected" | "expired" | "pending" | "error";
 
 function TransportIcon({ transport }: { transport: string }) {
@@ -52,7 +61,7 @@ function StatusBadge({ authType, status }: { authType: string; status: OAuthStat
   );
 }
 
-export function ConnectionsClient({ items }: { items: ConnectionItem[] }) {
+export function ConnectionsClient({ items, namespaces }: { items: ConnectionItem[]; namespaces: NamespaceItem[] }) {
   const [enabledMap, setEnabledMap] = useState<Record<string, boolean>>(
     Object.fromEntries(items.map((i) => [i.id, i.userEnabled])),
   );
@@ -77,6 +86,16 @@ export function ConnectionsClient({ items }: { items: ConnectionItem[] }) {
       ]),
     ),
   );
+
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  function copyEndpoint(id: string, path: string) {
+    const url = `${window.location.origin}${path}`;
+    void navigator.clipboard.writeText(url).then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
+  }
 
   const connect = useCallback(async (mcpId: string) => {
     setStatuses((s) => ({ ...s, [mcpId]: "pending" }));
@@ -224,6 +243,58 @@ export function ConnectionsClient({ items }: { items: ConnectionItem[] }) {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {namespaces.length > 0 && (
+        <div>
+          <div className="portal-page-heading">
+            <h2 className="text-lg font-semibold">Namespace Endpoints</h2>
+            <p className="text-sm text-muted-foreground">
+              MCP endpoints you can add to VS Code or Claude Desktop.
+            </p>
+          </div>
+          <div className="portal-table-shell overflow-x-auto">
+            <table className="w-full text-left text-sm text-[var(--color-text-secondary)]">
+              <thead>
+                <tr>
+                  <th className="px-4 py-3">Namespace</th>
+                  <th className="px-4 py-3">MCPs</th>
+                  <th className="px-4 py-3">Endpoint URL</th>
+                  <th className="px-4 py-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {namespaces.map((ns) => (
+                  <tr key={ns.id} className="border-t border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]/55">
+                    <td className="px-4 py-4">
+                      <p className="font-semibold text-[var(--color-text-secondary)]">{ns.name}</p>
+                      {ns.description && (
+                        <p className="text-xs text-muted-foreground">{ns.description}</p>
+                      )}
+                    </td>
+                    <td className="px-4 py-4 text-xs text-muted-foreground">
+                      {ns.mcpCount} server{ns.mcpCount !== 1 ? "s" : ""}
+                    </td>
+                    <td className="px-4 py-4">
+                      <code className="rounded bg-[var(--color-surface-muted)] px-2 py-1 text-xs font-mono text-muted-foreground">
+                        {ns.endpointUrl}
+                      </code>
+                    </td>
+                    <td className="px-4 py-4 text-right">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => copyEndpoint(ns.id, ns.endpointUrl)}
+                      >
+                        {copiedId === ns.id ? "Copied!" : "Copy URL"}
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

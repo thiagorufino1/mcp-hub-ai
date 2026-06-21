@@ -9,41 +9,33 @@ export const metadata = { title: "My Connections — MCP Hub" };
 export default async function ConnectionsPage() {
   const user = await requireAuth();
 
-  // 1. MCPs via AccessPolicy (groups)
+  // 1. All MCPs the user has access to (workspace + direct namespace)
   const context = await getUserContext(user.groups ?? [], undefined, user.id);
-  const policyMcpIds = new Set(context.mcpServers.map((s) => s.id));
+  const allMcpIds = context.mcpServers.map((s) => s.id);
 
-  // 2. MCPs via workspaces the user has access to → namespace → servers
-  const accessibleWorkspaces = await prisma.workspace.findMany({
+  // 2. Accessible namespaces (for endpoint display)
+  const accessibleNamespaces = await prisma.mcpNamespace.findMany({
     where: {
       enabled: true,
       OR: [
-        { groups: { some: { entraGroupId: { in: user.groups ?? [] } } } },
+        ...(user.groups && user.groups.length > 0
+          ? [{ groups: { some: { entraGroupId: { in: user.groups } } } }]
+          : []),
         { users: { some: { id: user.id } } },
-        // no groups/users = open to all
         { AND: [{ groups: { none: {} } }, { users: { none: {} } }] },
       ],
     },
-    select: { namespaceId: true },
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      description: true,
+      _count: { select: { servers: { where: { enabled: true } } } },
+    },
+    orderBy: { name: "asc" },
   });
 
-  const namespaceIds = accessibleWorkspaces
-    .map((w) => w.namespaceId)
-    .filter((id): id is string => id !== null);
-
-  const namespaceMcpIds: string[] = [];
-  if (namespaceIds.length > 0) {
-    const nsServers = await prisma.namespaceMcpServer.findMany({
-      where: { namespaceId: { in: namespaceIds }, enabled: true },
-      select: { mcpServerId: true },
-    });
-    namespaceMcpIds.push(...nsServers.map((s) => s.mcpServerId));
-  }
-
-  // 3. Merge all unique MCP ids
-  const allMcpIds = [...new Set([...policyMcpIds, ...namespaceMcpIds])];
-
-  // 4. Fetch full MCP records with tool count from registry
+  // 3. Full MCP records with tool count + OAuth status
   const allMcps = await prisma.mcpServer.findMany({
     where: { id: { in: allMcpIds }, enabled: true },
     select: {
@@ -51,17 +43,13 @@ export default async function ConnectionsPage() {
       name: true,
       description: true,
       transport: true,
-      url: true,
       authType: true,
       _count: { select: { registryTools: { where: { enabled: true } } } },
     },
     orderBy: { name: "asc" },
   });
 
-  // 5. Fetch user's existing OAuth connections
-  const oauthIds = allMcps
-    .filter((m) => m.authType === "oauth_delegated")
-    .map((m) => m.id);
+  const oauthIds = allMcps.filter((m) => m.authType === "oauth_delegated").map((m) => m.id);
 
   const [connections, preferences] = await Promise.all([
     oauthIds.length > 0
@@ -70,10 +58,12 @@ export default async function ConnectionsPage() {
           select: { mcpServerId: true, status: true, updatedAt: true, expiresAt: true },
         })
       : [],
-    prisma.userMcpPreference.findMany({
-      where: { userId: user.id, mcpServerId: { in: allMcpIds } },
-      select: { mcpServerId: true, enabled: true },
-    }),
+    allMcpIds.length > 0
+      ? prisma.userMcpPreference.findMany({
+          where: { userId: user.id, mcpServerId: { in: allMcpIds } },
+          select: { mcpServerId: true, enabled: true },
+        })
+      : [],
   ]);
 
   const connectionMap = new Map(connections.map((c) => [c.mcpServerId, c]));
@@ -91,17 +81,23 @@ export default async function ConnectionsPage() {
       toolCount: mcp._count.registryTools,
       userEnabled: preferenceMap.get(mcp.id) ?? true,
       connection: conn
-        ? {
-            status: conn.status === "connected" && isExpired ? "expired" : conn.status,
-            updatedAt: conn.updatedAt,
-          }
+        ? { status: conn.status === "connected" && isExpired ? "expired" : conn.status, updatedAt: conn.updatedAt }
         : null,
     };
   });
 
+  const namespaces = accessibleNamespaces.map((ns) => ({
+    id: ns.id,
+    slug: ns.slug,
+    name: ns.name,
+    description: ns.description,
+    mcpCount: ns._count.servers,
+    endpointUrl: `/api/mcp/namespaces/${ns.slug}`,
+  }));
+
   return (
     <PortalShell isAdmin={user.isAdmin} section="My Connections" userName={user.name}>
-      <ConnectionsClient items={items} />
+      <ConnectionsClient items={items} namespaces={namespaces} />
     </PortalShell>
   );
 }
