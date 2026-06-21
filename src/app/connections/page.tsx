@@ -63,14 +63,21 @@ export default async function ConnectionsPage() {
     .filter((m) => m.authType === "oauth_delegated")
     .map((m) => m.id);
 
-  const connections = oauthIds.length > 0
-    ? await prisma.userMcpConnection.findMany({
-        where: { userId: user.id, mcpServerId: { in: oauthIds } },
-        select: { mcpServerId: true, status: true, updatedAt: true, expiresAt: true },
-      })
-    : [];
+  const [connections, preferences] = await Promise.all([
+    oauthIds.length > 0
+      ? prisma.userMcpConnection.findMany({
+          where: { userId: user.id, mcpServerId: { in: oauthIds } },
+          select: { mcpServerId: true, status: true, updatedAt: true, expiresAt: true },
+        })
+      : [],
+    prisma.userMcpPreference.findMany({
+      where: { userId: user.id, mcpServerId: { in: allMcpIds } },
+      select: { mcpServerId: true, enabled: true },
+    }),
+  ]);
 
   const connectionMap = new Map(connections.map((c) => [c.mcpServerId, c]));
+  const preferenceMap = new Map(preferences.map((p) => [p.mcpServerId, p.enabled]));
 
   const items = allMcps.map((mcp) => {
     const conn = connectionMap.get(mcp.id) ?? null;
@@ -82,6 +89,7 @@ export default async function ConnectionsPage() {
       transport: mcp.transport,
       authType: mcp.authType,
       toolCount: mcp._count.registryTools,
+      userEnabled: preferenceMap.get(mcp.id) ?? true,
       connection: conn
         ? {
             status: conn.status === "connected" && isExpired ? "expired" : conn.status,

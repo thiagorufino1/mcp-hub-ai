@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useTransition } from "react";
 
+import { setMcpEnabled } from "./actions";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Cable, CheckCircle2, Globe, LoaderCircle, TerminalSquare, XCircle } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +15,7 @@ type ConnectionItem = {
   transport: string;
   authType: string;
   toolCount: number;
+  userEnabled: boolean;
   connection: { status: string; updatedAt: Date } | null;
 };
 
@@ -50,6 +53,16 @@ function StatusBadge({ authType, status }: { authType: string; status: OAuthStat
 }
 
 export function ConnectionsClient({ items }: { items: ConnectionItem[] }) {
+  const [enabledMap, setEnabledMap] = useState<Record<string, boolean>>(
+    Object.fromEntries(items.map((i) => [i.id, i.userEnabled])),
+  );
+  const [isPendingToggle, startToggle] = useTransition();
+
+  function handleToggle(mcpId: string, val: boolean) {
+    setEnabledMap((m) => ({ ...m, [mcpId]: val }));
+    startToggle(async () => { await setMcpEnabled(mcpId, val); });
+  }
+
   const [statuses, setStatuses] = useState<Record<string, OAuthStatus>>(
     Object.fromEntries(
       items.map((item) => [
@@ -151,6 +164,7 @@ export function ConnectionsClient({ items }: { items: ConnectionItem[] }) {
                 <th className="px-4 py-3">Transport</th>
                 <th className="px-4 py-3">Tools</th>
                 <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Active</th>
                 <th className="px-4 py-3 text-right">Action</th>
               </tr>
             </thead>
@@ -183,6 +197,14 @@ export function ConnectionsClient({ items }: { items: ConnectionItem[] }) {
                     </td>
                     <td className="px-4 py-4">
                       <StatusBadge authType={item.authType} status={status} />
+                    </td>
+                    <td className="px-4 py-4">
+                      <Switch
+                        checked={enabledMap[item.id] ?? true}
+                        onCheckedChange={(v) => handleToggle(item.id, v)}
+                        disabled={isPendingToggle}
+                        aria-label={`${enabledMap[item.id] ? "Disable" : "Enable"} ${item.name}`}
+                      />
                     </td>
                     <td className="px-4 py-4 text-right">
                       {isOAuth && (

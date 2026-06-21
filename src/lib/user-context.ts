@@ -63,6 +63,15 @@ export async function getUserContext(
       for (const model of policy.allowedModels) modelSet.add(model);
     }
 
+    // Filter out MCPs the user has explicitly disabled
+    if (userId && mcpMap.size > 0) {
+      const prefs = await prisma.userMcpPreference.findMany({
+        where: { userId, mcpServerId: { in: [...mcpMap.keys()] }, enabled: false },
+        select: { mcpServerId: true },
+      });
+      for (const { mcpServerId } of prefs) mcpMap.delete(mcpServerId);
+    }
+
     // Inject per-user OAuth tokens for oauth_delegated MCPs
     if (userId && mcpMap.size > 0) {
       const delegatedHeaders = await resolveDelegatedAuthorizationHeaders(
