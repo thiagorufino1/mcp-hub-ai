@@ -55,7 +55,23 @@ export async function createLlm(formData: FormData): Promise<void> {
     });
   });
 
-  await verifyLlmConfig(llm.id);
+  const result = await verifyLlmConfig(llm.id);
+  if (result.latencyMs != null) {
+    logAudit({
+      userId: user.id,
+      userEmail: user.email ?? undefined,
+      action: "llm.test",
+      resource: "LlmConfig",
+      resourceId: llm.id,
+      metadata: {
+        ok: result.ok,
+        latencyMs: result.latencyMs,
+        inputTokens: result.usage?.inputTokens ?? 0,
+        outputTokens: result.usage?.outputTokens ?? 0,
+        totalTokens: result.usage?.totalTokens ?? 0,
+      },
+    });
+  }
   logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "llm.create", resource: "LlmConfig", resourceId: llm.id, metadata: { provider, displayName: formData.get("displayName") as string } });
   revalidatePath("/admin/llm");
 }
@@ -101,6 +117,34 @@ export async function updateLlm(id: string, formData: FormData): Promise<void> {
   revalidatePath("/admin/llm");
 }
 
+export async function setDefaultLlm(id: string, isDefault: boolean): Promise<void> {
+  const user = await requireAdmin();
+
+  await prisma.$transaction(async (tx) => {
+    if (isDefault) {
+      await tx.llmConfig.updateMany({
+        where: { id: { not: id }, isDefault: true },
+        data: { isDefault: false },
+      });
+    }
+
+    await tx.llmConfig.update({
+      where: { id },
+      data: { isDefault },
+    });
+  });
+
+  logAudit({
+    userId: user.id,
+    userEmail: user.email ?? undefined,
+    action: "llm.default",
+    resource: "LlmConfig",
+    resourceId: id,
+    metadata: { isDefault },
+  });
+  revalidatePath("/admin/llm");
+}
+
 export async function deleteLlm(id: string): Promise<void> {
   const user = await requireAdmin();
   const existing = await prisma.llmConfig.findUnique({ where: { id }, select: { displayName: true } });
@@ -114,14 +158,27 @@ export async function testLlmConfig(
 ): Promise<{ ok: boolean; error?: string }> {
   const user = await requireAdmin();
   const result = await verifyLlmConfig(id);
-  logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "llm.test", resource: "LlmConfig", resourceId: id, metadata: { ok: result.ok } });
+  logAudit({
+    userId: user.id,
+    userEmail: user.email ?? undefined,
+    action: "llm.test",
+    resource: "LlmConfig",
+    resourceId: id,
+    metadata: {
+      ok: result.ok,
+      latencyMs: result.latencyMs ?? 0,
+      inputTokens: result.usage?.inputTokens ?? 0,
+      outputTokens: result.usage?.outputTokens ?? 0,
+      totalTokens: result.usage?.totalTokens ?? 0,
+    },
+  });
   revalidatePath("/admin/llm");
   return result;
 }
 
 async function verifyLlmConfig(
   id: string,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; latencyMs?: number; usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number } }> {
   const llm = await prisma.llmConfig.findUnique({ where: { id } });
   if (!llm) return { ok: false, error: "LLM configuration not found." };
 
@@ -129,16 +186,28 @@ async function verifyLlmConfig(
   if (!config) return { ok: false, error: "LLM configuration is incomplete." };
 
   try {
-    await generateText({
+    const startedAt = Date.now();
+    const result = await generateText({
       model: getModel(config),
       messages: [{ role: "user", content: 'Say "ok" in exactly one word.' }],
       maxOutputTokens: 16,
     });
+    const usage = result.usage;
     await prisma.llmConfig.update({
       where: { id },
       data: { lastTestAt: new Date(), lastTestStatus: "connected" },
     });
-    return { ok: true };
+    return {
+      ok: true,
+      latencyMs: Date.now() - startedAt,
+      usage: usage
+        ? {
+            inputTokens: usage.inputTokens ?? 0,
+            outputTokens: usage.outputTokens ?? 0,
+            totalTokens: usage.totalTokens ?? 0,
+          }
+        : undefined,
+    };
   } catch (error) {
     await prisma.llmConfig.update({
       where: { id },
@@ -147,6 +216,7 @@ async function verifyLlmConfig(
     return {
       ok: false,
       error: error instanceof Error ? error.message : "Connection test failed.",
+      latencyMs: 0,
     };
   }
 }

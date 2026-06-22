@@ -14,6 +14,7 @@ import {
   isRegisteredToolEnabled,
   resolveMcpServerTools,
 } from "@/lib/mcp-tool-registry";
+import { logAudit } from "@/lib/audit";
 import type { McpServerConfig } from "@/types/mcp";
 
 function extractBearer(request: Request): string | null {
@@ -76,7 +77,7 @@ async function handleProxyRequest(request: Request): Promise<Response> {
     proxyServers = wsContext.mcpServers;
   } else {
     const context = await getUserContext(tokenUser.entraGroups, undefined, tokenUser.userId);
-    proxyServers = context.mcpServers;
+    proxyServers = context.mcpServers.filter((server) => server.enabled);
   }
 
   const traceId = request.headers.get("x-request-id") ?? crypto.randomUUID();
@@ -92,6 +93,21 @@ async function handleProxyRequest(request: Request): Promise<Response> {
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
+    logAudit({
+      userId: tokenUser.userId,
+      userEmail: tokenUser.userEmail ?? undefined,
+      action: "mcp.proxy",
+      resource: workspaceSlug ? "Workspace" : "McpProxy",
+      resourceId: workspaceSlug ?? undefined,
+      metadata: {
+        traceId,
+        method: request.method,
+        workspaceSlug,
+        proxyServerCount: proxyServers.length,
+        event: "discovery_tools",
+      },
+    });
+
     const allTools: {
       name: string;
       title?: string;
@@ -144,6 +160,22 @@ async function handleProxyRequest(request: Request): Promise<Response> {
         isError: true,
       };
     }
+
+    logAudit({
+      userId: tokenUser.userId,
+      userEmail: tokenUser.userEmail ?? undefined,
+      action: "mcp.proxy",
+      resource: workspaceSlug ? "Workspace" : "McpProxy",
+      resourceId: workspaceSlug ?? undefined,
+      metadata: {
+        traceId,
+        method: request.method,
+        workspaceSlug,
+        serverId: mcpServer.id,
+        toolName: parsed.toolName,
+        event: "tool_used",
+      },
+    });
 
     if (!(await isRegisteredToolEnabled(mcpServer.id, parsed.toolName))) {
       return {

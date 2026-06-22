@@ -38,12 +38,12 @@ export default async function SettingsPage() {
     )
     .map((namespace) => ({
       name: namespace.name,
-      slug: namespace.slug,
-      url: `${protocol}://${host}/api/mcp/namespaces/${namespace.slug}`,
+      alias: namespace.alias,
+      url: `${protocol}://${host}/api/mcp/namespaces/${namespace.alias}`,
     }));
 
   return (
-    <PortalShell isAdmin={user.isAdmin} section="Settings" userName={user.name}>
+    <PortalShell isAdmin={user.isAdmin} section="Settings" showUserNavigation userName={user.name}>
       <SettingsClient namespaceEndpoints={namespaceEndpoints} tokens={tokens} proxyUrl={proxyUrl} />
     </PortalShell>
   );

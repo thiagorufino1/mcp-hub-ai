@@ -11,7 +11,7 @@ import type { TokenRow } from "./actions";
 type Props = {
   tokens: TokenRow[];
   proxyUrl: string;
-  namespaceEndpoints: Array<{ name: string; slug: string; url: string }>;
+  namespaceEndpoints: Array<{ name: string; alias: string; url: string }>;
 };
 
 export function SettingsClient({ namespaceEndpoints, tokens, proxyUrl }: Props) {
@@ -34,7 +34,7 @@ export function SettingsClient({ namespaceEndpoints, tokens, proxyUrl }: Props) 
   }
 
   return (
-    <div className="portal-page max-w-4xl">
+    <div className="portal-page">
       <div className="portal-page-heading">
         <h1 className="text-2xl font-bold">Settings</h1>
         <p className="text-sm text-muted-foreground">Manage your personal API tokens for MCP proxy access.</p>
@@ -46,7 +46,7 @@ export function SettingsClient({ namespaceEndpoints, tokens, proxyUrl }: Props) 
           {namespaceEndpoints.map((namespace) => {
             const config = JSON.stringify({
               mcpServers: {
-                [namespace.slug]: {
+                [namespace.alias]: {
                   type: "http",
                   url: namespace.url,
                   headers: { Authorization: "Bearer <your-token>" },
@@ -61,7 +61,7 @@ export function SettingsClient({ namespaceEndpoints, tokens, proxyUrl }: Props) 
                 password: true,
               }],
               servers: {
-                [namespace.slug]: {
+                [namespace.alias]: {
                   type: "http",
                   url: namespace.url,
                   headers: { Authorization: "Bearer ${input:mcpHubToken}" },
@@ -69,7 +69,7 @@ export function SettingsClient({ namespaceEndpoints, tokens, proxyUrl }: Props) 
               },
             }, null, 2);
             return (
-              <details key={namespace.slug} className="rounded-md border p-4">
+            <details key={namespace.alias} className="rounded-md border p-4">
                 <summary className="cursor-pointer text-sm font-medium">{namespace.name}</summary>
                 <div className="mt-3 flex flex-col gap-2">
                   <code className="break-all rounded bg-muted px-3 py-2 text-xs">

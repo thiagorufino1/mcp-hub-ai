@@ -5,6 +5,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
+import { logAudit } from "@/lib/audit";
 import { executeGovernedMcpTool } from "@/lib/mcp-governance";
 import { resolveAccessibleNamespace } from "@/lib/mcp-namespace";
 import { resolveTokenUser } from "@/lib/token-auth";
@@ -20,7 +21,7 @@ function extractBearer(request: Request) {
 
 async function handleNamespaceRequest(
   request: Request,
-  context: { params: Promise<{ slug: string }> },
+  context: { params: Promise<{ alias: string }> },
 ): Promise<Response> {
   const bearer = extractBearer(request);
   if (!bearer) {
@@ -34,9 +35,9 @@ async function handleNamespaceRequest(
     return Response.json({ error: "Invalid personal access token." }, { status: 401 });
   }
 
-  const { slug } = await context.params;
+  const { alias } = await context.params;
   const namespace = await resolveAccessibleNamespace(
-    slug,
+    alias,
     tokenUser.userId,
     tokenUser.entraGroups,
   );
@@ -50,19 +51,36 @@ async function handleNamespaceRequest(
   const traceId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const tools = new Map(namespace.tools.map((tool) => [tool.alias, tool]));
   const server = new Server(
-    { name: `${slug}-mcp-server`, version: "1.0.0" },
+    { name: `${alias}-mcp-server`, version: "1.0.0" },
     { capabilities: { tools: {} } },
   );
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: namespace.tools.map((tool) => ({
-      annotations: tool.annotations,
-      description: tool.description,
-      inputSchema: tool.inputSchema,
-      name: tool.alias,
-      title: tool.title,
-    })),
-  }));
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    logAudit({
+      userId: tokenUser.userId,
+        userEmail: tokenUser.userEmail ?? undefined,
+        action: "mcp.namespace",
+        resource: "McpNamespace",
+        resourceId: namespace.id,
+        metadata: {
+          alias,
+          traceId,
+          method: request.method,
+          toolCount: namespace.tools.length,
+        event: "discovery_tools",
+      },
+    });
+
+    return {
+      tools: namespace.tools.map((tool) => ({
+        annotations: tool.annotations,
+        description: tool.description,
+        inputSchema: tool.inputSchema,
+        name: tool.alias,
+        title: tool.title,
+      })),
+    };
+  });
 
   server.setRequestHandler(CallToolRequestSchema, async (toolRequest) => {
     const tool = tools.get(toolRequest.params.name);
@@ -77,6 +95,21 @@ async function handleNamespaceRequest(
     }
 
     try {
+      logAudit({
+        userId: tokenUser.userId,
+        userEmail: tokenUser.userEmail ?? undefined,
+        action: "mcp.namespace",
+        resource: "McpNamespace",
+        resourceId: namespace.id,
+        metadata: {
+          alias,
+          traceId,
+          method: request.method,
+          toolName: toolRequest.params.name,
+          event: "tool_used",
+        },
+      });
+
       const result = await executeGovernedMcpTool(
         {
           ...tool.server,

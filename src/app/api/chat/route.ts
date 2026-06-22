@@ -11,6 +11,7 @@ import { executeGovernedMcpTool } from "@/lib/mcp-governance";
 import { resolveMcpServerTools } from "@/lib/mcp-tool-registry";
 import { resolveWorkspaceContext } from "@/lib/workspace-context";
 import { prisma } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
 import type { ChatStreamEvent, Message, TokenUsage } from "@/types/chat";
 import type { AppLocale } from "@/lib/i18n";
 import type { LLMConfig } from "@/types/llm-config";
@@ -87,7 +88,7 @@ const ChatRequestBodySchema = z.object({
   maxSteps: z.number().int().min(1).max(12).optional(),
   llmConfigId: z.string().min(1).optional(),
   skillContent: z.string().optional(),
-  availableSkills: z.array(z.object({ id: z.string(), name: z.string(), description: z.string().nullable().optional(), content: z.string() })).optional(),
+  availableSkills: z.array(z.object({ id: z.string(), name: z.string(), description: z.string().nullable().optional(), content: z.string().optional() })).optional(),
   llmConfig: z.object({ provider: z.string() }).passthrough().optional(),
 });
 
@@ -191,10 +192,18 @@ export async function POST(request: Request) {
     return streamMockResponse(effectiveBody as ChatRequestBody);
   }
 
-  return streamWithAISDK(effectiveBody as ChatRequestBody, session.user.id);
+  return streamWithAISDK(
+    effectiveBody as ChatRequestBody,
+    session.user.id,
+    session.user.email ?? undefined,
+  );
 }
 
-async function streamWithAISDK(body: ChatRequestBody, userId: string) {
+async function streamWithAISDK(
+  body: ChatRequestBody,
+  userId: string,
+  userEmail?: string,
+) {
   const userPrompt = body.message?.trim();
 
   if (!userPrompt) {
@@ -206,6 +215,7 @@ async function streamWithAISDK(body: ChatRequestBody, userId: string) {
 
   const encoder = new TextEncoder();
   const assistantId = `assistant-${crypto.randomUUID()}`;
+  const startedAt = Date.now();
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -281,6 +291,24 @@ async function streamWithAISDK(body: ChatRequestBody, userId: string) {
             },
           });
         }
+        if (usage) {
+          logAudit({
+            userId: userId,
+            userEmail,
+            action: "llm.chat",
+            resource: "LlmConfig",
+            resourceId: body.llmConfigId ?? body.selectedModel ?? undefined,
+            metadata: {
+              model: describeModel(body.llmConfig),
+              requestId: body.requestId ?? null,
+              inputTokens: usage.inputTokens ?? 0,
+              outputTokens: usage.outputTokens ?? 0,
+              totalTokens: usage.totalTokens ?? 0,
+              latencyMs: Math.max(0, Math.round(Date.now() - startedAt)),
+              workspaceId: body.workspaceId ?? null,
+            },
+          });
+        }
         enqueue({
           type: "message_end",
           id: assistantId,
@@ -305,6 +333,24 @@ async function streamWithAISDK(body: ChatRequestBody, userId: string) {
       Connection: "keep-alive",
     },
   });
+}
+
+function describeModel(config: unknown): string | null {
+  if (!config || typeof config !== "object") return null;
+  const record = config as Record<string, unknown>;
+  const provider = typeof record.provider === "string" ? record.provider : null;
+  if (!provider) return null;
+
+  const model =
+    typeof record.model === "string"
+      ? record.model
+      : typeof record.deployment === "string"
+        ? record.deployment
+        : typeof record.modelId === "string"
+          ? record.modelId
+          : null;
+
+  return model ? `${provider}:${model}` : provider;
 }
 
 async function resolveLiveMcpServers(mcpServers: McpServerConfig[]) {
@@ -332,14 +378,14 @@ async function resolveLiveMcpServers(mcpServers: McpServerConfig[]) {
 }
 
 function buildSkillsPrompt(
-  availableSkills: Array<{ id: string; name: string; description?: string | null; content: string }>,
+  availableSkills: Array<{ id: string; name: string; description?: string | null; content?: string }>,
 ): string {
   if (!availableSkills.length) return "";
 
   const skillBlocks = availableSkills
     .map((s) => {
       const desc = s.description ? ` description="${sanitizePromptValue(s.description, 120)}"` : "";
-      return `<skill name="${sanitizePromptValue(s.name, 80)}"${desc}>\n${s.content}\n</skill>`;
+      return `<skill name="${sanitizePromptValue(s.name, 80)}"${desc}>\n${s.content ?? ""}\n</skill>`;
     })
     .join("\n\n");
 
@@ -358,7 +404,7 @@ function buildConversation(
   customPrompt: string | undefined,
   workspaceSystemPrompt: string | undefined,
   skillContent: string | undefined,
-  availableSkills: Array<{ id: string; name: string; description?: string | null; content: string }> | undefined,
+  availableSkills: Array<{ id: string; name: string; description?: string | null; content?: string }> | undefined,
   messages: Array<Pick<Message, "content" | "role">>,
   mcpServers: McpServerConfig[],
 ): ModelMessage[] {

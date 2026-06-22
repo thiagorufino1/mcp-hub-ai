@@ -14,6 +14,26 @@ export default async function WorkspacesAdminPage() {
         groups: { select: { id: true, displayName: true } },
         skills: { select: { id: true, name: true } },
         users: { select: { id: true, name: true, email: true } },
+        llmConfig: {
+          select: {
+            displayName: true,
+            allowedModels: true,
+          },
+        },
+        namespace: {
+          select: {
+            id: true,
+            name: true,
+            alias: true,
+            enabled: true,
+            _count: {
+              select: {
+                servers: true,
+                tools: true,
+              },
+            },
+          },
+        },
       },
     }),
     prisma.entraGroup.findMany({

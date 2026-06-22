@@ -142,3 +142,20 @@ export async function deleteSkill(id: string): Promise<void> {
   logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "skill.delete", resource: "Skill", resourceId: id });
   revalidatePath("/admin/skills");
 }
+
+export async function setSkillEnabled(id: string, enabled: boolean): Promise<void> {
+  const user = await requireAdmin();
+  await prisma.skill.update({
+    where: { id },
+    data: { enabled },
+  });
+  logAudit({
+    userId: user.id,
+    userEmail: user.email ?? undefined,
+    action: "skill.update",
+    resource: "Skill",
+    resourceId: id,
+    metadata: { enabled },
+  });
+  revalidatePath("/admin/skills");
+}

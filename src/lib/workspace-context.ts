@@ -46,7 +46,13 @@ const workspaceInclude = {
         include: { mcpServer: true },
       },
       tools: {
-        where: { enabled: true, registryTool: { enabled: true } },
+        where: {
+          enabled: true,
+          registryTool: {
+            enabled: true,
+            permissionMode: { not: "blocked" },
+          },
+        },
         include: { registryTool: true },
       },
     },
@@ -157,21 +163,18 @@ async function buildWorkspaceServers(
 
   return workspace.namespace.servers
     .map((entry) => {
-      const config = dbMcpToConfig(entry.mcpServer);
       const authorization = delegatedHeaders.get(entry.mcpServerId);
+      const config = dbMcpToConfig(entry.mcpServer, authorization);
       const tools = toolsByServer.get(entry.mcpServerId) ?? [];
       return {
         ...config,
         approvalMode: "selected" as const,
         approvedToolNames: tools.map((tool) => tool.name),
-        headers: authorization
-          ? { ...(config.headers ?? {}), Authorization: authorization }
-          : config.headers,
         name: entry.alias || config.name,
         tools,
       };
     })
-    .filter((server) => server.approvedToolNames.length > 0);
+    .filter((server) => server.enabled && server.approvedToolNames.length > 0);
 }
 
 export async function resolveWorkspaceBySlug(

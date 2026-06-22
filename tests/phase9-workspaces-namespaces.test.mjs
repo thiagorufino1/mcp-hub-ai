@@ -5,7 +5,7 @@ import test from "node:test";
 const schema = await readFile(new URL("../prisma/schema.prisma", import.meta.url), "utf8");
 const workspaceContext = await readFile(new URL("../src/lib/workspace-context.ts", import.meta.url), "utf8");
 const namespaceContext = await readFile(new URL("../src/lib/mcp-namespace.ts", import.meta.url), "utf8");
-const namespaceRoute = await readFile(new URL("../src/app/api/mcp/namespaces/[slug]/route.ts", import.meta.url), "utf8");
+const namespaceRoute = await readFile(new URL("../src/app/api/mcp/namespaces/[alias]/route.ts", import.meta.url), "utf8");
 const chatRoute = await readFile(new URL("../src/app/api/chat/route.ts", import.meta.url), "utf8");
 const adminActions = await readFile(new URL("../src/app/admin/workspaces/actions.ts", import.meta.url), "utf8");
 const settingsClient = await readFile(new URL("../src/app/settings/client.tsx", import.meta.url), "utf8");
@@ -25,6 +25,7 @@ test("workspace resolution enforces audience and limits tools to its namespace",
   assert.match(workspaceContext, /approvalMode: "selected"/);
   assert.match(workspaceContext, /approvedToolNames: tools\.map/);
   assert.match(workspaceContext, /resolveDelegatedAuthorizationHeaders/);
+  assert.match(workspaceContext, /permissionMode: \{ not: "blocked" \}/);
 });
 
 test("published namespace endpoint authenticates and executes through governance", () => {
@@ -34,6 +35,7 @@ test("published namespace endpoint authenticates and executes through governance
   assert.match(namespaceRoute, /source: "namespace"/);
   assert.match(namespaceRoute, /CHARACTER_LIMIT = 25_000/);
   assert.match(namespaceContext, /published: true/);
+  assert.match(namespaceContext, /permissionMode: \{ not: "blocked" \}/);
 });
 
 test("chat accepts a workspace and applies its prompt, model, skills, tools and step limit", () => {
@@ -45,7 +47,7 @@ test("chat accepts a workspace and applies its prompt, model, skills, tools and 
 
 test("admin composes namespaces and exports client-ready configurations", () => {
   assert.match(adminActions, /normalizeToolAlias/);
-  assert.match(adminActions, /Tool aliases must be unique/);
+  assert.match(adminActions, /Every selected tool requires a valid alias\./);
   assert.match(adminActions, /conversationStarters/);
   assert.match(settingsClient, /Claude Desktop and Cursor configuration/);
   assert.match(settingsClient, /VS Code `\.vscode\/mcp\.json`/);

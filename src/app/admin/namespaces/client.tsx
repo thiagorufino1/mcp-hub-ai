@@ -1,15 +1,19 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import {
   deleteNamespace,
+  setNamespaceEnabled,
+  setNamespacePublished,
   type NamespaceRow,
 } from "@/app/admin/workspaces/actions";
 import { NamespaceForm } from "@/components/admin/namespace-form";
 import { Button } from "@/components/ui/button";
-import { Layers3, PencilLine, Search, Trash2 } from "@/components/ui/icons";
+import { Check, Copy, Layers3, PencilLine, Search, Trash2 } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
 type Option = { id: string; displayName: string };
@@ -28,12 +32,14 @@ export function NamespacesAdminClient({
 }) {
   const [form, setForm] = useState<NamespaceRow | null | undefined>();
   const [search, setSearch] = useState("");
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return q
       ? namespaces.filter((n) =>
-          [n.name, n.slug, n.description].some((v) => v?.toLowerCase().includes(q)),
+          [n.name, n.alias, n.description].some((v) => v?.toLowerCase().includes(q)),
         )
       : namespaces;
   }, [namespaces, search]);
@@ -62,14 +68,25 @@ export function NamespacesAdminClient({
       </div>
 
       <div className="portal-table-shell overflow-x-auto">
-        <table className="w-full min-w-[860px] text-left text-sm text-[var(--color-text-secondary)]">
+        <table className="w-full min-w-[1080px] table-fixed text-left text-sm text-[var(--color-text-secondary)]">
+          <colgroup>
+            <col className="w-[24%]" />
+            <col className="w-[14%]" />
+            <col className="w-[10%]" />
+            <col className="w-[10%]" />
+            <col className="w-[10%]" />
+            <col className="w-[25%]" />
+            <col className="w-[7%]" />
+          </colgroup>
           <thead>
             <tr>
               <th className="px-4 py-3">Namespace</th>
-              <th className="px-4 py-3">MCP Servers</th>
-              <th className="px-4 py-3">Access</th>
-              <th className="px-4 py-3">Endpoint</th>
-              <th className="px-4 py-3 text-right">Actions</th>
+              <th className="px-4 py-3 text-center">MCP Servers</th>
+              <th className="px-4 py-3 text-center">Tools</th>
+              <th className="px-4 py-3 text-center">Enabled</th>
+              <th className="px-4 py-3 text-center">Publish</th>
+              <th className="px-4 py-3 text-center">Endpoint</th>
+              <th className="px-4 py-3 text-center">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -84,71 +101,103 @@ export function NamespacesAdminClient({
                       <Layers3 className="size-4 text-muted-foreground" />
                     </div>
                     <div className="min-w-0">
-                      <p className="font-semibold text-[var(--color-text-secondary)]">{ns.name}</p>
-                      <p className="font-mono text-xs text-muted-foreground">/{ns.slug}</p>
+                      <Link
+                        href={`/admin/namespaces/${ns.id}`}
+                        className="font-semibold text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-primary)] hover:underline"
+                      >
+                        {ns.name}
+                      </Link>
+                      <p className="font-mono text-xs text-muted-foreground">Alias: /{ns.alias}</p>
                     </div>
                   </div>
                 </td>
-                <td className="px-4 py-4 text-xs text-muted-foreground">
-                  {ns.mcpServerIds.length} server{ns.mcpServerIds.length !== 1 ? "s" : ""}
-                </td>
-                <td className="px-4 py-4">
-                  <span
-                    className={cn(
-                      "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium",
-                      ns.allUsers
-                        ? "border-[var(--color-primary)] bg-[var(--color-primary)]/10 text-[var(--color-primary)]"
-                        : "border-[var(--color-border)] bg-[var(--color-surface-muted)] text-muted-foreground",
-                    )}
-                  >
-                    {ns.allUsers
-                      ? "All users"
-                      : `${ns.groups.length} group${ns.groups.length !== 1 ? "s" : ""}`}
-                  </span>
-                </td>
-                <td className="px-4 py-4">
-                  <div className="flex flex-wrap gap-1">
-                    <span
-                      className={cn(
-                        "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium",
-                        ns.published
-                          ? "border-[var(--color-success)] bg-[var(--color-success-soft)] text-[var(--color-success)]"
-                          : "border-[var(--color-border)] bg-[var(--color-surface-muted)] text-muted-foreground",
-                      )}
-                    >
-                      {ns.published ? "published" : "private"}
-                    </span>
-                    {!ns.enabled && (
-                      <span className="inline-flex items-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                        disabled
-                      </span>
-                    )}
+                <td className="px-4 py-4 text-center text-xs text-muted-foreground">
+                  <div>
+                    {ns.mcpServerIds.length} server{ns.mcpServerIds.length !== 1 ? "s" : ""}
                   </div>
-                  <p className="mt-1 font-mono text-[10px] text-muted-foreground">
-                    /api/mcp/namespaces/{ns.slug}
-                  </p>
+                </td>
+                <td className="px-4 py-4 text-center">
+                  <div className="text-xs text-muted-foreground">
+                    {ns.toolsCount} tool{ns.toolsCount !== 1 ? "s" : ""}
+                  </div>
                 </td>
                 <td className="px-4 py-4">
-                  <div className="flex items-center justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-8 rounded-full text-muted-foreground"
-                      onClick={() => setForm(ns)}
-                      title="Edit"
+                  <div className="flex justify-center">
+                    <Switch
+                      checked={ns.enabled}
+                      disabled={pendingId === ns.id}
+                      onCheckedChange={async (enabled) => {
+                        setPendingId(ns.id);
+                        try {
+                          await setNamespaceEnabled(ns.id, enabled);
+                        } finally {
+                          setPendingId(null);
+                        }
+                      }}
+                      aria-label={`${ns.enabled ? "Disable" : "Enable"} ${ns.name}`}
+                    />
+                  </div>
+                </td>
+                <td className="px-4 py-4">
+                  <div className="flex justify-center">
+                    <Switch
+                      checked={ns.published}
+                      disabled={pendingId === ns.id || !ns.enabled}
+                      onCheckedChange={async (published) => {
+                        setPendingId(ns.id);
+                        try {
+                          await setNamespacePublished(ns.id, published);
+                        } finally {
+                          setPendingId(null);
+                        }
+                      }}
+                      aria-label={`${ns.published ? "Unpublish" : "Publish"} ${ns.name}`}
+                    />
+                  </div>
+                </td>
+                <td className="px-4 py-4">
+                  <div className="flex items-center justify-center gap-2">
+                    <p className="min-w-0 truncate font-mono text-xs text-muted-foreground text-center">
+                      /api/mcp/namespaces/{ns.alias}
+                    </p>
+                    <button
+                      type="button"
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 leading-none text-muted-foreground transition-[background-color,color] duration-150 hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)] focus-visible:bg-[var(--color-primary-soft)] focus-visible:text-[var(--color-primary)]"
+                      aria-label={`Copy endpoint for ${ns.name}`}
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(
+                          `${window.location.origin}/api/mcp/namespaces/${ns.alias}`,
+                        );
+                        setCopiedId(ns.id);
+                        window.setTimeout(() => setCopiedId((current) => (current === ns.id ? null : current)), 1600);
+                      }}
                     >
-                      <PencilLine />
-                    </Button>
+                      {copiedId === ns.id ? (
+                        <Check className="size-4" aria-hidden="true" />
+                      ) : (
+                        <Copy className="size-4" aria-hidden="true" />
+                      )}
+                    </button>
+                  </div>
+                </td>
+                <td className="px-4 py-4">
+                  <div className="flex items-center justify-center gap-1">
+                    <Link
+                      href={`/admin/namespaces/${ns.id}`}
+                      className="inline-flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full border-0 bg-transparent p-0 leading-none text-muted-foreground transition-[background-color,color] duration-150 hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)] focus-visible:bg-[var(--color-primary-soft)] focus-visible:text-[var(--color-primary)]"
+                      title="Edit"
+                      aria-label={`Edit ${ns.name}`}
+                    >
+                      <PencilLine className="size-4" aria-hidden="true" />
+                    </Link>
                     <form action={async () => { await deleteNamespace(ns.id); }}>
-                      <Button
+                      <button
                         type="submit"
-                        variant="ghost"
-                        size="icon"
-                        className="size-8 rounded-full text-[var(--color-error)] hover:bg-[var(--color-error-soft)]"
+                        className="inline-flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full border-0 bg-transparent p-0 leading-none text-[var(--color-error)] transition-[background-color,color] duration-150 hover:bg-[var(--color-error-soft)] hover:text-[var(--color-error)] focus-visible:bg-[var(--color-error-soft)] focus-visible:text-[var(--color-error)]"
                         title="Delete"
                       >
-                        <Trash2 />
-                      </Button>
+                        <Trash2 className="size-4" aria-hidden="true" />
+                      </button>
                     </form>
                   </div>
                 </td>
@@ -156,7 +205,7 @@ export function NamespacesAdminClient({
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-12 text-center">
+                <td colSpan={7} className="px-4 py-12 text-center">
                   <p className="font-semibold">
                     {namespaces.length === 0 ? "No namespaces configured" : "No namespaces found"}
                   </p>
@@ -177,7 +226,6 @@ export function NamespacesAdminClient({
         namespace={form ?? undefined}
         groups={groups}
         mcpServers={mcpServers}
-        users={users}
         onClose={() => setForm(undefined)}
       />
     </div>

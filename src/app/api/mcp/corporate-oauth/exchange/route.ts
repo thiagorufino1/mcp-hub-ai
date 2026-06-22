@@ -9,7 +9,6 @@ import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 import {
   decryptSecret,
-  decryptSecretJson,
   encryptSecret,
 } from "@/lib/secret-crypto";
 
@@ -116,13 +115,10 @@ export async function POST(request: Request) {
       where: { id: body.data.mcpServerId },
     });
     if (linkedServer) {
-      const linkedConfig = dbMcpToConfig({
-        ...linkedServer,
-        headers: {
-          ...decryptSecretJson(linkedServer.headers),
-          Authorization: `${result.tokenType ?? "Bearer"} ${result.accessToken}`,
-        },
-      });
+      const linkedConfig = dbMcpToConfig(
+        linkedServer,
+        `${result.tokenType ?? "Bearer"} ${result.accessToken}`,
+      );
       await resolveMcpServerTools(linkedConfig, { forceRefresh: true }).catch(
         (inspectionError) => {
           console.warn(

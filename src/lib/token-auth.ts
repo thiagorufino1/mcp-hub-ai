@@ -7,7 +7,7 @@ export function hashToken(raw: string): string {
 
 export async function resolveTokenUser(
   bearerToken: string,
-): Promise<{ userId: string; entraGroups: string[]; tokenId: string } | null> {
+): Promise<{ userId: string; userEmail: string | null; entraGroups: string[]; tokenId: string } | null> {
   if (!bearerToken || bearerToken.length < 16) return null;
 
   const tokenHash = hashToken(bearerToken);
@@ -15,7 +15,7 @@ export async function resolveTokenUser(
   const record = await prisma.personalToken.findUnique({
     where: { tokenHash },
     include: {
-      user: { select: { id: true, entraGroups: true } },
+      user: { select: { id: true, email: true, entraGroups: true } },
     },
   });
 
@@ -28,6 +28,7 @@ export async function resolveTokenUser(
 
   return {
     userId: record.userId,
+    userEmail: record.user.email,
     entraGroups: record.user.entraGroups,
     tokenId: record.id,
   };

@@ -13,6 +13,7 @@ export default async function AdminNamespacesPage() {
       include: {
         groups: { select: { id: true, displayName: true } },
         users: { select: { id: true, name: true, email: true } },
+        tools: { select: { id: true } },
         servers: { select: { mcpServerId: true } },
       },
     }),
@@ -39,6 +40,7 @@ export default async function AdminNamespacesPage() {
         ...ns,
         allUsers: ns.groups.length === 0 && ns.users.length === 0,
         mcpServerIds: ns.servers.map((s) => s.mcpServerId),
+        toolsCount: ns.tools.length,
       }))}
       users={users}
     />

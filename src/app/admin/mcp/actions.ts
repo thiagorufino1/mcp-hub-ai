@@ -10,6 +10,7 @@ import {
   encryptSecretJson,
 } from "@/lib/secret-crypto";
 import { resolveMcpServerTools } from "@/lib/mcp-tool-registry";
+import { syncNamespaceToolsForMcpServer } from "@/lib/namespace-tool-sync";
 import { discoverMcpOAuth } from "@/lib/mcp-oauth";
 import { dbMcpToConfig } from "@/lib/user-context";
 
@@ -62,6 +63,10 @@ export async function createMcp(formData: FormData): Promise<void> {
   const headersRaw = (formData.get("headers") as string | null) ?? "{}";
   const argsRaw = (formData.get("args") as string | null) ?? "";
   const authType = normalizeAuthType(transport, formData);
+  const headers = sanitizeMcpHeaders(
+    JSON.parse(headersRaw) as Record<string, string>,
+    authType,
+  );
 
   const mcp = await prisma.mcpServer.create({
     data: {
@@ -72,7 +77,7 @@ export async function createMcp(formData: FormData): Promise<void> {
       args: argsRaw ? argsRaw.split("\n").map((a) => a.trim()).filter(Boolean) : [],
       url: transport !== "stdio" ? (formData.get("url") as string) : null,
       env: encryptSecretJson(JSON.parse(envRaw) as Record<string, string>),
-      headers: encryptSecretJson(JSON.parse(headersRaw) as Record<string, string>),
+      headers: encryptSecretJson(headers),
       authType,
       sharedSecret: null,
       oauthClientId:
@@ -109,6 +114,10 @@ export async function updateMcp(id: string, formData: FormData): Promise<void> {
     select: { oauthClientSecret: true, sharedSecret: true },
   });
   const authType = normalizeAuthType(transport, formData);
+  const headers = sanitizeMcpHeaders(
+    JSON.parse(headersRaw) as Record<string, string>,
+    authType,
+  );
 
   await prisma.$transaction([
     prisma.mcpToolRegistry.deleteMany({ where: { mcpServerId: id } }),
@@ -122,7 +131,7 @@ export async function updateMcp(id: string, formData: FormData): Promise<void> {
       args: argsRaw ? argsRaw.split("\n").map((a) => a.trim()).filter(Boolean) : [],
       url: transport !== "stdio" ? (formData.get("url") as string) : null,
       env: encryptSecretJson(JSON.parse(envRaw) as Record<string, string>),
-      headers: encryptSecretJson(JSON.parse(headersRaw) as Record<string, string>),
+      headers: encryptSecretJson(headers),
       authType,
       sharedSecret: null,
       oauthClientId:
@@ -170,6 +179,7 @@ export async function setMcpToolEnabled(
       permissionMode: enabled ? "allow" : "blocked",
     },
   });
+  await syncNamespaceToolsForMcpServer(mcpServerId);
   logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: enabled ? "mcp.tool.enable" : "mcp.tool.disable", resource: "McpToolRegistry", resourceId: toolId, metadata: { mcpServerId } });
   revalidatePath("/admin/mcp");
 }
@@ -187,6 +197,7 @@ export async function setMcpToolPermission(
       permissionMode,
     },
   });
+  await syncNamespaceToolsForMcpServer(mcpServerId);
   logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "mcp.tool.permission", resource: "McpToolRegistry", resourceId: toolId, metadata: { mcpServerId, permissionMode } });
   revalidatePath("/admin/mcp");
 }
@@ -259,6 +270,7 @@ async function inspectMcpConfig(
         error: inspected.errorMessage ?? "MCP connection failed.",
       };
     }
+    await syncNamespaceToolsForMcpServer(id);
     return { ok: true, status: "connected" };
   } catch (error) {
     return {
@@ -273,6 +285,16 @@ function normalizeAuthType(transport: string, formData: FormData) {
   return formData.get("authType") === "oauth_delegated"
     ? "oauth_delegated"
     : "none";
+}
+
+function sanitizeMcpHeaders(
+  headers: Record<string, string>,
+  authType: string,
+) {
+  if (authType !== "oauth_delegated") return headers;
+  return Object.fromEntries(
+    Object.entries(headers).filter(([key]) => key.toLowerCase() !== "authorization"),
+  );
 }
 
 function optionalEncryptedValue(

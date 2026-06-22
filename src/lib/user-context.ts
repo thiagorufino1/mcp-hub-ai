@@ -130,25 +130,10 @@ export async function getUserContext(
       for (const { mcpServerId } of prefs) mcpMap.delete(mcpServerId);
     }
 
-    // Inject per-user OAuth tokens for oauth_delegated MCPs
-    if (userId && mcpMap.size > 0) {
-      const delegatedHeaders = await resolveDelegatedAuthorizationHeaders(
-        userId,
-        [...mcpMap.keys()],
-      );
-      for (const [mcpServerId, authorization] of delegatedHeaders) {
-        const dbMcp = mcpMap.get(mcpServerId);
-        if (dbMcp) {
-          mcpMap.set(mcpServerId, {
-            ...dbMcp,
-            headers: {
-              ...decryptSecretJson(dbMcp.headers),
-              Authorization: authorization,
-            },
-          });
-        }
-      }
-    }
+    const delegatedHeaders =
+      userId && mcpMap.size > 0
+        ? await resolveDelegatedAuthorizationHeaders(userId, [...mcpMap.keys()])
+        : new Map<string, string>();
 
     const llmAllowedSet = new Set(resolvedLlm?.allowedModels ?? []);
     const validatedModel =
@@ -159,7 +144,9 @@ export async function getUserContext(
         : undefined;
 
     return {
-      mcpServers: [...mcpMap.values()].map(dbMcpToConfig),
+      mcpServers: [...mcpMap.values()].map((mcp) =>
+        dbMcpToConfig(mcp, delegatedHeaders.get(mcp.id)),
+      ),
       skills: [...skillMap.values()],
       allowedModels: [...modelSet],
       llmConfig: resolvedLlm ? buildLlmConfig(resolvedLlm, validatedModel) : null,
@@ -184,14 +171,20 @@ export function dbMcpToConfig(mcp: {
   authType: string;
   sharedSecret: string | null;
   enabled: boolean;
-}): McpServerConfig {
-  const baseHeaders = decryptSecretJson(mcp.headers);
-  const delegatedAuthorization =
+}, delegatedAuthorization?: string): McpServerConfig {
+  const storedHeaders = decryptSecretJson(mcp.headers);
+  const baseHeaders =
     mcp.authType === "oauth_delegated"
-      ? baseHeaders.Authorization?.trim()
-      : undefined;
+      ? withoutAuthorizationHeader(storedHeaders)
+      : storedHeaders;
+  const resolvedDelegatedAuthorization = delegatedAuthorization?.trim();
   const resolvedHeaders =
-    mcp.authType === "shared_key" && mcp.sharedSecret
+    mcp.authType === "oauth_delegated" && resolvedDelegatedAuthorization
+      ? {
+          ...baseHeaders,
+          Authorization: resolvedDelegatedAuthorization,
+        }
+      : mcp.authType === "shared_key" && mcp.sharedSecret
       ? {
           ...baseHeaders,
           Authorization: `Bearer ${decryptSecret(mcp.sharedSecret)}`,
@@ -216,12 +209,18 @@ export function dbMcpToConfig(mcp: {
     approvedToolNames: [],
     enabled:
       mcp.enabled &&
-      (mcp.authType !== "oauth_delegated" || Boolean(delegatedAuthorization)),
+      (mcp.authType !== "oauth_delegated" || Boolean(resolvedDelegatedAuthorization)),
     requiresUserAuthorization: mcp.authType === "oauth_delegated",
-    userAuthorizationStatus: delegatedAuthorization ? "connected" : "required",
+    userAuthorizationStatus: resolvedDelegatedAuthorization ? "connected" : "required",
     lastCheckedAt: undefined,
     errorMessage: undefined,
   };
+}
+
+function withoutAuthorizationHeader(headers: Record<string, string>) {
+  return Object.fromEntries(
+    Object.entries(headers).filter(([key]) => key.toLowerCase() !== "authorization"),
+  );
 }
 
 export function buildLlmConfig(

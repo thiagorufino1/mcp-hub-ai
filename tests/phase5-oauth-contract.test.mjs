@@ -43,7 +43,21 @@ test("delegated tokens are only injected while connected and unexpired", () => {
   const userContext = read("src/lib/user-context.ts");
 
   assert.match(userContext, /resolveDelegatedAuthorizationHeaders/);
-  assert.match(userContext, /Authorization:/);
+  assert.match(userContext, /dbMcpToConfig\(mcp,\s*delegatedHeaders\.get\(mcp\.id\)\)/);
+  assert.match(userContext, /withoutAuthorizationHeader\(storedHeaders\)/);
+  assert.match(userContext, /Boolean\(resolvedDelegatedAuthorization\)/);
+});
+
+test("global Authorization headers cannot authenticate delegated OAuth MCPs", () => {
+  const adminActions = read("src/app/admin/mcp/actions.ts");
+  const namespaceContext = read("src/lib/mcp-namespace.ts");
+  const workspaceContext = read("src/lib/workspace-context.ts");
+
+  assert.match(adminActions, /sanitizeMcpHeaders/);
+  assert.match(adminActions, /key\.toLowerCase\(\)\s*!==\s*"authorization"/);
+  assert.match(namespaceContext, /dbMcpToConfig\(entry\.mcpServer,\s*authorization\)/);
+  assert.match(namespaceContext, /if \(config\.enabled\)/);
+  assert.match(workspaceContext, /server\.enabled\s*&&\s*server\.approvedToolNames\.length\s*>\s*0/);
 });
 
 test("connections UI handles blocked and closed OAuth popups", () => {

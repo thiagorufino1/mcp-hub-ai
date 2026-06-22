@@ -13,7 +13,7 @@ const items = [
   { href: "/admin/namespaces", label: "Namespaces", icon: Layers3 },
   { href: "/admin/llm", label: "LLM Config", icon: Bot },
   { href: "/admin/skills", label: "Skills", icon: Layers3 },
-  { href: "/admin/groups", label: "Entra Groups", icon: User },
+  { href: "/admin/groups", label: "Groups", icon: User },
   { href: "/admin/audit", label: "Audit Log", icon: Shield },
 ];
 
@@ -40,9 +40,6 @@ export function AdminNavigation() {
           );
         })}
       </nav>
-      <div className="mt-auto border-t border-border/70 p-3">
-        <Link href="/settings" className="portal-nav-item"><Settings className="size-4" />Personal settings</Link>
-      </div>
     </aside>
   );
 }

@@ -2,15 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { ChatNavigation, type ChatSession } from "@/components/chat/chat-navigation";
 import { ChatThread } from "@/components/chat/chat-thread";
-import { ConversationStarters } from "@/components/chat/conversation-starters";
 import { useAppPreferences } from "@/components/providers/app-preferences-provider";
 import { McpServerDialog } from "@/components/chat/mcp-server-dialog";
 import { MessageComposer } from "@/components/chat/message-composer";
 import { SidebarDrawer } from "@/components/chat/sidebar-drawer";
 import { SidebarTools } from "@/components/chat/sidebar-tools";
 import type { SystemPrompt } from "@/components/chat/system-prompt-section";
-import { Topbar } from "@/components/chat/topbar";
+import { PortalHeader } from "@/components/layout/portal-header";
 import {
   migrateLocalJsonToSession,
   SESSION_LLM_CONFIG_KEY,
@@ -39,6 +39,10 @@ const CUSTOM_PROMPT_KEY = "ai-chat-custom-prompt";
 const STORAGE_VERSION_KEY = "ai-chat-ui-version";
 const STORAGE_BACKUP_PREFIX = "ai-chat-storage-backup";
 const STORAGE_VERSION = "2026-03-30-ui-refresh-5";
+const SESSIONS_INDEX_KEY = "ai-chat-sessions-v1";
+const ACTIVE_SESSION_ID_KEY = "ai-chat-active-session-id";
+const SESSION_DATA_PREFIX = "ai-chat-session-data-";
+const DEV_MODE_KEY = "ai-chat-dev-mode";
 const MCP_REVALIDATION_INTERVAL_MS = 20000;
 const MCP_REVALIDATION_FOCUS_DEBOUNCE_MS = 1500;
 const MCP_REVALIDATION_ERROR_BACKOFF_MS = 45000;
@@ -134,7 +138,15 @@ function normalizeStoredToolEvent(event: Partial<ToolEvent>): ToolEvent | null {
   };
 }
 
-export function ChatShell({ isAdmin = false }: { isAdmin?: boolean }) {
+export function ChatShell({
+  initialWorkspaceId = null,
+  isAdmin = false,
+  userName,
+}: {
+  initialWorkspaceId?: string | null;
+  isAdmin?: boolean;
+  userName?: string | null;
+}) {
   const { locale, t } = useAppPreferences();
   const [toolEvents, setToolEvents] = useState<ToolEvent[]>([]);
   const [mcpServers, setMcpServers] = useState<McpServerConfig[]>([]);
@@ -164,6 +176,9 @@ export function ChatShell({ isAdmin = false }: { isAdmin?: boolean }) {
   const [workspaceStarters, setWorkspaceStarters] = useState<string[]>([]);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [scrollRequest, setScrollRequest] = useState(0);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string>("");
+  const [devMode, setDevMode] = useState(false);
   const currentAssistantIdRef = useRef<string | null>(null);
   const currentRequestIdRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -250,6 +265,42 @@ export function ChatShell({ isAdmin = false }: { isAdmin?: boolean }) {
       // Ignore corrupted local state.
     }
 
+    // Sessions + dev mode init
+    try {
+      setDevMode(localStorage.getItem(DEV_MODE_KEY) === "true");
+
+      const existingActiveId = localStorage.getItem(ACTIVE_SESSION_ID_KEY);
+      if (existingActiveId) {
+        const sessionsJson = localStorage.getItem(SESSIONS_INDEX_KEY);
+        const sessionsList: ChatSession[] = sessionsJson ? JSON.parse(sessionsJson) : [];
+        setSessions(sessionsList);
+        setActiveSessionId(existingActiveId);
+      } else {
+        // First setup — migrate current messages into a session
+        const newId = crypto.randomUUID();
+        const storedMsgs = localStorage.getItem(MESSAGE_STORAGE_KEY);
+        const storedTools = localStorage.getItem(TOOL_EVENT_STORAGE_KEY);
+        const firstUserContent = storedMsgs
+          ? (JSON.parse(storedMsgs) as Array<{ role?: string; content?: string }>)
+              .find((m) => m.role === "user")?.content ?? ""
+          : "";
+        const title = firstUserContent
+          ? firstUserContent.slice(0, 42) + (firstUserContent.length > 42 ? "…" : "")
+          : "Nova Conversa";
+        const newSession: ChatSession = { id: newId, title, createdAt: new Date().toISOString() };
+        setSessions([newSession]);
+        setActiveSessionId(newId);
+        localStorage.setItem(
+          SESSION_DATA_PREFIX + newId,
+          JSON.stringify({ messages: storedMsgs ? JSON.parse(storedMsgs) : [], toolEvents: storedTools ? JSON.parse(storedTools) : [] }),
+        );
+        localStorage.setItem(SESSIONS_INDEX_KEY, JSON.stringify([newSession]));
+        localStorage.setItem(ACTIVE_SESSION_ID_KEY, newId);
+      }
+    } catch {
+      // ignore — sessions are enhancement, not critical
+    }
+
     setIsHydrated(true);
   }, [t]);
 
@@ -282,8 +333,12 @@ export function ChatShell({ isAdmin = false }: { isAdmin?: boolean }) {
         setHasCorporateLlm(data.hasCorporateLlm ?? false);
         setWorkspaceStarters(data.starters ?? []);
         setWorkspaces(data.workspaces ?? []);
-        const defaultWorkspace = data.workspaces?.find((workspace) => workspace.isDefault);
-        if (defaultWorkspace) setSelectedWorkspaceId(defaultWorkspace.id);
+        if (initialWorkspaceId && data.workspaces?.some((w) => w.id === initialWorkspaceId)) {
+          setSelectedWorkspaceId(initialWorkspaceId);
+        } else {
+          const defaultWorkspace = data.workspaces?.find((workspace) => workspace.isDefault);
+          if (defaultWorkspace) setSelectedWorkspaceId(defaultWorkspace.id);
+        }
         if (data.allowedModels?.length > 0) {
           setSelectedModel(data.allowedModels[0]);
         }
@@ -413,6 +468,31 @@ export function ChatShell({ isAdmin = false }: { isAdmin?: boolean }) {
     return grouped;
   }, [messages, toolEvents]);
 
+  function persistSessionData(id: string, msgs: Message[], tools: ToolEvent[], sessionList: ChatSession[]) {
+    if (!id) return;
+    try {
+      localStorage.setItem(SESSION_DATA_PREFIX + id, JSON.stringify({ messages: msgs, toolEvents: tools }));
+      const firstUser = msgs.find((m) => m.role === "user" && m.id !== "assistant-welcome");
+      const title = firstUser?.content
+        ? firstUser.content.slice(0, 42) + (firstUser.content.length > 42 ? "…" : "")
+        : "Nova Conversa";
+      const updated = sessionList.map((s) => (s.id === id ? { ...s, title } : s));
+      localStorage.setItem(SESSIONS_INDEX_KEY, JSON.stringify(updated));
+      setSessions(updated);
+    } catch {
+      // quota exceeded — ignore
+    }
+  }
+
+  function handleDevModeToggle(value: boolean) {
+    setDevMode(value);
+    try {
+      localStorage.setItem(DEV_MODE_KEY, String(value));
+    } catch {
+      // ignore
+    }
+  }
+
   function handleStop() {
     abortControllerRef.current?.abort();
     markCurrentAssistantStopped();
@@ -420,11 +500,72 @@ export function ChatShell({ isAdmin = false }: { isAdmin?: boolean }) {
 
   function handleNewConversation() {
     abortControllerRef.current?.abort();
+    // Save current session before resetting
+    persistSessionData(activeSessionId, messages, toolEvents, sessions);
+    // Create fresh session
+    const newId = crypto.randomUUID();
+    const newSession: ChatSession = { id: newId, title: "Nova Conversa", createdAt: new Date().toISOString() };
+    const nextSessions = [newSession, ...sessions];
+    setSessions(nextSessions);
+    setActiveSessionId(newId);
+    try {
+      localStorage.setItem(SESSION_DATA_PREFIX + newId, JSON.stringify({ messages: [], toolEvents: [] }));
+      localStorage.setItem(SESSIONS_INDEX_KEY, JSON.stringify(nextSessions));
+      localStorage.setItem(ACTIVE_SESSION_ID_KEY, newId);
+    } catch {
+      // ignore
+    }
     setMessages([initialAssistantMessage]);
     setToolEvents([]);
     setScrollRequest((current) => current + 1);
     currentAssistantIdRef.current = null;
     currentRequestIdRef.current = null;
+  }
+
+  function handleSessionSwitch(targetId: string) {
+    if (targetId === activeSessionId) return;
+    persistSessionData(activeSessionId, messages, toolEvents, sessions);
+    try {
+      const raw = localStorage.getItem(SESSION_DATA_PREFIX + targetId);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { messages?: Array<Partial<Message>>; toolEvents?: Array<Partial<ToolEvent>> };
+        const loadedMsgs = (parsed.messages ?? []).map(normalizeStoredMessage).filter(Boolean) as Message[];
+        const loadedTools = (parsed.toolEvents ?? []).map(normalizeStoredToolEvent).filter(Boolean) as ToolEvent[];
+        setMessages(loadedMsgs.length > 0 ? loadedMsgs : [initialAssistantMessage]);
+        setToolEvents(loadedTools);
+      } else {
+        setMessages([initialAssistantMessage]);
+        setToolEvents([]);
+      }
+    } catch {
+      setMessages([initialAssistantMessage]);
+      setToolEvents([]);
+    }
+    setActiveSessionId(targetId);
+    setScrollRequest((current) => current + 1);
+    try {
+      localStorage.setItem(ACTIVE_SESSION_ID_KEY, targetId);
+    } catch {
+      // ignore
+    }
+  }
+
+  function handleSessionDelete(targetId: string) {
+    const nextSessions = sessions.filter((s) => s.id !== targetId);
+    setSessions(nextSessions);
+    try {
+      localStorage.removeItem(SESSION_DATA_PREFIX + targetId);
+      localStorage.setItem(SESSIONS_INDEX_KEY, JSON.stringify(nextSessions));
+    } catch {
+      // ignore
+    }
+    if (targetId === activeSessionId) {
+      if (nextSessions.length > 0) {
+        handleSessionSwitch(nextSessions[0].id);
+      } else {
+        handleNewConversation();
+      }
+    }
   }
 
   async function handleCopySession() {
@@ -1238,109 +1379,85 @@ export function ChatShell({ isAdmin = false }: { isAdmin?: boolean }) {
     selectedWorkspaceId,
     onWorkspaceChange: setSelectedWorkspaceId,
   };
-  const showStarters =
-    messages.length === 1 &&
-    messages[0]?.id === "assistant-welcome" &&
-    toolEvents.length === 0 &&
-    !isStreaming;
-
   return (
-    <div className="flex h-[100dvh] overflow-hidden bg-transparent">
-      <SidebarDrawer
-        isOpen={isSidebarOpen}
-        {...promptProps}
-        {...llmProps}
-        {...corporateProps}
-        onAddServer={() => {
-          setEditingServerId(null);
-          setIsSidebarOpen(false);
-          setIsMcpDialogOpen(true);
-        }}
-        onClose={() => setIsSidebarOpen(false)}
-        onEditServer={(serverId) => {
-          setEditingServerId(serverId);
-          setIsSidebarOpen(false);
-          setIsMcpDialogOpen(true);
-        }}
-        onRemoveServer={handleRemoveServer}
-        onRetestServer={handleRetestServer}
-        onToggleServerEnabled={handleToggleServerEnabled}
-        retestingServerIds={retestingServerIds}
-        togglingServerIds={togglingServerIds}
-        servers={mcpServers}
-      />
-      <McpServerDialog
-        key={`${editingServer?.id ?? "new"}-${isMcpDialogOpen ? "open" : "closed"}`}
-        initialServer={editingServer}
-        isOpen={isMcpDialogOpen}
-        onClose={() => {
-          setIsMcpDialogOpen(false);
-          setEditingServerId(null);
-        }}
-        onSave={handleSaveServer}
-      />
+    <div className="min-h-screen bg-[var(--color-bg)]">
+      {/* Same header as admin pages */}
+      <PortalHeader isAdmin={isAdmin} section="Chat" userName={userName} />
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent">
-        <Topbar
-          isAdmin={isAdmin}
-          onNewConversation={handleNewConversation}
-          onToggleSidebar={() => setIsSidebarOpen(true)}
-          onCopySession={handleCopySession}
+      {/* Same layout container as PortalShell */}
+      <div className="mx-auto flex w-full max-w-[1500px] gap-5 px-4 py-5 lg:px-6">
+        {/* Desktop sidebar — hidden on mobile, portal-sidebar handles sticky + sizing */}
+        <div className="hidden lg:block">
+          <ChatNavigation
+            activeSessionId={activeSessionId}
+            devMode={devMode}
+            isAdmin={isAdmin}
+            onAddServer={() => { setEditingServerId(null); setIsMcpDialogOpen(true); }}
+            onDevModeToggle={handleDevModeToggle}
+            onEditServer={(serverId) => { setEditingServerId(serverId); setIsMcpDialogOpen(true); }}
+            onNewConversation={handleNewConversation}
+            onRemoveServer={handleRemoveServer}
+            onRetestServer={handleRetestServer}
+            onSessionDelete={handleSessionDelete}
+            onSessionSwitch={handleSessionSwitch}
+            onToggleServerEnabled={handleToggleServerEnabled}
+            onWorkspaceChange={setSelectedWorkspaceId}
+            retestingServerIds={retestingServerIds}
+            selectedWorkspaceId={selectedWorkspaceId}
+            servers={mcpServers}
+            sessions={sessions}
+            togglingServerIds={togglingServerIds}
+            workspaces={workspaces}
+          />
+        </div>
+
+        {/* Mobile overlay drawer */}
+        <SidebarDrawer
+          isOpen={isSidebarOpen}
+          {...promptProps}
+          {...llmProps}
+          {...corporateProps}
+          onAddServer={() => { setEditingServerId(null); setIsSidebarOpen(false); setIsMcpDialogOpen(true); }}
+          onClose={() => setIsSidebarOpen(false)}
+          onEditServer={(serverId) => { setEditingServerId(serverId); setIsSidebarOpen(false); setIsMcpDialogOpen(true); }}
+          onRemoveServer={handleRemoveServer}
+          onRetestServer={handleRetestServer}
+          onToggleServerEnabled={handleToggleServerEnabled}
+          retestingServerIds={retestingServerIds}
+          togglingServerIds={togglingServerIds}
+          servers={mcpServers}
         />
-        <div
-          className="relative mx-auto flex min-h-0 w-full max-w-[1500px] justify-center gap-4 px-3 pb-4 pt-4 transition-all duration-300 lg:gap-5 lg:px-4 xl:gap-6 xl:px-5 2xl:gap-8 2xl:px-6"
-          style={{ height: "calc(100dvh - 52px)" }}
+
+        <McpServerDialog
+          key={`${editingServer?.id ?? "new"}-${isMcpDialogOpen ? "open" : "closed"}`}
+          initialServer={editingServer}
+          isOpen={isMcpDialogOpen}
+          onClose={() => { setIsMcpDialogOpen(false); setEditingServerId(null); }}
+          onSave={handleSaveServer}
+        />
+
+        {/* Chat content — same card as portal-content, fixed height so thread scrolls inside */}
+        <main
+          className="portal-content min-w-0 flex-1 overflow-hidden p-0"
+          style={{ height: "calc(100vh - 100px)" }}
         >
-          <aside className="hidden w-[clamp(290px,24vw,340px)] shrink-0 lg:block xl:w-[clamp(300px,24vw,360px)]">
-            <SidebarTools
-              {...promptProps}
-              {...llmProps}
-              {...corporateProps}
-              onAddServer={() => {
-                setEditingServerId(null);
-                setIsMcpDialogOpen(true);
-              }}
-              onEditServer={(serverId) => {
-                setEditingServerId(serverId);
-                setIsMcpDialogOpen(true);
-              }}
-              onRemoveServer={handleRemoveServer}
-              onRetestServer={handleRetestServer}
-              onToggleServerEnabled={handleToggleServerEnabled}
-              retestingServerIds={retestingServerIds}
-              togglingServerIds={togglingServerIds}
-              servers={mcpServers}
-            />
-          </aside>
-          <div className="flex h-full min-h-0 min-w-0 flex-1 max-w-[760px] flex-col overflow-hidden lg:max-w-none">
-            <main className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-transparent">
-              {showStarters ? (
-                <div className="app-scroll overflow-y-auto px-4 pt-4">
-                  <ConversationStarters
-                    disabled={isStreaming}
-                    onSelect={async (prompt) => {
-                      await handleSubmit(prompt);
-                    }}
-                    workspaceStarters={workspaceStarters}
-                  />
-                </div>
-              ) : null}
+          <div className="flex h-full flex-col overflow-hidden">
+            {feedbackError ? (
+              <div role="alert" aria-live="polite"
+                className="mx-4 mt-3 rounded-lg border border-[var(--color-error-soft)] bg-[var(--color-error-soft)]/40 px-3 py-2 text-[12px] text-[var(--color-error)]">
+                {feedbackError}
+              </div>
+            ) : null}
+
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <ChatThread
                 isStreaming={isStreaming}
                 items={items}
                 onFeedback={handleFeedback}
                 scrollRequest={scrollRequest}
               />
-            </main>
-            {feedbackError ? (
-              <div
-                role="alert"
-                aria-live="polite"
-                className="mx-4 mb-2 rounded-lg border border-[var(--color-error-soft)] bg-[var(--color-error-soft)]/40 px-3 py-2 text-[12px] text-[var(--color-error)] sm:mx-6"
-              >
-                {feedbackError}
-              </div>
-            ) : null}
+            </div>
+
             <div className="shrink-0 px-3 pb-4 pt-2 sm:px-5">
               <MessageComposer
                 isSubmitting={isStreaming}
@@ -1351,7 +1468,7 @@ export function ChatShell({ isAdmin = false }: { isAdmin?: boolean }) {
               />
             </div>
           </div>
-        </div>
+        </main>
       </div>
     </div>
   );

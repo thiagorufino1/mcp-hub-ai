@@ -21,7 +21,7 @@ type ConnectionItem = {
 
 type NamespaceItem = {
   id: string;
-  slug: string;
+  alias: string;
   name: string;
   description: string | null;
   mcpCount: number;
@@ -160,7 +160,7 @@ export function ConnectionsClient({ items, namespaces }: { items: ConnectionItem
   }, []);
 
   return (
-    <div className="portal-page max-w-4xl">
+    <div className="portal-page">
       <div className="portal-page-heading flex-row items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">My Connections</h1>

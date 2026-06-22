@@ -4,10 +4,10 @@ import { useMemo, useState } from "react";
 
 import { SkillForm } from "@/components/admin/skill-form";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { BookText, PencilLine, Search, Trash2 } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
-import { deleteSkill, type SkillRow } from "./actions";
+import { deleteSkill, setSkillEnabled, type SkillRow } from "./actions";
 
 type Props = { skills: SkillRow[] };
 
@@ -44,13 +44,19 @@ export function SkillsAdminClient({ skills }: Props) {
       </div>
 
       <div className="portal-table-shell overflow-x-auto">
-        <table className="w-full min-w-[640px] text-left text-sm text-[var(--color-text-secondary)]">
+        <table className="w-full min-w-[980px] table-fixed text-left text-sm text-[var(--color-text-secondary)]">
+          <colgroup>
+            <col className="w-[28%]" />
+            <col className="w-[42%]" />
+            <col className="w-[14%]" />
+            <col className="w-[16%]" />
+          </colgroup>
           <thead>
             <tr>
-              <th className="px-4 py-3">Skill</th>
-              <th className="px-4 py-3">Description</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3 text-right">Actions</th>
+              <th className="px-4 py-3 font-medium">Skill</th>
+              <th className="px-4 py-3 font-medium">Description</th>
+              <th className="px-4 py-3 text-center font-medium">Status</th>
+              <th className="px-4 py-3 text-center font-medium">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -64,44 +70,47 @@ export function SkillsAdminClient({ skills }: Props) {
                     <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[var(--color-surface-muted)]">
                       <BookText className="size-4 text-muted-foreground" />
                     </div>
-                    <p className="font-semibold text-[var(--color-text-secondary)]">{skill.name}</p>
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-[var(--color-text-secondary)]">{skill.name}</p>
+                    </div>
                   </div>
                 </td>
-                <td className="px-4 py-4 text-xs text-muted-foreground">
-                  {skill.description ?? <span className="italic">No description</span>}
-                </td>
-                <td className="px-4 py-4">
-                  <span
-                    className={cn(
-                      "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium",
-                      skill.enabled
-                        ? "border-[var(--color-success)] bg-[var(--color-success-soft)] text-[var(--color-success)]"
-                        : "border-[var(--color-border)] bg-[var(--color-surface-muted)] text-muted-foreground",
-                    )}
-                  >
-                    {skill.enabled ? "enabled" : "disabled"}
+                <td className="px-4 py-4 text-sm text-muted-foreground">
+                  <span className="block max-w-full truncate">
+                    {skill.description ?? <span className="italic">No description</span>}
                   </span>
                 </td>
+                <td className="px-4 py-4 text-center">
+                  <div className="flex justify-center">
+                    <Switch
+                      checked={skill.enabled}
+                      onCheckedChange={async (enabled) => {
+                        await setSkillEnabled(skill.id, enabled);
+                      }}
+                      aria-label={`${skill.enabled ? "Disable" : "Enable"} ${skill.name}`}
+                    />
+                  </div>
+                </td>
                 <td className="px-4 py-4">
-                  <div className="flex items-center justify-end gap-1">
+                  <div className="flex items-center justify-center gap-1">
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="size-8 rounded-full text-muted-foreground"
+                      className="inline-flex size-8 items-center justify-center rounded-full border-0 bg-transparent p-0 leading-none text-muted-foreground transition-[background-color,color] duration-150 hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)] focus-visible:bg-[var(--color-primary-soft)] focus-visible:text-[var(--color-primary)]"
                       onClick={() => setForm({ open: true, skill })}
                       title="Edit"
                     >
-                      <PencilLine />
+                      <PencilLine className="size-4" aria-hidden="true" />
                     </Button>
                     <form action={async () => { await deleteSkill(skill.id); }}>
                       <Button
                         type="submit"
                         variant="ghost"
                         size="icon"
-                        className="size-8 rounded-full text-[var(--color-error)] hover:bg-[var(--color-error-soft)]"
+                        className="inline-flex size-8 items-center justify-center rounded-full border-0 bg-transparent p-0 leading-none text-[var(--color-error)] transition-[background-color,color] duration-150 hover:bg-[var(--color-error-soft)] hover:text-[var(--color-error)] focus-visible:bg-[var(--color-error-soft)] focus-visible:text-[var(--color-error)]"
                         title="Delete"
                       >
-                        <Trash2 />
+                        <Trash2 className="size-4" aria-hidden="true" />
                       </Button>
                     </form>
                   </div>

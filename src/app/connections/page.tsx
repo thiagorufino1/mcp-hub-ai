@@ -27,7 +27,7 @@ export default async function ConnectionsPage() {
     },
     select: {
       id: true,
-      slug: true,
+      alias: true,
       name: true,
       description: true,
       _count: { select: { servers: { where: { enabled: true, mcpServer: { enabled: true } } } } },
@@ -88,15 +88,15 @@ export default async function ConnectionsPage() {
 
   const namespaces = accessibleNamespaces.map((ns) => ({
     id: ns.id,
-    slug: ns.slug,
+    alias: ns.alias,
     name: ns.name,
     description: ns.description,
     mcpCount: ns._count.servers,
-    endpointUrl: `/api/mcp/namespaces/${ns.slug}`,
+    endpointUrl: `/api/mcp/namespaces/${ns.alias}`,
   }));
 
   return (
-    <PortalShell isAdmin={user.isAdmin} section="My Connections" userName={user.name}>
+    <PortalShell isAdmin={user.isAdmin} section="My Connections" showUserNavigation userName={user.name}>
       <ConnectionsClient items={items} namespaces={namespaces} />
     </PortalShell>
   );
