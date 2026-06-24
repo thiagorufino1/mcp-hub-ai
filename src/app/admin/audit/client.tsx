@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Activity, AlertCircle, Search, Zap } from "@/components/ui/icons";
 import { cn, formatTokenCount } from "@/lib/utils";
 
 type AuditLogEntry = {
@@ -31,130 +30,71 @@ type ExecutionEntry = {
   attemptCount: number;
 };
 
-type WorkspaceEntry = {
-  id: string;
-  name: string;
-  slug: string;
-};
-
-type Metrics = {
-  total24h: number;
-  failures24h: number;
-  averageLatency: number;
-};
-
-type ProxyEventType = "discovery_tools" | "tool_used";
-
-const ACTION_COLORS: Record<string, string> = {
-  "mcp.create": "bg-green-100 text-green-800 border-green-200",
-  "mcp.update": "bg-blue-100 text-blue-800 border-blue-200",
-  "mcp.delete": "bg-red-100 text-red-800 border-red-200",
-  "mcp.enable": "bg-green-100 text-green-800 border-green-200",
-  "mcp.disable": "bg-orange-100 text-orange-800 border-orange-200",
-  "mcp.tool.enable": "bg-green-100 text-green-800 border-green-200",
-  "mcp.tool.disable": "bg-orange-100 text-orange-800 border-orange-200",
-  "mcp.tool.permission": "bg-blue-100 text-blue-800 border-blue-200",
-  "mcp.proxy": "bg-cyan-100 text-cyan-800 border-cyan-200",
-  "mcp.namespace": "bg-cyan-100 text-cyan-800 border-cyan-200",
-  "namespace.mcp.add": "bg-green-100 text-green-800 border-green-200",
-  "namespace.mcp.remove": "bg-red-100 text-red-800 border-red-200",
-  "namespace.group.add": "bg-green-100 text-green-800 border-green-200",
-  "namespace.group.remove": "bg-red-100 text-red-800 border-red-200",
-  "namespace.access.update": "bg-slate-100 text-slate-800 border-slate-200",
-  "namespace.tool.enable": "bg-green-100 text-green-800 border-green-200",
-  "namespace.tool.disable": "bg-orange-100 text-orange-800 border-orange-200",
-  "llm.create": "bg-green-100 text-green-800 border-green-200",
-  "llm.update": "bg-blue-100 text-blue-800 border-blue-200",
-  "llm.default": "bg-emerald-100 text-emerald-800 border-emerald-200",
-  "llm.delete": "bg-red-100 text-red-800 border-red-200",
-  "llm.test": "bg-purple-100 text-purple-800 border-purple-200",
-  "llm.chat": "bg-indigo-100 text-indigo-800 border-indigo-200",
-  "skill.create": "bg-green-100 text-green-800 border-green-200",
-  "skill.update": "bg-blue-100 text-blue-800 border-blue-200",
-  "skill.delete": "bg-red-100 text-red-800 border-red-200",
-  "group.upsert": "bg-blue-100 text-blue-800 border-blue-200",
-  "group.delete": "bg-red-100 text-red-800 border-red-200",
-  "workspace.create": "bg-green-100 text-green-800 border-green-200",
-  "workspace.update": "bg-blue-100 text-blue-800 border-blue-200",
-  "workspace.delete": "bg-red-100 text-red-800 border-red-200",
-  "user.mcp.enable": "bg-green-100 text-green-800 border-green-200",
-  "user.mcp.disable": "bg-orange-100 text-orange-800 border-orange-200",
-  "user.oauth.connect": "bg-green-100 text-green-800 border-green-200",
-  "user.oauth.disconnect": "bg-orange-100 text-orange-800 border-orange-200",
-  "user.login": "bg-gray-100 text-gray-800 border-gray-200",
-};
+type WorkspaceEntry = { id: string; name: string; slug: string };
+type Metrics = { total24h: number; failures24h: number; averageLatency: number };
 
 const ADMIN_ACTIVITY_ACTIONS = new Set([
-  "mcp.create",
-  "mcp.update",
-  "mcp.delete",
-  "mcp.enable",
-  "mcp.disable",
-  "mcp.tool.enable",
-  "mcp.tool.disable",
-  "mcp.tool.permission",
-  "namespace.mcp.add",
-  "namespace.mcp.remove",
-  "namespace.group.add",
-  "namespace.group.remove",
-  "namespace.access.update",
-  "namespace.tool.enable",
-  "namespace.tool.disable",
-  "llm.create",
-  "llm.update",
-  "llm.default",
-  "llm.delete",
-  "skill.create",
-  "skill.update",
-  "skill.delete",
-  "group.upsert",
-  "group.delete",
-  "workspace.create",
-  "workspace.update",
-  "workspace.delete",
+  "mcp.create","mcp.update","mcp.delete","mcp.enable","mcp.disable",
+  "mcp.tool.enable","mcp.tool.disable","mcp.tool.permission",
+  "namespace.mcp.add","namespace.mcp.remove","namespace.group.add",
+  "namespace.group.remove","namespace.access.update",
+  "namespace.tool.enable","namespace.tool.disable",
+  "llm.create","llm.update","llm.default","llm.delete",
+  "skill.create","skill.update","skill.delete",
+  "group.upsert","group.delete",
+  "workspace.create","workspace.update","workspace.delete",
 ]);
 
-function isAdminActivity(action: string): boolean {
-  return ADMIN_ACTIVITY_ACTIONS.has(action);
+function actionVariant(action: string): string {
+  if (/create|enable|connect|add|default/.test(action))
+    return "border-[var(--color-success)] bg-[var(--color-success-soft)] text-[var(--color-success)]";
+  if (/delete|disable|disconnect|remove/.test(action))
+    return "border-[var(--color-error)] bg-[var(--color-error-soft)] text-[var(--color-error)]";
+  if (/update|permission|upsert/.test(action))
+    return "border-[var(--color-primary)]/30 bg-[var(--color-primary-soft)] text-[var(--color-primary)]";
+  if (/test|chat|llm|proxy|namespace/.test(action))
+    return "border-[var(--color-border)] bg-[var(--color-surface-muted)] text-muted-foreground";
+  return "border-[var(--color-border)] bg-[var(--color-surface-muted)] text-muted-foreground";
 }
 
 function ActionBadge({ action }: { action: string }) {
-  const cls = ACTION_COLORS[action] ?? "bg-gray-100 text-gray-800 border-gray-200";
   return (
-    <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-mono font-medium", cls)}>
+    <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-mono font-medium", actionVariant(action))}>
       {action}
     </span>
   );
 }
 
-function MetricCard({ title, value }: { title: string; value: number | string }) {
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-3xl font-bold">{value}</p>
-      </CardContent>
-    </Card>
+function StatusBadge({ ok, label }: { ok: boolean; label?: string }) {
+  return ok ? (
+    <span className="inline-flex items-center rounded-full border border-[var(--color-success)] bg-[var(--color-success-soft)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-success)]">
+      {label ?? "success"}
+    </span>
+  ) : (
+    <span className="inline-flex items-center rounded-full border border-[var(--color-error)] bg-[var(--color-error-soft)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-error)]">
+      {label ?? "error"}
+    </span>
   );
 }
 
-function getProxyEventLabel(metadata: Record<string, unknown>): string {
-  const event = metadata.event;
-  if (event === "tool_used") {
-    return "tool utilizada";
-  }
-  if (event === "discovery_tools") {
-    return "discovery tools";
-  }
-  return "mcp event";
+
+function EmptyRow({ cols, message }: { cols: number; message: string }) {
+  return (
+    <tr>
+      <td colSpan={cols} className="px-4 py-12 text-center text-sm text-muted-foreground">{message}</td>
+    </tr>
+  );
 }
 
-function getProxyToolName(metadata: Record<string, unknown>): string {
-  const toolName = metadata.toolName;
-  return typeof toolName === "string" && toolName.length > 0 ? toolName : "—";
+const TH = ({ children, right }: { children: React.ReactNode; right?: boolean }) => (
+  <th className={cn("px-4 py-3 text-left text-[var(--color-text-secondary)]", right && "text-right")}>{children}</th>
+);
+
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 }
+
+type Tab = "activity" | "executions" | "proxy" | "llm";
 
 export function AuditClient({
   auditLogs,
@@ -167,402 +107,283 @@ export function AuditClient({
   workspaces: WorkspaceEntry[];
   metrics: Metrics;
 }) {
-  const [tab, setTab] = useState<"activity" | "executions" | "proxy" | "llm">("activity");
+  const [tab, setTab] = useState<Tab>("activity");
   const [search, setSearch] = useState("");
-  const normalizedSearch = search.toLowerCase();
+  const q = search.toLowerCase();
 
   const filteredLogs = auditLogs.filter(
-    (l) =>
-      isAdminActivity(l.action) &&
-      (!search ||
-        l.action.toLowerCase().includes(normalizedSearch) ||
-        (l.userEmail ?? "").toLowerCase().includes(normalizedSearch) ||
-        l.resource.toLowerCase().includes(normalizedSearch)),
+    (l) => ADMIN_ACTIVITY_ACTIONS.has(l.action) &&
+      (!q || l.action.toLowerCase().includes(q) || (l.userEmail ?? "").toLowerCase().includes(q) || l.resource.toLowerCase().includes(q)),
   );
-
   const filteredExecs = executions.filter(
-    (e) =>
-      !search ||
-      e.toolName.toLowerCase().includes(normalizedSearch) ||
-      e.serverName.toLowerCase().includes(normalizedSearch) ||
-      e.source.toLowerCase().includes(normalizedSearch),
+    (e) => !q || e.toolName.toLowerCase().includes(q) || e.serverName.toLowerCase().includes(q) || e.source.toLowerCase().includes(q),
+  );
+  const filteredProxy = auditLogs.filter(
+    (l) => (l.action === "mcp.proxy" || l.action === "mcp.namespace") &&
+      (!q || (l.userEmail ?? "").toLowerCase().includes(q) || l.resource.toLowerCase().includes(q)),
+  );
+  const filteredLlm = auditLogs.filter(
+    (l) => (l.action === "llm.test" || l.action === "llm.chat") &&
+      (!q || (l.userEmail ?? "").toLowerCase().includes(q) || l.resource.toLowerCase().includes(q)),
   );
 
-  const filteredLlmLogs = auditLogs.filter(
-    (l) =>
-      (l.action === "llm.test" || l.action === "llm.chat") &&
-      (!search ||
-        l.userEmail?.toLowerCase().includes(normalizedSearch) ||
-        l.resource.toLowerCase().includes(normalizedSearch) ||
-        Object.entries(l.metadata)
-          .map(([key, value]) => `${key}:${String(value)}`)
-          .join(" ")
-          .toLowerCase()
-          .includes(normalizedSearch)),
-  );
-  const filteredProxyLogs = auditLogs.filter(
-    (l) =>
-      (l.action === "mcp.proxy" || l.action === "mcp.namespace") &&
-      (!search ||
-        l.userEmail?.toLowerCase().includes(normalizedSearch) ||
-        l.resource.toLowerCase().includes(normalizedSearch) ||
-        Object.entries(l.metadata)
-          .map(([key, value]) => `${key}:${String(value)}`)
-          .join(" ")
-          .toLowerCase()
-          .includes(normalizedSearch)),
-  );
+  const workspaceById = new Map(workspaces.map((w) => [w.id, w]));
 
-  const workspaceById = new Map(workspaces.map((workspace) => [workspace.id, workspace]));
+  const tabs: { id: Tab; label: string; count: number }[] = [
+    { id: "activity",   label: "Admin Activity",   count: filteredLogs.length },
+    { id: "executions", label: "MCP Executions",   count: executions.length },
+    { id: "proxy",      label: "Proxy / Namespace", count: filteredProxy.length },
+    { id: "llm",        label: "LLM",              count: filteredLlm.length },
+  ];
 
   return (
     <div className="portal-page">
       <div className="portal-page-heading">
         <h1 className="text-2xl font-bold">Audit Log</h1>
         <p className="text-sm text-muted-foreground">
-          Administrative actions go into Activity. MCP executions, proxy, and LLM logs live in their own tabs.
+          Atividade administrativa, execuções MCP, eventos de proxy e logs de LLM.
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <MetricCard title="MCP Executions (24h)" value={metrics.total24h} />
-        <MetricCard title="Failures (24h)" value={metrics.failures24h} />
-        <MetricCard title="Avg latency (24h)" value={`${metrics.averageLatency} ms`} />
-      </div>
-
-      <div className="flex items-center gap-4">
-        <div className="flex overflow-hidden rounded-lg border border-[var(--color-border)]">
-          <button
-            onClick={() => setTab("activity")}
-            className={cn(
-              "px-4 py-2 text-sm font-medium transition-colors",
-              tab === "activity"
-                ? "bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)]"
-                : "text-muted-foreground hover:bg-[var(--color-surface-muted)]/50",
-            )}
-          >
-            Admin Activity
-            <span className="ml-2 rounded-full bg-[var(--color-border)] px-1.5 py-0.5 text-[10px]">
-              {filteredLogs.length}
-            </span>
-          </button>
-          <button
-            onClick={() => setTab("executions")}
-            className={cn(
-              "border-l border-[var(--color-border)] px-4 py-2 text-sm font-medium transition-colors",
-              tab === "executions"
-                ? "bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)]"
-                : "text-muted-foreground hover:bg-[var(--color-surface-muted)]/50",
-            )}
-          >
-            MCP Executions
-            <span className="ml-2 rounded-full bg-[var(--color-border)] px-1.5 py-0.5 text-[10px]">
-              {executions.length}
-            </span>
-          </button>
-          <button
-            onClick={() => setTab("proxy")}
-            className={cn(
-              "border-l border-[var(--color-border)] px-4 py-2 text-sm font-medium transition-colors",
-              tab === "proxy"
-                ? "bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)]"
-                : "text-muted-foreground hover:bg-[var(--color-surface-muted)]/50",
-            )}
-          >
-            Proxy / Namespace
-            <span className="ml-2 rounded-full bg-[var(--color-border)] px-1.5 py-0.5 text-[10px]">
-              {filteredProxyLogs.length}
-            </span>
-          </button>
-          <button
-            onClick={() => setTab("llm")}
-            className={cn(
-              "border-l border-[var(--color-border)] px-4 py-2 text-sm font-medium transition-colors",
-              tab === "llm"
-                ? "bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)]"
-                : "text-muted-foreground hover:bg-[var(--color-surface-muted)]/50",
-            )}
-          >
-            LLM
-            <span className="ml-2 rounded-full bg-[var(--color-border)] px-1.5 py-0.5 text-[10px]">
-              {filteredLlmLogs.length}
-            </span>
-          </button>
+      {/* Metrics */}
+      <div className="grid grid-cols-3 overflow-hidden rounded-[18px] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[0_5px_18px_rgba(17,63,124,0.045)]">
+        <div className="flex items-center gap-4 px-6 py-5">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[var(--color-primary-soft)]">
+            <Activity className="size-5 text-[var(--color-primary)]" />
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">MCP Execuções (24h)</p>
+            <p className="text-2xl font-bold tracking-tight text-foreground">{metrics.total24h}</p>
+          </div>
         </div>
 
-        <input
-          type="text"
-          placeholder={
-            tab === "activity"
-              ? "Filter by action, user, resource..."
-              : tab === "executions"
-                ? "Filter by tool, server, source..."
-                : tab === "proxy"
-                  ? "Filter by user, namespace, workspace..."
-                  : "Filter by user, tokens, latency..."
-          }
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--color-brand)] sm:w-72"
-        />
+        <div className="flex items-center gap-4 border-l border-[var(--color-border)] px-6 py-5">
+          <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl", metrics.failures24h > 0 ? "bg-[var(--color-error-soft)]" : "bg-[var(--color-success-soft)]")}>
+            <AlertCircle className={cn("size-5", metrics.failures24h > 0 ? "text-[var(--color-error)]" : "text-[var(--color-success)]")} />
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Falhas (24h)</p>
+            <p className={cn("text-2xl font-bold tracking-tight", metrics.failures24h > 0 ? "text-[var(--color-error)]" : "text-foreground")}>
+              {metrics.failures24h}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 border-l border-[var(--color-border)] px-6 py-5">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[var(--color-warning-soft)]">
+            <Zap className="size-5 text-[var(--color-warning)]" />
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Latência média</p>
+            <p className="text-2xl font-bold tracking-tight text-foreground">{metrics.averageLatency} ms</p>
+            <p className="text-[11px] text-muted-foreground">últimas 24h</p>
+          </div>
+        </div>
       </div>
 
-      {tab === "activity" ? (
+      {/* Tabs + Search — full width */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-1 gap-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)]/50 p-1">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+                tab === t.id
+                  ? "bg-[var(--color-surface)] text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {t.label}
+              <span className={cn(
+                "min-w-[20px] rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums",
+                tab === t.id
+                  ? "bg-[var(--color-primary-soft)] text-[var(--color-primary)]"
+                  : "bg-[var(--color-border)] text-muted-foreground",
+              )}>
+                {t.count}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div className="relative w-64">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Filtrar..."
+            className="w-full pl-9 text-[var(--color-text-secondary)]"
+          />
+        </div>
+      </div>
+
+      {/* Activity Tab */}
+      {tab === "activity" && (
         <div className="portal-table-shell overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/50">
-              <tr>
-                <th className="px-3 py-2 text-left">Time</th>
-                <th className="px-3 py-2 text-left">Action</th>
-                <th className="px-3 py-2 text-left">Resource</th>
-                <th className="px-3 py-2 text-left">Actor</th>
-                <th className="px-3 py-2 text-left">Details</th>
+          <table className="w-full text-sm text-[var(--color-text-secondary)]">
+            <thead>
+              <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface-muted)]/50">
+                <TH>Data</TH>
+                <TH>Ação</TH>
+                <TH>Recurso</TH>
+                <TH>Usuário</TH>
+                <TH>Detalhes</TH>
               </tr>
             </thead>
             <tbody>
               {filteredLogs.map((log) => (
-                <tr key={log.id} className="border-b align-top last:border-0 hover:bg-[var(--color-surface-muted)]/40">
-                  <td className="whitespace-nowrap px-3 py-2 text-xs text-muted-foreground">
-                    {new Date(log.createdAt).toLocaleString()}
-                  </td>
-                  <td className="px-3 py-2">
-                    <ActionBadge action={log.action} />
-                  </td>
-                  <td className="px-3 py-2">
+                <tr key={log.id} className="border-t border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]/40">
+                  <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">{fmtDate(log.createdAt)}</td>
+                  <td className="px-4 py-3"><ActionBadge action={log.action} /></td>
+                  <td className="px-4 py-3">
                     <p className="text-xs font-medium">{log.resource}</p>
-                    {log.resourceId && (
-                      <p className="max-w-[120px] truncate font-mono text-[10px] text-muted-foreground">
-                        {log.resourceId}
-                      </p>
+                    {log.resourceId && <p className="max-w-[120px] truncate font-mono text-[10px] text-muted-foreground">{log.resourceId}</p>}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">{log.userEmail ?? "—"}</td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">
+                    {Object.keys(log.metadata).length > 0 && (
+                      <span className="font-mono">{Object.entries(log.metadata).map(([k, v]) => `${k}: ${String(v)}`).join(" · ")}</span>
                     )}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground">
-                    {log.userEmail ?? "—"}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground">
-                    {Object.keys(log.metadata).length > 0 ? (
-                      <span className="font-mono">
-                        {Object.entries(log.metadata)
-                          .map(([k, v]) => `${k}: ${String(v)}`)
-                          .join(" · ")}
-                      </span>
-                    ) : null}
                   </td>
                 </tr>
               ))}
-              {filteredLogs.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">
-                    No audit events recorded yet.
-                  </td>
-                </tr>
-              )}
+              {filteredLogs.length === 0 && <EmptyRow cols={5} message="Nenhum evento de auditoria registrado." />}
             </tbody>
           </table>
         </div>
-      ) : tab === "executions" ? (
+      )}
+
+      {/* Executions Tab */}
+      {tab === "executions" && (
         <div className="portal-table-shell overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/50">
-              <tr>
-                <th className="px-3 py-2 text-left">Time</th>
-                <th className="px-3 py-2 text-left">Server / Tool</th>
-                <th className="px-3 py-2 text-left">Source</th>
-                <th className="px-3 py-2 text-left">Status</th>
-                <th className="px-3 py-2 text-right">Latency</th>
-                <th className="px-3 py-2 text-left">Actor / Trace</th>
+          <table className="w-full text-sm text-[var(--color-text-secondary)]">
+            <thead>
+              <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface-muted)]/50">
+                <TH>Data</TH>
+                <TH>Servidor / Tool</TH>
+                <TH>Fonte</TH>
+                <TH>Status</TH>
+                <TH right>Latência</TH>
+                <TH>Ator / Trace</TH>
               </tr>
             </thead>
             <tbody>
               {filteredExecs.map((exec) => (
-                <tr key={exec.id} className="border-b align-top last:border-0 hover:bg-[var(--color-surface-muted)]/40">
-                  <td className="whitespace-nowrap px-3 py-2 text-xs text-muted-foreground">
-                    {new Date(exec.createdAt).toLocaleString()}
-                  </td>
-                  <td className="px-3 py-2">
+                <tr key={exec.id} className="border-t border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]/40">
+                  <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">{fmtDate(exec.createdAt)}</td>
+                  <td className="px-4 py-3">
                     <p className="font-medium">{exec.serverName}</p>
-                    <p className="font-mono text-xs">{exec.toolName}</p>
-                    {exec.errorMessage && (
-                      <p className="mt-1 max-w-lg truncate text-xs text-destructive">
-                        {exec.errorMessage}
-                      </p>
-                    )}
+                    <p className="font-mono text-xs text-muted-foreground">{exec.toolName}</p>
+                    {exec.errorMessage && <p className="mt-1 max-w-xs truncate text-xs text-[var(--color-error)]">{exec.errorMessage}</p>}
                   </td>
-                  <td className="px-3 py-2">{exec.source}</td>
-                  <td className="px-3 py-2">
-                    <Badge variant={exec.status === "success" ? "default" : "destructive"}>
-                      {exec.status}
-                    </Badge>
-                    {exec.attemptCount > 1 && (
-                      <p className="mt-1 text-xs text-muted-foreground">{exec.attemptCount} attempts</p>
-                    )}
+                  <td className="px-4 py-3 text-xs">{exec.source}</td>
+                  <td className="px-4 py-3">
+                    <StatusBadge ok={exec.status === "success"} label={exec.status} />
+                    {exec.attemptCount > 1 && <p className="mt-1 text-[10px] text-muted-foreground">{exec.attemptCount} tentativas</p>}
                   </td>
-                  <td className="px-3 py-2 text-right">{exec.latencyMs} ms</td>
-                  <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
-                    <p>{exec.actorUserId ?? "unknown"}</p>
-                    <p>{exec.traceId ?? "—"}</p>
+                  <td className="px-4 py-3 text-right text-xs font-mono text-muted-foreground">{exec.latencyMs} ms</td>
+                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                    <p className="truncate max-w-[140px]">{exec.actorUserId ?? "unknown"}</p>
+                    <p className="truncate max-w-[140px] text-[10px]">{exec.traceId ?? "—"}</p>
                   </td>
                 </tr>
               ))}
-              {filteredExecs.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
-                    No MCP executions recorded yet.
-                  </td>
-                </tr>
-              )}
+              {filteredExecs.length === 0 && <EmptyRow cols={6} message="Nenhuma execução MCP registrada." />}
             </tbody>
           </table>
         </div>
-      ) : tab === "proxy" ? (
+      )}
+
+      {/* Proxy Tab */}
+      {tab === "proxy" && (
         <div className="portal-table-shell overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/50">
-              <tr>
-                <th className="px-3 py-2 text-left">Date</th>
-                <th className="px-3 py-2 text-left">User</th>
-                <th className="px-3 py-2 text-left">Action</th>
-                <th className="px-3 py-2 text-left">Target</th>
-                <th className="px-3 py-2 text-left">Trace</th>
-                <th className="px-3 py-2 text-left">Tool Name</th>
-                <th className="px-3 py-2 text-left">Details</th>
+          <table className="w-full text-sm text-[var(--color-text-secondary)]">
+            <thead>
+              <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface-muted)]/50">
+                <TH>Data</TH>
+                <TH>Usuário</TH>
+                <TH>Evento</TH>
+                <TH>Alvo</TH>
+                <TH>Tool</TH>
+                <TH>Trace</TH>
               </tr>
             </thead>
             <tbody>
-              {filteredProxyLogs.map((log) => {
-                const metadata = log.metadata as Record<string, unknown>;
-                const target =
-                  typeof metadata.workspaceSlug === "string" && metadata.workspaceSlug
-                    ? metadata.workspaceSlug
-                    : typeof metadata.slug === "string" && metadata.slug
-                      ? metadata.slug
-                      : log.resourceId ?? "—";
-                const traceId =
-                  typeof metadata.traceId === "string" && metadata.traceId.length > 0
-                    ? metadata.traceId
-                    : null;
-                const toolName = getProxyToolName(metadata);
-                const details = Object.entries(metadata)
-                  .filter(([key]) => !["traceId", "event", "toolName"].includes(key))
-                  .map(([key, value]) => `${key}: ${String(value)}`)
-                  .join(" · ");
-
+              {filteredProxy.map((log) => {
+                const meta = log.metadata as Record<string, unknown>;
+                const target = typeof meta.workspaceSlug === "string" ? meta.workspaceSlug : typeof meta.slug === "string" ? meta.slug : log.resourceId ?? "—";
+                const traceId = typeof meta.traceId === "string" && meta.traceId ? meta.traceId : null;
+                const toolName = typeof meta.toolName === "string" && meta.toolName ? meta.toolName : "—";
+                const event = meta.event === "tool_used" ? "tool utilizada" : meta.event === "discovery_tools" ? "discovery tools" : "mcp event";
                 return (
-                  <tr key={log.id} className="border-b align-top last:border-0 hover:bg-[var(--color-surface-muted)]/40">
-                    <td className="whitespace-nowrap px-3 py-2 text-xs text-muted-foreground">
-                      {new Date(log.createdAt).toLocaleString()}
+                  <tr key={log.id} className="border-t border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]/40">
+                    <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">{fmtDate(log.createdAt)}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{log.userEmail ?? log.userId ?? "—"}</td>
+                    <td className="px-4 py-3 text-xs">{event}</td>
+                    <td className="px-4 py-3">
+                      <p className="text-xs font-medium">{target}</p>
+                      <p className="font-mono text-[10px] text-muted-foreground">{log.resource}</p>
                     </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
-                      {log.userEmail ?? log.userId ?? "—"}
+                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{toolName}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground truncate max-w-[140px]">{traceId ?? "—"}</td>
+                  </tr>
+                );
+              })}
+              {filteredProxy.length === 0 && <EmptyRow cols={6} message="Nenhum evento de proxy registrado." />}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* LLM Tab */}
+      {tab === "llm" && (
+        <div className="portal-table-shell overflow-x-auto">
+          <table className="w-full text-sm text-[var(--color-text-secondary)]">
+            <thead>
+              <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface-muted)]/50">
+                <TH>Data</TH>
+                <TH>Usuário</TH>
+                <TH>Modelo</TH>
+                <TH right>Tokens</TH>
+                <TH right>Latência</TH>
+                <TH>Status</TH>
+                <TH>Workspace</TH>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredLlm.map((log) => {
+                const meta = log.metadata as Record<string, unknown>;
+                const inputTokens  = typeof meta.inputTokens  === "number" ? meta.inputTokens  : 0;
+                const outputTokens = typeof meta.outputTokens === "number" ? meta.outputTokens : 0;
+                const totalTokens  = typeof meta.totalTokens  === "number" ? meta.totalTokens  : 0;
+                const latencyMs    = typeof meta.latencyMs    === "number" ? meta.latencyMs    : 0;
+                const ok = meta.ok !== false;
+                const model = typeof meta.model === "string" && meta.model ? meta.model : null;
+                const wsId = typeof meta.workspaceId === "string" && meta.workspaceId ? meta.workspaceId : null;
+                const ws = wsId ? workspaceById.get(wsId) : null;
+                return (
+                  <tr key={log.id} className="border-t border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]/40">
+                    <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">{fmtDate(log.createdAt)}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{log.userEmail ?? "—"}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{model ?? "—"}</td>
+                    <td className="px-4 py-3 text-right text-xs font-mono">
+                      <p className="text-foreground">{formatTokenCount(totalTokens)}</p>
+                      <p className="text-[10px] text-muted-foreground">↑{formatTokenCount(inputTokens)} ↓{formatTokenCount(outputTokens)}</p>
                     </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
-                      {getProxyEventLabel(metadata)}
-                    </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
-                      <div className="font-medium text-[var(--color-text-secondary)]">{target}</div>
-                      <div className="mt-1 font-mono text-[10px] text-muted-foreground">
-                        {log.resource}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
-                      {traceId ?? "—"}
-                    </td>
-                    <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
-                      {toolName}
-                    </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
-                      {details || "—"}
+                    <td className="px-4 py-3 text-right text-xs text-muted-foreground">{latencyMs > 0 ? `${latencyMs} ms` : "—"}</td>
+                    <td className="px-4 py-3"><StatusBadge ok={ok} /></td>
+                    <td className="px-4 py-3 text-xs">
+                      <p className="font-medium">{ws ? ws.name : wsId ?? "—"}</p>
+                      {ws && <p className="font-mono text-[10px] text-muted-foreground">/{ws.slug}</p>}
                     </td>
                   </tr>
                 );
               })}
-              {filteredProxyLogs.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
-                    No proxy or namespace events recorded yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div className="portal-table-shell overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/50">
-              <tr>
-                <th className="px-3 py-2 text-left">Date</th>
-                <th className="px-3 py-2 text-left">User</th>
-                <th className="px-3 py-2 text-left">LLM / Model</th>
-                <th className="px-3 py-2 text-right">Tokens</th>
-                <th className="px-3 py-2 text-right">Latency</th>
-                <th className="px-3 py-2 text-left">Status</th>
-                <th className="px-3 py-2 text-left">Workspace</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredLlmLogs.map((log) => {
-                const metadata = log.metadata as Record<string, unknown>;
-                const inputTokens = typeof metadata.inputTokens === "number" ? metadata.inputTokens : 0;
-                const outputTokens = typeof metadata.outputTokens === "number" ? metadata.outputTokens : 0;
-                const totalTokens = typeof metadata.totalTokens === "number" ? metadata.totalTokens : 0;
-                const latencyMs = typeof metadata.latencyMs === "number" ? metadata.latencyMs : 0;
-                const ok = metadata.ok !== false;
-                const model =
-                  typeof metadata.model === "string" && metadata.model.length > 0
-                    ? metadata.model
-                    : null;
-                const workspaceId =
-                  typeof metadata.workspaceId === "string" && metadata.workspaceId.length > 0
-                    ? metadata.workspaceId
-                    : null;
-                const workspace = workspaceId ? workspaceById.get(workspaceId) : null;
-
-                return (
-                  <tr key={log.id} className="border-b align-top last:border-0 hover:bg-[var(--color-surface-muted)]/40">
-                    <td className="whitespace-nowrap px-3 py-2 text-xs text-muted-foreground">
-                      {new Date(log.createdAt).toLocaleString()}
-                    </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
-                      {log.userEmail ?? "—"}
-                    </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
-                      <div className="font-mono text-[var(--color-text-secondary)]">{model ?? "—"}</div>
-                    </td>
-                    <td className="px-3 py-2 text-right text-xs text-muted-foreground">
-                      <div className="font-mono">{formatTokenCount(totalTokens)}</div>
-                      <div className="mt-1 text-[10px] text-muted-foreground">
-                        in {formatTokenCount(inputTokens)} · out {formatTokenCount(outputTokens)}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-right text-xs text-muted-foreground">
-                      {latencyMs > 0 ? `${latencyMs} ms` : "—"}
-                    </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
-                      <Badge variant={ok ? "default" : "destructive"}>
-                        {ok ? "success" : "error"}
-                      </Badge>
-                    </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
-                      <div className="font-medium text-[var(--color-text-secondary)]">
-                        {workspace ? workspace.name : workspaceId ?? "—"}
-                      </div>
-                      {workspace ? (
-                        <div className="mt-1 font-mono text-[10px] text-muted-foreground">
-                          /{workspace.slug}
-                        </div>
-                      ) : null}
-                    </td>
-                  </tr>
-                );
-              })}
-              {filteredLlmLogs.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
-                    No LLM test events recorded yet.
-                  </td>
-                </tr>
-              )}
+              {filteredLlm.length === 0 && <EmptyRow cols={7} message="Nenhum evento LLM registrado." />}
             </tbody>
           </table>
         </div>

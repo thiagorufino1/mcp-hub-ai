@@ -13,6 +13,7 @@ import {
   Zap,
 } from "@/components/ui/icons";
 import { ExecutionChart, type ExecDayData } from "@/components/admin/execution-chart";
+import { LlmUsageChart, type LlmDayData } from "@/components/admin/llm-usage-chart";
 
 export const metadata = { title: "Admin Dashboard — MCP Hub" };
 
@@ -34,6 +35,7 @@ export default async function AdminDashboardPage() {
     execTotal, execSuccess, execError,
     execByDay,
     topServers,
+    llmByDay,
   ] = await Promise.all([
     prisma.mcpServer.count(),
     prisma.workspace.count(),
@@ -46,15 +48,15 @@ export default async function AdminDashboardPage() {
     prisma.user.count(),
     prisma.mcpToolExecution.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
     prisma.mcpToolExecution.count({ where: { createdAt: { gte: sevenDaysAgo }, status: "success" } }),
-    prisma.mcpToolExecution.count({ where: { createdAt: { gte: sevenDaysAgo }, status: "error" } }),
+    prisma.mcpToolExecution.count({ where: { createdAt: { gte: sevenDaysAgo }, status: { not: "success" } } }),
     prisma.$queryRaw<Array<{ day: Date; status: string; count: bigint }>>`
       SELECT
         DATE_TRUNC('day', "createdAt") AS day,
-        status,
+        CASE WHEN status = 'success' THEN 'success' ELSE 'error' END AS status,
         COUNT(*)::int AS count
       FROM "McpToolExecution"
       WHERE "createdAt" >= ${fourteenDaysAgo}
-      GROUP BY DATE_TRUNC('day', "createdAt"), status
+      GROUP BY DATE_TRUNC('day', "createdAt"), CASE WHEN status = 'success' THEN 'success' ELSE 'error' END
       ORDER BY day ASC
     `,
     prisma.mcpToolExecution.groupBy({
@@ -64,6 +66,16 @@ export default async function AdminDashboardPage() {
       orderBy: { _count: { serverName: "desc" } },
       take: 5,
     }),
+    prisma.$queryRaw<Array<{ day: Date; model: string; totalTokens: number }>>`
+      SELECT
+        DATE_TRUNC('day', "createdAt") AS day,
+        COALESCE(metadata->>'model', 'unknown') AS model,
+        COALESCE(SUM((metadata->>'totalTokens')::numeric), 0)::int AS "totalTokens"
+      FROM "AuditLog"
+      WHERE action = 'llm.chat' AND "createdAt" >= ${fourteenDaysAgo}
+      GROUP BY DATE_TRUNC('day', "createdAt"), COALESCE(metadata->>'model', 'unknown')
+      ORDER BY day ASC
+    `,
   ]);
 
   // Build 14-day chart data
@@ -80,6 +92,20 @@ export default async function AdminDashboardPage() {
 
   const successRate = execTotal > 0 ? Math.round((execSuccess / execTotal) * 100) : 100;
   const platformReady = llmEnabled > 0 && workspaceEnabled > 0;
+
+  // Discover unique models
+  const llmModels = [...new Set(llmByDay.map((r) => r.model))];
+  const llmChartData = Array.from({ length: 14 }, (_, i) => {
+    const d = new Date(Date.now() - (13 - i) * 24 * 60 * 60 * 1000);
+    const dayKey = d.toISOString().slice(0, 10);
+    const label = d.toLocaleDateString("pt-BR", { month: "short", day: "numeric" });
+    const entry: Record<string, string | number> = { date: label };
+    for (const model of llmModels) {
+      const row = llmByDay.find((r) => r.day.toISOString().slice(0, 10) === dayKey && r.model === model);
+      entry[model] = row?.totalTokens ?? 0;
+    }
+    return entry;
+  });
 
   return (
     <div className="portal-page">
@@ -145,8 +171,8 @@ export default async function AdminDashboardPage() {
                 const pct = execTotal > 0 ? Math.round((row._count.serverName / execTotal) * 100) : 0;
                 return (
                   <div key={row.serverName} className="flex items-center gap-3">
-                    <p className="w-40 shrink-0 truncate text-[12px] font-medium text-[var(--color-text-secondary)]">{row.serverName}</p>
-                    <div className="flex-1 overflow-hidden rounded-full bg-[var(--color-surface-muted)]" style={{ height: 5 }}>
+                    <p className="w-56 shrink-0 truncate text-[12px] font-medium text-[var(--color-text-secondary)]">{row.serverName}</p>
+                    <div className="ml-10 flex-1 overflow-hidden rounded-full bg-[var(--color-surface-muted)]" style={{ height: 5 }}>
                       <div className="h-full rounded-full bg-[var(--color-primary)]" style={{ width: `${pct}%`, transition: "width 0.5s" }} />
                     </div>
                     <span className="w-12 shrink-0 text-right text-[11px] font-semibold text-[var(--color-primary)]">{row._count.serverName}</span>
@@ -156,6 +182,20 @@ export default async function AdminDashboardPage() {
             </div>
           </div>
         )}
+      </section>
+
+      {/* LLM Usage chart */}
+      <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_8px_24px_rgba(17,63,124,0.04)]">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold">Consumo de tokens LLM — últimos 14 dias</h2>
+            <p className="text-xs text-muted-foreground">Total de tokens por dia (input + output)</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link href="/admin/audit" className="text-[11px] font-medium text-[var(--color-primary)] hover:underline">Ver logs</Link>
+          </div>
+        </div>
+        <LlmUsageChart data={llmChartData} models={llmModels} />
       </section>
 
     </div>
