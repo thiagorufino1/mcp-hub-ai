@@ -130,6 +130,7 @@ async function loadPolicy(serverId: string, toolName: string): Promise<RuntimePo
   const server = await prisma.mcpServer.findUnique({
     where: { id: serverId },
     select: {
+      authType: true,
       circuitCooldownMs: true,
       circuitOpenedAt: true,
       circuitState: true,
@@ -152,11 +153,13 @@ async function loadPolicy(serverId: string, toolName: string): Promise<RuntimePo
 
   if (server) {
     const tool = server.registryTools[0];
+    // oauth_delegated: tools are live-discovered per-user, no registry entry exists.
+    const isDelegated = server.authType === "oauth_delegated";
     return {
       ...server,
       dbServerId: server.id,
       readOnly: tool?.readOnly ?? false,
-      toolAllowed: server.enabled && Boolean(tool?.enabled),
+      toolAllowed: server.enabled && (isDelegated || Boolean(tool?.enabled)),
     };
   }
 

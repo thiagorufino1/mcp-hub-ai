@@ -1,6 +1,9 @@
+import { headers } from "next/headers";
 import { requireAuth } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/db";
-import { getUserContext } from "@/lib/user-context";
+import { getUserContext, dbMcpToConfig } from "@/lib/user-context";
+import { resolveMcpServerTools } from "@/lib/mcp-tool-registry";
+import { resolveDelegatedAuthorizationHeaders } from "@/lib/delegated-oauth";
 import { ConnectionsClient } from "./client";
 import { PortalShell } from "@/components/layout/portal-shell";
 
@@ -9,9 +12,42 @@ export const metadata = { title: "My Connections — MCP Hub" };
 export default async function ConnectionsPage() {
   const user = await requireAuth();
 
-  // 1. All MCPs the user has access to (workspace + direct namespace)
+  // 1. All MCPs the user has access to (workspace + direct namespace), ignoring user preferences
+  //    getUserContext removes disabled servers — My Connections must show them all so user can re-enable.
   const context = await getUserContext(user.groups ?? [], undefined, user.id);
-  const allMcpIds = context.mcpServers.map((s) => s.id);
+  const [accessibleNamespaces2] = await Promise.all([
+    prisma.mcpNamespace.findMany({
+      where: {
+        enabled: true,
+        OR: [
+          ...(user.groups && user.groups.length > 0 ? [{ groups: { some: { entraGroupId: { in: user.groups } } } }] : []),
+          { users: { some: { id: user.id } } },
+          { AND: [{ groups: { none: {} } }, { users: { none: {} } }] },
+        ],
+      },
+      include: {
+        servers: { where: { enabled: true, mcpServer: { enabled: true } }, select: { mcpServerId: true } },
+      },
+    }),
+  ]);
+  // Also include workspace-linked namespaces
+  const accessibleWorkspaces = await prisma.workspace.findMany({
+    where: { enabled: true },
+    include: {
+      groups: { select: { entraGroupId: true } },
+      users: { select: { id: true } },
+      namespace: { where: { enabled: true }, include: { servers: { where: { enabled: true, mcpServer: { enabled: true } }, select: { mcpServerId: true } } } },
+    },
+  });
+  const allMcpIdSet = new Set<string>();
+  for (const ns of accessibleNamespaces2) ns.servers.forEach((s) => allMcpIdSet.add(s.mcpServerId));
+  for (const ws of accessibleWorkspaces) {
+    const hasAccess = ws.groups.length === 0 && ws.users.length === 0
+      ? true
+      : ws.groups.some((g) => user.groups?.includes(g.entraGroupId)) || ws.users.some((u) => u.id === user.id);
+    if (hasAccess && ws.namespace) ws.namespace.servers.forEach((s) => allMcpIdSet.add(s.mcpServerId));
+  }
+  const allMcpIds = [...allMcpIdSet];
 
   // 2. Accessible namespaces (for endpoint display)
   const accessibleNamespaces = await prisma.mcpNamespace.findMany({
@@ -68,6 +104,32 @@ export default async function ConnectionsPage() {
 
   const connectionMap = new Map(connections.map((c) => [c.mcpServerId, c]));
   const preferenceMap = new Map(preferences.map((p) => [p.mcpServerId, p.enabled]));
+  // connectedOauthServerIds from DB connections — independent of user preference
+  const connectedOauthServerIds = new Set(connections.filter((c) => c.status === "connected").map((c) => c.mcpServerId));
+
+  // For connected oauth servers, do live probe to get real tool count.
+  // Build server configs with tokens from context (includes disabled) or fallback to context servers.
+  const oauthToolCounts = new Map<string, number>();
+  // context.mcpServers may exclude preference-disabled servers — use full server map from getUserContext
+  // by temporarily including all oauth servers that have a DB connection.
+  const allContextServers = new Map(context.mcpServers.map((s) => [s.id, s]));
+  // For servers not in context (disabled pref), rebuild config with delegated headers
+  const oauthMcpIds = [...connectedOauthServerIds];
+  const delegatedHeaders = await resolveDelegatedAuthorizationHeaders(user.id, oauthMcpIds);
+  const oauthMcpRecords = await prisma.mcpServer.findMany({
+    where: { id: { in: oauthMcpIds }, enabled: true },
+  });
+  const connectedOauthServers = oauthMcpRecords.map((mcp) =>
+    allContextServers.get(mcp.id) ?? dbMcpToConfig(mcp as Parameters<typeof dbMcpToConfig>[0], delegatedHeaders.get(mcp.id))
+  ).filter((s) => s.enabled);
+  await Promise.allSettled(
+    connectedOauthServers.map(async (s) => {
+      const result = await resolveMcpServerTools(s).catch(() => null);
+      if (result?.connectionStatus === "connected") {
+        oauthToolCounts.set(s.id, result.tools.length);
+      }
+    }),
+  );
 
   const items = allMcps.map((mcp) => {
     const conn = connectionMap.get(mcp.id) ?? null;
@@ -78,8 +140,11 @@ export default async function ConnectionsPage() {
       description: mcp.description,
       transport: mcp.transport,
       authType: mcp.authType,
-      toolCount: mcp._count.registryTools,
-      userEnabled: preferenceMap.get(mcp.id) ?? true,
+      toolCount: oauthToolCounts.get(mcp.id) ?? mcp._count.registryTools,
+      userEnabled: mcp.authType === "oauth_delegated"
+        // OAuth: only enabled if actually connected AND user hasn't explicitly disabled it
+        ? connectionMap.get(mcp.id)?.status === "connected" && (preferenceMap.get(mcp.id) ?? true)
+        : (preferenceMap.get(mcp.id) ?? true),
       connection: conn
         ? { status: conn.status === "connected" && isExpired ? "expired" : conn.status, updatedAt: conn.updatedAt }
         : null,
@@ -95,9 +160,14 @@ export default async function ConnectionsPage() {
     endpointUrl: `/api/mcp/namespaces/${ns.alias}`,
   }));
 
+  const headersList = await headers();
+  const host = headersList.get("host") ?? "localhost:3000";
+  const protocol = host.includes("localhost") ? "http" : "https";
+  const proxyUrl = `${protocol}://${host}/api/mcp/proxy`;
+
   return (
     <PortalShell isAdmin={user.isAdmin} section="My Connections" showUserNavigation userName={user.name}>
-      <ConnectionsClient items={items} namespaces={namespaces} />
+      <ConnectionsClient items={items} namespaces={namespaces} proxyUrl={proxyUrl} />
     </PortalShell>
   );
 }

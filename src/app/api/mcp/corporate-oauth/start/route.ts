@@ -42,13 +42,27 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid OAuth redirect URI." }, { status: 400 });
   }
 
-  // Verify user has access to this MCP via their groups
-  const context = await getUserContext(session.user.groups, undefined, session.user.id);
-  const mcp = context.mcpServers.find((s) => s.id === body.data.mcpServerId);
-  if (!mcp) {
+  // Verify access via namespace — not getUserContext which filters by user preference.
+  const accessibleNs = await prisma.mcpNamespace.findFirst({
+    where: {
+      enabled: true,
+      servers: { some: { mcpServerId: body.data.mcpServerId, enabled: true, mcpServer: { enabled: true } } },
+      OR: [
+        { groups: { some: { entraGroupId: { in: session.user.groups.length > 0 ? session.user.groups : ["__never__"] } } } },
+        { users: { some: { id: session.user.id } } },
+        { AND: [{ groups: { none: {} } }, { users: { none: {} } }] },
+      ],
+    },
+    select: { id: true },
+  });
+  if (!accessibleNs) {
     return Response.json({ error: "MCP not found or not accessible." }, { status: 404 });
   }
-  if (mcp.transport === "stdio") {
+  const mcpTransport = await prisma.mcpServer.findUnique({
+    where: { id: body.data.mcpServerId },
+    select: { transport: true },
+  });
+  if (mcpTransport?.transport === "stdio") {
     return Response.json({ error: "OAuth not supported for stdio MCPs." }, { status: 400 });
   }
 

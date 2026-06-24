@@ -7,14 +7,15 @@ import { signOutAction } from "@/app/chat/actions";
 import { useAppPreferences } from "@/components/providers/app-preferences-provider";
 import { useTheme } from "@/components/providers/theme-provider";
 import { Button } from "@/components/ui/button";
-import { Boxes, MessageSquare, MoonStar, Settings, Shield, Sun, User } from "@/components/ui/icons";
+import { MoonStar, Sun } from "@/components/ui/icons";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-export function PortalHeader({ isAdmin, section, userName }: {
+export function PortalHeader({ isAdmin, section, userName, userImage }: {
   isAdmin: boolean;
   section?: string;
   userName?: string | null;
+  userImage?: string | null;
 }) {
   const { locale, setLocale } = useAppPreferences();
   const { theme, setTheme } = useTheme();
@@ -36,12 +37,6 @@ export function PortalHeader({ isAdmin, section, userName }: {
 
         <TooltipProvider delayDuration={120}>
           <div className="flex items-center gap-2">
-            <div className="hidden items-center gap-1 rounded-full bg-white/[0.09] p-1 sm:flex">
-              <HeaderLink href="/chat" label="Chat" icon={MessageSquare} />
-              <HeaderLink href="/connections" label="Connections" icon={Boxes} />
-              <HeaderLink href="/settings" label="Settings" icon={Settings} />
-              {isAdmin ? <HeaderLink href="/admin" label="Admin" icon={Shield} /> : null}
-            </div>
 
             <div className="relative flex items-center rounded-full bg-white/[0.08] p-1">
               <div className="absolute size-7 rounded-full bg-white shadow-sm transition-transform" style={{ transform: theme === "dark" ? "translateX(28px)" : "translateX(0)" }} />
@@ -63,20 +58,26 @@ export function PortalHeader({ isAdmin, section, userName }: {
               </button>
             </div>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="hidden max-w-40 items-center gap-2 rounded-full bg-white/[0.09] px-3 py-2 text-xs text-white/85 lg:flex">
-                  <User className="size-3.5" />
-                  <span className="truncate">{userName || "User"}</span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">{userName || "Authenticated user"}</TooltipContent>
-            </Tooltip>
-
             <form action={signOutAction}>
-              <Button type="submit" variant="ghost" size="sm" className="rounded-full bg-white/[0.08] text-white hover:bg-white/[0.14] hover:text-white">
-                Sign out
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="submit" className="group flex items-center gap-2.5 rounded-full bg-white/[0.08] px-2 py-1 text-white/70 transition-colors duration-150 hover:bg-white/[0.14] hover:text-white">
+                    {userImage ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={userImage} alt={userName || "User"} className="size-6 shrink-0 rounded-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-white/[0.15] text-[11px] font-semibold text-white">
+                        {(userName || "U").charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                    <span className="hidden text-[12px] font-medium lg:block">{(userName || "User").split(" ")[0]}</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-40 transition-opacity group-hover:opacity-80">
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="bg-slate-900 text-white">Sign out</TooltipContent>
+              </Tooltip>
             </form>
           </div>
         </TooltipProvider>
@@ -85,15 +86,4 @@ export function PortalHeader({ isAdmin, section, userName }: {
   );
 }
 
-function HeaderLink({ href, icon: Icon, label }: {
-  href: string;
-  icon: typeof MessageSquare;
-  label: string;
-}) {
-  return (
-    <Link href={href} className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-white/88 transition hover:bg-white/[0.1] hover:text-white">
-      <Icon className="size-3.5" />
-      {label}
-    </Link>
-  );
-}
+

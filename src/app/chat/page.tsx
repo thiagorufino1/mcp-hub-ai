@@ -11,6 +11,7 @@ export default async function ChatPage({
     <ChatShell
       isAdmin={user.isAdmin}
       userName={user.name}
+      userImage={user.image ?? null}
       initialWorkspaceId={params.w ?? null}
     />
   );

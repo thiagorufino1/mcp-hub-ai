@@ -44,7 +44,7 @@ export default async function SettingsPage() {
 
   return (
     <PortalShell isAdmin={user.isAdmin} section="Settings" showUserNavigation userName={user.name}>
-      <SettingsClient namespaceEndpoints={namespaceEndpoints} tokens={tokens} proxyUrl={proxyUrl} />
+      <SettingsClient tokens={tokens} />
     </PortalShell>
   );
 }

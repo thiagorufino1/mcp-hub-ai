@@ -74,7 +74,7 @@ const ChatRequestBodySchema = z.object({
     .array(
       z.object({
         role: z.enum(["user", "assistant"]),
-        content: z.string().max(12000),
+        content: z.string().max(50000),
       }),
     )
     .max(100)
@@ -170,6 +170,7 @@ export async function POST(request: Request) {
   // Merge MCPs: corporate first, then personal from body
   const personalMcps = (body.mcpServers ?? []) as McpServerConfig[];
   const allMcpServers: McpServerConfig[] = [...corporateContext.mcpServers, ...personalMcps];
+
 
   // Skill content injection
   const selectedSkill = body.skillId
@@ -385,9 +386,9 @@ function buildSkillsPrompt(
   const skillBlocks = availableSkills
     .map((s) => {
       const desc = s.description ? ` description="${sanitizePromptValue(s.description, 120)}"` : "";
-      return `<skill name="${sanitizePromptValue(s.name, 80)}"${desc}>\n${s.content ?? ""}\n</skill>`;
+      return `<skill name="${sanitizePromptValue(s.name, 80)}"${desc} />`;
     })
-    .join("\n\n");
+    .join("\n");
 
   return [
     "<available_skills>",
@@ -414,29 +415,21 @@ function buildConversation(
     ? buildSkillsPrompt(availableSkills)
     : undefined;
   const defaultPrompt = [
-    "You are a helpful assistant with access to MCP tools. Use the available tools when they help answer the user's request accurately.",
-    "When the user asks for charts, graphs, tables, dashboards, or network visualizations, render them directly in the chat using fenced code blocks with language `chart` followed by valid JSON.",
-    "Supported types: bar, line, area, pie, donut, kpi, table, funnel, gauge, heatmap, radar, timeline, scatter, status, step, waterfall, range.",
-    "SCHEMAS:",
-    "bar/line/area/step: {\"type\":\"bar\",\"title\":\"...\",\"labels\":[\"A\",\"B\"],\"series\":[{\"name\":\"S1\",\"color\":\"#2563eb\",\"data\":[10,20]}]}. bar: add orientation:horizontal for horizontal bars, stacked:true for stacked.",
-    "pie/donut: labels in labels array, values in first series data.",
-    "kpi: {\"type\":\"kpi\",\"title\":\"...\",\"description\":\"Período\",\"items\":[{\"icon\":\"📶\",\"label\":\"Disponibilidade\",\"value\":\"99.8%\",\"change\":\"-0.1%\",\"changeLabel\":\"vs ontem\",\"trend\":\"down\",\"sparkline\":[99.9,99.8,100,99.7,99.8]}]}",
-    "table: {\"type\":\"table\",\"title\":\"...\",\"columns\":[\"NE\",\"Status\"],\"rows\":[[\"SP-01\",\"OK\"]]}",
-    "funnel: {\"type\":\"funnel\",\"title\":\"...\",\"labels\":[\"Visitantes\",\"Leads\"],\"series\":[{\"name\":\"2025\",\"data\":[10000,3500]}]}",
-    "gauge: {\"type\":\"gauge\",\"title\":\"...\",\"labels\":[\"Utilização\"],\"series\":[{\"name\":\"Atual\",\"color\":\"#2563eb\",\"data\":[72]}],\"min\":0,\"max\":100,\"target\":80}",
-    "heatmap: {\"type\":\"heatmap\",\"title\":\"Tráfego hora×dia\",\"labels\":[\"00h\",\"01h\",...,\"23h\"],\"series\":[{\"name\":\"Seg\",\"data\":[45,20,8,...]},{\"name\":\"Ter\",\"data\":[...]}]} — series are rows (days), labels are columns (hours).",
-    "radar: {\"type\":\"radar\",\"title\":\"QoS\",\"labels\":[\"Latência\",\"Jitter\",\"Perda\",\"Throughput\",\"Disponibilidade\"],\"series\":[{\"name\":\"Link A\",\"color\":\"#2563eb\",\"data\":[85,70,90,75,98]},{\"name\":\"Link B\",\"color\":\"#0f766e\",\"data\":[72,85,80,90,95]}]} — data values 0-100.",
-    "timeline: {\"type\":\"timeline\",\"title\":\"Histórico de Alarmes\",\"events\":[{\"label\":\"Link Down SP-01\",\"start\":\"08:15\",\"end\":\"09:42\",\"status\":\"critical\",\"detail\":\"Perda total\"},{\"label\":\"Alta Latência RJ-02\",\"start\":\"10:00\",\"end\":\"11:30\",\"status\":\"warning\"}]} — status: critical|warning|minor|info|ok.",
-    "scatter: {\"type\":\"scatter\",\"title\":\"SNR vs Throughput\",\"xLabel\":\"SNR (dB)\",\"yLabel\":\"Throughput (Mbps)\",\"scatterSeries\":[{\"name\":\"Antena A\",\"color\":\"#2563eb\",\"points\":[{\"x\":15,\"y\":50},{\"x\":22,\"y\":85}]}]}",
-    "status: {\"type\":\"status\",\"title\":\"Status da Rede\",\"statusItems\":[{\"label\":\"SP-CORE-01\",\"status\":\"ok\",\"detail\":\"CPU: 45%\",\"group\":\"Core\"},{\"label\":\"RJ-AGG-01\",\"status\":\"warning\",\"detail\":\"CPU: 88%\",\"group\":\"Agregação\"}]} — status: ok|warning|critical|unknown|maintenance.",
-    "waterfall: {\"type\":\"waterfall\",\"title\":\"Análise de Disponibilidade\",\"labels\":[\"SLA Base\",\"Link Down\",\"Alta Latência\",\"Total\"],\"series\":[{\"name\":\"Impacto\",\"data\":[99.9,-0.4,-0.2,99.3]}]} — first value is baseline, last is total, middle are deltas.",
-    "range: {\"type\":\"range\",\"title\":\"Latência Min/Avg/Max\",\"labels\":[\"00h\",\"06h\",\"12h\",\"18h\"],\"series\":[{\"name\":\"Máximo\",\"color\":\"#dc2626\",\"data\":[45,38,80,50]},{\"name\":\"Médio\",\"color\":\"#2563eb\",\"data\":[18,15,32,20]},{\"name\":\"Mínimo\",\"color\":\"#10b981\",\"data\":[5,4,10,6]}]} — series order: max, avg, min.",
-    "histogram: {\"type\":\"histogram\",\"title\":\"Distribuição de Latência\",\"xLabel\":\"ms\",\"yLabel\":\"Amostras\",\"labels\":[\"0-10\",\"10-20\",\"20-30\",\"30-50\",\">50\"],\"series\":[{\"name\":\"Link SP-01\",\"color\":\"#2563eb\",\"data\":[450,280,120,60,15]}]} — bins touching, no gap between bars.",
-    "boxplot: {\"type\":\"boxplot\",\"title\":\"Latência por Link\",\"labels\":[\"SP-01\",\"RJ-02\"],\"boxData\":[[5,12,18,28,45],[8,15,22,35,60]]} — boxData each element: [min,Q1,median,Q3,max]. Alternatively use 5 series (min,Q1,median,Q3,max).",
-    "treemap: {\"type\":\"treemap\",\"title\":\"Alarmes por Região\",\"labels\":[\"SP\",\"RJ\",\"MG\"],\"series\":[{\"name\":\"Alarmes\",\"data\":[45,30,15]}]} — area proportional to value.",
-    "bullet: {\"type\":\"bullet\",\"title\":\"KPIs vs Meta\",\"labels\":[\"Disponibilidade\",\"Latência\"],\"series\":[{\"name\":\"Real\",\"color\":\"#2563eb\",\"data\":[99.2,18]},{\"name\":\"Meta\",\"data\":[99.5,20]},{\"name\":\"Bom\",\"data\":[99.8,15]}]} — series[0]=actual bar, series[1]=target marker line, series[2]=good threshold band (optional). Add max field to set axis max.",
-    "For dashboards: combine kpi + multiple chart blocks in sequence. For telecom tshoot: use timeline for alarm history, status for NE health, radar for QoS comparison, heatmap for traffic patterns, scatter for correlation analysis, histogram/boxplot for latency distribution.",
-    "Always introduce each block with one short sentence.",
+    "You are a helpful assistant with access to MCP tools. Use tools when they help answer accurately.",
+    "For charts/dashboards render fenced blocks: ```chart {JSON}``` All blocks: {type,title?,description?,...fields}",
+    "SERIES types (labels:[],series:[{name,color?,data:[]}]): bar (orientation:horizontal,stacked:true), line, area, step, histogram, funnel, treemap, waterfall(data:baseline..deltas..total), range(series:max,avg,min), radar(0-100,max?), heatmap(labels=hours,series=day-rows), gauge(labels:[name],series:[{data:[val]}],min,max,target), bullet(series:actual,target,good-band,max?).",
+    "pie/donut: labels=names, series[0].data=values.",
+    "boxplot: labels=[],boxData:[[min,Q1,med,Q3,max]...] per label.",
+    "scatter: scatterSeries:[{name,color,points:[{x,y}]}],xLabel,yLabel.",
+    "kpi: items:[{icon?,label,value,change?,changeLabel?,trend:up|down|neutral,sparkline?:[]}]",
+    "table: columns:[],rows:[[]]",
+    "status: statusItems:[{label,status:ok|warning|critical|unknown|maintenance,detail?,group?}]",
+    "timeline: events:[{label,start:HH:MM,end:HH:MM,status:critical|warning|minor|info|ok,detail?}]",
+    "alert-list: alertItems:[{label,description?,detail?,severity:critical|warning|minor|info|ok,badge?,badgeStatus:active|resolved|acknowledged}]",
+    "device-cards: deviceCards:[{label,status,statusLabel?,metrics:[{label,value,bar?:0-100,barColor?:default|green|amber|red}],details?:[],note?}],cardBanner?:{text,status:ok|warning|critical}",
+    "info-cards: infoCards:[{label,status,rows?:[{key,value,highlight?:ok|warning|critical|neutral}],metrics?:[{label,value}],footerRows?:[]}],cardBanner?:{text,status}",
+    "Use device-cards for NE/gateway monitoring. Use info-cards for circuit/link key-value details. Use alert-list for active alarm feeds with severity colors.",
+    "For dashboards combine blocks in sequence. Introduce each block with one short sentence.",
   ].join(" ");
   const instructions = [defaultPrompt, workspaceSystemPrompt, autoSkillsPrompt, skillContent, customPrompt, contextPrompt]
     .filter(Boolean)

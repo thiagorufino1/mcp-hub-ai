@@ -15,10 +15,11 @@ type Props = {
   onStop?: () => void;
   onSubmit: (message: string) => Promise<boolean>;
   skills?: Skill[];
-  onSkillSelect?: (skillId: string) => void;
+  onSkillSelect?: (skillId: string | null) => void;
+  activeSkillId?: string | null;
 };
 
-export function MessageComposer({ isSubmitting, onStop, onSubmit, skills = [], onSkillSelect }: Props) {
+export function MessageComposer({ isSubmitting, onStop, onSubmit, skills = [], onSkillSelect, activeSkillId }: Props) {
   const { t } = useAppPreferences();
   const [value, setValue] = useState("");
   const [query, setQuery] = useState<string | null>(null); // null = picker closed
@@ -163,6 +164,25 @@ export function MessageComposer({ isSubmitting, onStop, onSubmit, skills = [], o
           </ul>
         </div>
       )}
+
+      {activeSkillId && (() => {
+        const activeSkill = skills.find(s => s.id === activeSkillId);
+        return activeSkill ? (
+          <div className="mb-1.5 flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/8 px-2.5 py-1 text-[11px] font-medium text-[var(--color-primary)]">
+              <span className="size-1.5 rounded-full bg-[var(--color-primary)]" />
+              /{activeSkill.name}
+            </span>
+            <button
+              type="button"
+              onClick={() => onSkillSelect?.(null)}
+              className="text-[11px] text-muted-foreground hover:text-foreground"
+            >
+              ✕
+            </button>
+          </div>
+        ) : null;
+      })()}
 
       <form
         className="flex w-full items-center gap-3 rounded-[26px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 shadow-[0_10px_24px_rgba(15,23,42,0.04)]"

@@ -22,6 +22,12 @@ export async function resolveMcpServerTools(
   server: McpServerConfig,
   options: ResolveOptions = {},
 ) {
+  // oauth_delegated servers use per-user tokens — never read/write global DB cache.
+  // Tool discovery is ephemeral: live-probe every request, no DB side effects.
+  if (server.requiresUserAuthorization) {
+    return resolveUserDelegatedServerTools(server);
+  }
+
   const ttlMs = options.ttlMs ?? readCacheTtl();
   const dbServer = await prisma.mcpServer.findUnique({
     where: { id: server.id },
@@ -113,6 +119,33 @@ export async function resolveMcpServerTools(
     ...result.server,
     tools: result.server.tools.filter((tool) => enabledNames.has(tool.name)),
   };
+}
+
+// Live-probe an oauth_delegated server without touching the global DB cache.
+async function resolveUserDelegatedServerTools(server: McpServerConfig) {
+  const connectionTimeoutMs =
+    (
+      await prisma.mcpServer.findUnique({
+        where: { id: server.id },
+        select: { connectionTimeoutMs: true },
+      })
+    )?.connectionTimeoutMs ?? 10_000;
+
+  try {
+    const result = await withConnectionTimeout(
+      inspectMcpServer(
+        createInspectableServerConfig({
+          ...server,
+          connectionStatus: "pending",
+          tools: [],
+        }),
+      ),
+      connectionTimeoutMs,
+    );
+    return result.server;
+  } catch {
+    return { ...server, connectionStatus: "error" as const, tools: [] };
+  }
 }
 
 export async function isRegisteredToolEnabled(

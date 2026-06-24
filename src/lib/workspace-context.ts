@@ -166,15 +166,18 @@ async function buildWorkspaceServers(
       const authorization = delegatedHeaders.get(entry.mcpServerId);
       const config = dbMcpToConfig(entry.mcpServer, authorization);
       const tools = toolsByServer.get(entry.mcpServerId) ?? [];
+      const isDelegated = entry.mcpServer.authType === "oauth_delegated";
       return {
         ...config,
-        approvalMode: "selected" as const,
+        // oauth_delegated: tools are per-user and live-discovered — expose all of them.
+        // Non-delegated: only expose tools curated by admin in the namespace tool list.
+        approvalMode: isDelegated ? ("always" as const) : ("selected" as const),
         approvedToolNames: tools.map((tool) => tool.name),
         name: entry.alias || config.name,
         tools,
       };
     })
-    .filter((server) => server.enabled && server.approvedToolNames.length > 0);
+    .filter((server) => server.enabled && (server.approvalMode === "always" || server.approvedToolNames.length > 0));
 }
 
 export async function resolveWorkspaceBySlug(

@@ -16,9 +16,16 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid request." }, { status: 400 });
   }
 
-  await prisma.userMcpConnection.deleteMany({
-    where: { userId: session.user.id, mcpServerId: body.data.mcpServerId },
-  });
+  await prisma.$transaction([
+    prisma.userMcpConnection.deleteMany({
+      where: { userId: session.user.id, mcpServerId: body.data.mcpServerId },
+    }),
+    prisma.userMcpPreference.upsert({
+      where: { userId_mcpServerId: { userId: session.user.id, mcpServerId: body.data.mcpServerId } },
+      create: { userId: session.user.id, mcpServerId: body.data.mcpServerId, enabled: false },
+      update: { enabled: false },
+    }),
+  ]);
 
   logAudit({
     userId: session.user.id,

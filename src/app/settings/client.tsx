@@ -10,14 +10,13 @@ import type { TokenRow } from "./actions";
 
 type Props = {
   tokens: TokenRow[];
-  proxyUrl: string;
-  namespaceEndpoints: Array<{ name: string; alias: string; url: string }>;
 };
 
-export function SettingsClient({ namespaceEndpoints, tokens, proxyUrl }: Props) {
+export function SettingsClient({ tokens }: Props) {
   const [isPending, startTransition] = useTransition();
   const [newToken, setNewToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   function handleCreate(formData: FormData) {
@@ -33,155 +32,83 @@ export function SettingsClient({ namespaceEndpoints, tokens, proxyUrl }: Props) 
     });
   }
 
+  function copy(text: string, key: string) {
+    void navigator.clipboard.writeText(text).then(() => {
+      setCopied(key);
+      setTimeout(() => setCopied(null), 2000);
+    });
+  }
+
   return (
     <div className="portal-page">
       <div className="portal-page-heading">
         <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-sm text-muted-foreground">Manage your personal API tokens for MCP proxy access.</p>
+        <p className="text-sm text-muted-foreground">Gerencie seus tokens pessoais de acesso ao MCP proxy.</p>
       </div>
 
-      {namespaceEndpoints.length > 0 ? (
-        <section className="portal-section">
-          <h2 className="font-semibold">Published namespaces</h2>
-          {namespaceEndpoints.map((namespace) => {
-            const config = JSON.stringify({
-              mcpServers: {
-                [namespace.alias]: {
-                  type: "http",
-                  url: namespace.url,
-                  headers: { Authorization: "Bearer <your-token>" },
-                },
-              },
-            }, null, 2);
-            const vscodeConfig = JSON.stringify({
-              inputs: [{
-                id: "mcpHubToken",
-                type: "promptString",
-                description: "MCP Hub personal token",
-                password: true,
-              }],
-              servers: {
-                [namespace.alias]: {
-                  type: "http",
-                  url: namespace.url,
-                  headers: { Authorization: "Bearer ${input:mcpHubToken}" },
-                },
-              },
-            }, null, 2);
-            return (
-            <details key={namespace.alias} className="rounded-md border p-4">
-                <summary className="cursor-pointer text-sm font-medium">{namespace.name}</summary>
-                <div className="mt-3 flex flex-col gap-2">
-                  <code className="break-all rounded bg-muted px-3 py-2 text-xs">
-                    {namespace.url}
-                  </code>
+      {/* Personal Tokens */}
+      <section className="portal-section gap-0 p-0">
+        <div className="border-b border-[var(--color-border)] px-4 py-3">
+          <h2 className="font-semibold">Tokens Pessoais</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">Tokens para autenticação no MCP proxy.</p>
+        </div>
+
+        {tokens.length === 0 ? (
+          <p className="px-4 py-8 text-center text-sm text-muted-foreground">Nenhum token criado ainda.</p>
+        ) : (
+          <div className="divide-y divide-[var(--color-border)]">
+            {tokens.map((token) => (
+              <div key={token.id} className="flex items-center justify-between px-4 py-3 hover:bg-[var(--color-surface-muted)]/50">
+                <div>
+                  <p className="text-sm font-medium text-foreground">{token.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    Claude Desktop and Cursor configuration:
+                    Criado em {new Date(token.createdAt).toLocaleDateString("pt-BR")}
+                    {token.lastUsedAt && <> · Último uso {new Date(token.lastUsedAt).toLocaleDateString("pt-BR")}</>}
                   </p>
-                  <pre className="overflow-x-auto rounded bg-muted p-3 text-xs">{config}</pre>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void navigator.clipboard.writeText(config)}
-                  >
-                    Copy configuration
-                  </Button>
-                  <p className="text-xs text-muted-foreground">VS Code `.vscode/mcp.json`:</p>
-                  <pre className="overflow-x-auto rounded bg-muted p-3 text-xs">{vscodeConfig}</pre>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void navigator.clipboard.writeText(vscodeConfig)}
-                  >
-                    Copy VS Code configuration
-                  </Button>
                 </div>
-              </details>
-            );
-          })}
-        </section>
-      ) : null}
-
-      {/* MCP Proxy URL */}
-      <section className="portal-section">
-        <h2 className="font-semibold text-sm">MCP Proxy Endpoint</h2>
-        <p className="text-xs text-muted-foreground">
-          Connect VS Code, Claude Desktop, or any MCP client to this URL using your personal token.
-        </p>
-        <code className="block text-xs bg-muted rounded px-3 py-2 break-all">{proxyUrl}</code>
-        <p className="text-xs text-muted-foreground">
-          Add to your MCP client config:{" "}
-          <code className="text-xs">{"Authorization: Bearer <your-token>"}</code>
-        </p>
-      </section>
-
-      {/* Token list */}
-      <section className="portal-section">
-        <h2 className="font-semibold">Personal Tokens</h2>
-        {tokens.length === 0 && (
-          <p className="text-sm text-muted-foreground">No tokens yet. Generate one below.</p>
-        )}
-        <div className="rounded-md border divide-y">
-          {tokens.map((token) => (
-            <div key={token.id} className="flex items-center justify-between px-4 py-3">
-              <div>
-                <p className="text-sm font-medium">{token.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  Created {new Date(token.createdAt).toLocaleDateString()}
-                  {token.lastUsedAt && (
-                    <> · Last used {new Date(token.lastUsedAt).toLocaleDateString()}</>
-                  )}
-                </p>
+                <form action={async () => { await deleteToken(token.id); }}>
+                  <Button type="submit" variant="ghost" size="sm" className="bg-[var(--color-error-soft)] text-[var(--color-error)] hover:bg-[var(--color-error-soft)] hover:text-[var(--color-error)]">
+                    Revogar
+                  </Button>
+                </form>
               </div>
-              <form action={async () => { await deleteToken(token.id); }}>
-                <Button type="submit" variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                  Revoke
-                </Button>
-              </form>
+            ))}
+          </div>
+        )}
+
+        <div className="border-t border-[var(--color-border)] px-4 py-3">
+          <p className="mb-2.5 text-xs font-medium text-muted-foreground">Gerar novo token</p>
+          <form ref={formRef} action={handleCreate} className="flex gap-2">
+            <div className="flex-1">
+              <Label htmlFor="name" className="sr-only">Nome do token</Label>
+              <Input id="name" name="name" placeholder="Ex.: VS Code pessoal" required />
             </div>
-          ))}
+            <Button type="submit" disabled={isPending}>
+              {isPending ? "Gerando…" : "Gerar"}
+            </Button>
+          </form>
+          {error && <p className="mt-2 text-sm text-[var(--color-error)]">{error}</p>}
         </div>
       </section>
 
-      {/* Generate token form */}
-      <section className="portal-section">
-        <h2 className="font-semibold">Generate New Token</h2>
-        <form ref={formRef} action={handleCreate} className="flex gap-2">
-          <div className="flex-1">
-            <Label htmlFor="name" className="sr-only">Token name</Label>
-            <Input id="name" name="name" placeholder="e.g. VS Code personal" required />
-          </div>
-          <Button type="submit" disabled={isPending}>
-            {isPending ? "Generating…" : "Generate"}
-          </Button>
-        </form>
-        {error && <p className="text-sm text-destructive">{error}</p>}
-      </section>
-
-      {/* Show-once dialog */}
+      {/* Token dialog */}
       <Dialog open={!!newToken} onOpenChange={(o) => { if (!o) setNewToken(null); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Token Generated</DialogTitle>
+            <DialogTitle>Token Gerado</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Copy this token now. It will not be shown again.
+            Copie este token agora. Ele não será exibido novamente.
           </p>
-          <code className="block text-xs bg-muted rounded px-3 py-3 break-all select-all">
-            {newToken}
-          </code>
-          <Button
-            onClick={() => {
-              if (newToken) void navigator.clipboard.writeText(newToken);
-            }}
-            variant="outline"
-            className="w-full"
-          >
-            Copy to clipboard
-          </Button>
-          <Button onClick={() => setNewToken(null)} className="w-full">Done</Button>
+          <div className="relative rounded-[12px] border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-3">
+            <code className="block select-all break-all text-xs text-foreground">{newToken}</code>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Button onClick={() => { if (newToken) copy(newToken, "dialog"); }} variant="outline" className="w-full">
+              {copied === "dialog" ? "Copiado!" : "Copiar token"}
+            </Button>
+            <Button onClick={() => setNewToken(null)} className="w-full">Fechar</Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

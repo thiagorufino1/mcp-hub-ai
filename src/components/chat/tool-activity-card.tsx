@@ -1,10 +1,11 @@
 "use client";
 
 import { AlertCircle, CheckCircle2, ChevronDown, LoaderCircle, Wrench } from "@/components/ui/icons";
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import { useAppPreferences } from "@/components/providers/app-preferences-provider";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { ToolEvent } from "@/types/chat";
 
@@ -48,68 +49,122 @@ export function ToolActivityCard({ event }: { event: ToolEvent }) {
   const imageUrls = useMemo(() => extractImageUrlsFromText(event.summary), [event.summary]);
 
   return (
-    <div className="w-full">
-      <div className="workspace-panel rounded-[20px] px-3 py-2.5 sm:px-4">
-        <button className="flex w-full items-center gap-3 text-left" onClick={() => setIsExpanded((current) => !current)} type="button">
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-full text-white" style={{ background: "var(--gradient-action)" }}>
-              <Wrench className="size-4" />
+    <div className="w-full py-0.5">
+      {/* Collapsible header */}
+      <button
+        className="group flex w-full items-center gap-1.5 text-left"
+        onClick={() => setIsExpanded((c) => !c)}
+        type="button"
+      >
+        <StatusIcon className={cn("size-3.5 shrink-0", status.iconClass)} />
+        <Wrench className="size-3 shrink-0 text-muted-foreground/50" />
+        <span className="text-[12px] text-muted-foreground group-hover:text-foreground transition-colors">
+          {toolLabel}
+        </span>
+        <ChevronDown className={cn("size-3 text-muted-foreground/60 transition-transform", isExpanded && "rotate-180")} />
+        {event.status === "running" && (
+          <span className="ml-1 text-[11px] text-muted-foreground/60 italic">{t("tool.running")}…</span>
+        )}
+      </button>
+
+      {/* Expanded details */}
+      {isExpanded && (
+        <div className="ml-5 mt-2 space-y-2">
+          {imageUrls.length > 0 && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {imageUrls.map((url) => <ToolImagePreview key={url} url={url} />)}
             </div>
+          )}
 
-            <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                <p className="min-w-0 break-all text-[13px] font-semibold text-foreground">{toolLabel}</p>
+          {event.argsText && (
+            <ExpandPanel label={t("tool.arguments")}>
+              <JsonBlock value={event.argsText} maxH="max-h-[140px]" />
+            </ExpandPanel>
+          )}
+
+          {event.summary && (
+            <ExpandPanel label={t("tool.result")}>
+              <div className="app-scroll max-h-[320px] overflow-y-auto px-3 py-2.5">
+                {looksLikeMarkdown(event.summary) ? (
+                  <div className="tool-result-md prose prose-sm max-w-none text-[12px] leading-relaxed text-foreground">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{event.summary}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <pre className="whitespace-pre-wrap break-words font-mono text-[12px] leading-relaxed text-foreground/80">
+                    {formattedSummary}
+                  </pre>
+                )}
               </div>
-              <p className="truncate pt-0.5 text-[12px] leading-5 text-muted-foreground">
-                {event.summary ?? event.reason ?? t("tool.doneClickDetails")}
-              </p>
-            </div>
-          </div>
-
-          <div className="ml-auto flex shrink-0 items-center gap-2 self-center">
-            <Badge variant={status.badge} className="rounded-full px-2.5 py-0.5 text-[11px]">
-              <StatusIcon className={cn("size-3", status.iconClass)} />
-              {status.label}
-            </Badge>
-            <ChevronDown className={cn("size-4 text-muted-foreground transition-transform", isExpanded && "rotate-180")} />
-          </div>
-        </button>
-
-        {isExpanded ? (
-          <div className="mt-2.5 space-y-3 rounded-[16px] border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-2.5 sm:px-4">
-            {imageUrls.length > 0 ? (
-              <div>
-                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{t("tool.imagesDetected")}</p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {imageUrls.map((url) => (
-                    <ToolImagePreview key={url} url={url} />
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            {event.argsText ? (
-              <div>
-                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{t("tool.arguments")}</p>
-                <pre className="app-scroll max-h-[120px] overflow-x-auto rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-2 text-[11px] text-[var(--color-text-secondary)]">
-                  {event.argsText}
-                </pre>
-              </div>
-            ) : null}
-
-            {event.summary ? (
-              <div>
-                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{t("tool.result")}</p>
-                <pre className="app-scroll max-h-[260px] overflow-y-auto break-all whitespace-pre-wrap rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-2 font-mono text-[11px] leading-5 text-[var(--color-text-secondary)]">
-                  {formattedSummary}
-                </pre>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
+            </ExpandPanel>
+          )}
+        </div>
+      )}
     </div>
   );
+}
+
+function ExpandPanel({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="overflow-hidden rounded-[10px] border border-[var(--color-border)]">
+      <div className="border-b border-[var(--color-border)] bg-[var(--color-surface-muted)]/80 px-3 py-1.5">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/70">{label}</span>
+      </div>
+      <div className="bg-[var(--color-surface-muted)]/40">{children}</div>
+    </div>
+  );
+}
+
+function JsonBlock({ value, maxH = "max-h-[140px]" }: { value: string; maxH?: string }) {
+  const formatted = useMemo(() => {
+    try {
+      const parsed = JSON.parse(value);
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      // Try wrapping in braces if it looks like key:value pairs
+      try { return JSON.stringify(JSON.parse(`{${value}}`), null, 2); }
+      catch { return value; }
+    }
+  }, [value]);
+
+  const tokens = useMemo(() => tokenizeJson(formatted), [formatted]);
+
+  return (
+    <div className={cn("app-scroll overflow-x-auto overflow-y-auto px-3 py-2.5", maxH)}>
+      <pre className="whitespace-pre font-mono text-[11px] leading-[1.65]">
+        {tokens.map((tok, i) => (
+          <span key={i} className={tok.cls}>{tok.text}</span>
+        ))}
+      </pre>
+    </div>
+  );
+}
+
+function looksLikeMarkdown(text: string): boolean {
+  return /^#{1,6}\s|```|\*\*|__|\n- |\n\d+\. |^\- /m.test(text);
+}
+
+function tokenizeJson(src: string): { text: string; cls: string }[] {
+  const out: { text: string; cls: string }[] = [];
+  const re = /("(?:[^"\\]|\\.)*")(:)?|(\btrue\b|\bfalse\b|\bnull\b)|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|([{}[\],])/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src)) !== null) {
+    if (m.index > last) out.push({ text: src.slice(last, m.index), cls: "text-muted-foreground/50" });
+    if (m[1]) {
+      // string — key or value
+      out.push({ text: m[1], cls: m[2] ? "text-[#2563eb]" : "text-[#16a34a]" });
+      if (m[2]) out.push({ text: m[2], cls: "text-slate-500" });
+    } else if (m[3]) {
+      out.push({ text: m[3], cls: "text-[#d97706]" });
+    } else if (m[4]) {
+      out.push({ text: m[4], cls: "text-[#7c3aed]" });
+    } else if (m[5]) {
+      out.push({ text: m[5], cls: "text-muted-foreground/50" });
+    }
+    last = re.lastIndex;
+  }
+  if (last < src.length) out.push({ text: src.slice(last), cls: "text-muted-foreground/50" });
+  return out;
 }
 
 function ToolImagePreview({ url }: { url: string }) {

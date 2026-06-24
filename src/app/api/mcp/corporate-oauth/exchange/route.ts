@@ -3,8 +3,6 @@ import { verifyCorporateOAuthState } from "@/lib/corporate-oauth-state";
 import { prisma } from "@/lib/db";
 import { discoverMcpOAuth, exchangeMcpOAuthCode } from "@/lib/mcp-oauth";
 import { getUserContext } from "@/lib/user-context";
-import { dbMcpToConfig } from "@/lib/user-context";
-import { resolveMcpServerTools } from "@/lib/mcp-tool-registry";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 import {
@@ -43,8 +41,20 @@ export async function POST(request: Request) {
   }
 
   // Verify user has access to this MCP and fetch OAuth credentials from DB (not from client)
-  const context = await getUserContext(session.user.groups, undefined, session.user.id);
-  const accessible = context.mcpServers.some((s) => s.id === body.data.mcpServerId);
+  // Check access via namespace query — not getUserContext which filters by user preference.
+  // A user must be able to connect to a server even if they previously disabled it.
+  const accessible = await prisma.mcpNamespace.findFirst({
+    where: {
+      enabled: true,
+      servers: { some: { mcpServerId: body.data.mcpServerId, enabled: true, mcpServer: { enabled: true } } },
+      OR: [
+        { groups: { some: { entraGroupId: { in: session.user.groups.length > 0 ? session.user.groups : ["__never__"] } } } },
+        { users: { some: { id: session.user.id } } },
+        { AND: [{ groups: { none: {} } }, { users: { none: {} } }] },
+      ],
+    },
+    select: { id: true },
+  });
   if (!accessible) {
     return Response.json({ error: "MCP not found or not accessible." }, { status: 404 });
   }
@@ -84,50 +94,43 @@ export async function POST(request: Request) {
       resourceUrl: discovery.resourceUrl,
     });
 
-    await prisma.userMcpConnection.upsert({
-      where: { userId_mcpServerId: { userId: session.user.id, mcpServerId: body.data.mcpServerId } },
-      create: {
-        userId: session.user.id,
-        mcpServerId: body.data.mcpServerId,
-        accessToken: encryptSecret(result.accessToken),
-        refreshToken: result.refreshToken
-          ? encryptSecret(result.refreshToken)
-          : null,
-        tokenType: result.tokenType ?? "Bearer",
-        expiresAt: result.expiresAt ? new Date(result.expiresAt) : null,
-        scope: result.scope ?? null,
-        status: "connected",
-      },
-      update: {
-        accessToken: encryptSecret(result.accessToken),
-        refreshToken: result.refreshToken
-          ? encryptSecret(result.refreshToken)
-          : null,
-        tokenType: result.tokenType ?? "Bearer",
-        expiresAt: result.expiresAt ? new Date(result.expiresAt) : null,
-        scope: result.scope ?? null,
-        status: "connected",
-        updatedAt: new Date(),
-      },
-    });
+    await prisma.$transaction([
+      prisma.userMcpConnection.upsert({
+        where: { userId_mcpServerId: { userId: session.user.id, mcpServerId: body.data.mcpServerId } },
+        create: {
+          userId: session.user.id,
+          mcpServerId: body.data.mcpServerId,
+          accessToken: encryptSecret(result.accessToken),
+          refreshToken: result.refreshToken ? encryptSecret(result.refreshToken) : null,
+          tokenType: result.tokenType ?? "Bearer",
+          expiresAt: result.expiresAt ? new Date(result.expiresAt) : null,
+          scope: result.scope ?? null,
+          status: "connected",
+        },
+        update: {
+          accessToken: encryptSecret(result.accessToken),
+          refreshToken: result.refreshToken ? encryptSecret(result.refreshToken) : null,
+          tokenType: result.tokenType ?? "Bearer",
+          expiresAt: result.expiresAt ? new Date(result.expiresAt) : null,
+          scope: result.scope ?? null,
+          status: "connected",
+          updatedAt: new Date(),
+        },
+      }),
+      // Auto-enable preference when user connects
+      prisma.userMcpPreference.upsert({
+        where: { userId_mcpServerId: { userId: session.user.id, mcpServerId: body.data.mcpServerId } },
+        create: { userId: session.user.id, mcpServerId: body.data.mcpServerId, enabled: true },
+        update: { enabled: true },
+      }),
+    ]);
 
     const linkedServer = await prisma.mcpServer.findUnique({
       where: { id: body.data.mcpServerId },
     });
-    if (linkedServer) {
-      const linkedConfig = dbMcpToConfig(
-        linkedServer,
-        `${result.tokenType ?? "Bearer"} ${result.accessToken}`,
-      );
-      await resolveMcpServerTools(linkedConfig, { forceRefresh: true }).catch(
-        (inspectionError) => {
-          console.warn(
-            `[corporate-oauth] Linked MCP inspection failed for ${linkedServer.id}:`,
-            inspectionError instanceof Error ? inspectionError.message : inspectionError,
-          );
-        },
-      );
-    }
+    // Do NOT call resolveMcpServerTools here — oauth_delegated tool discovery
+    // must happen in the user's own request context, not as a global side effect
+    // that would pollute registryTools and healthStatus for all users.
 
     logAudit({
       userId: session.user.id,

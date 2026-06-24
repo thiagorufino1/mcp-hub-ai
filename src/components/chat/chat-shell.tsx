@@ -52,6 +52,13 @@ type ThreadItem =
   | { id: string; type: "message"; value: Message }
   | { id: string; type: "tool"; value: ToolEvent };
 
+function chatGreeting(userName: string | null): string {
+  const hour = new Date().getHours();
+  const period = hour >= 5 && hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
+  const first = userName ? `, ${userName.split(" ")[0]}` : "";
+  return `${period}${first}`;
+}
+
 function buildInitialAssistantMessage(content: string): Message {
   return {
     id: "assistant-welcome",
@@ -142,10 +149,12 @@ export function ChatShell({
   initialWorkspaceId = null,
   isAdmin = false,
   userName,
+  userImage,
 }: {
   initialWorkspaceId?: string | null;
   isAdmin?: boolean;
   userName?: string | null;
+  userImage?: string | null;
 }) {
   const { locale, t } = useAppPreferences();
   const [toolEvents, setToolEvents] = useState<ToolEvent[]>([]);
@@ -1022,6 +1031,7 @@ export function ChatShell({
         method: "POST",
         signal: controller.signal,
       });
+      setSelectedSkillId(null);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -1380,12 +1390,12 @@ export function ChatShell({
     onWorkspaceChange: setSelectedWorkspaceId,
   };
   return (
-    <div className="min-h-screen bg-[var(--color-bg)]">
+    <div className="fixed inset-0 flex flex-col bg-[var(--color-bg)]">
       {/* Same header as admin pages */}
-      <PortalHeader isAdmin={isAdmin} section="Chat" userName={userName} />
+      <PortalHeader isAdmin={isAdmin} section="Chat" userName={userName} userImage={userImage} />
 
       {/* Same layout container as PortalShell */}
-      <div className="mx-auto flex w-full max-w-[1500px] gap-5 px-4 py-5 lg:px-6">
+      <div className="mx-auto flex min-h-0 w-full max-w-[1500px] flex-1 gap-5 px-4 py-5 lg:px-6">
         {/* Desktop sidebar — hidden on mobile, portal-sidebar handles sticky + sizing */}
         <div className="hidden lg:block">
           <ChatNavigation
@@ -1436,10 +1446,10 @@ export function ChatShell({
           onSave={handleSaveServer}
         />
 
-        {/* Chat content — same card as portal-content, fixed height so thread scrolls inside */}
+        {/* Chat content — flex-1 fills remaining height after header */}
         <main
-          className="portal-content min-w-0 flex-1 overflow-hidden p-0"
-          style={{ height: "calc(100vh - 100px)" }}
+          className="portal-content min-h-0 min-w-0 flex-1 overflow-hidden p-0"
+          style={{ minHeight: 0 }}
         >
           <div className="flex h-full flex-col overflow-hidden">
             {feedbackError ? (
@@ -1449,24 +1459,49 @@ export function ChatShell({
               </div>
             ) : null}
 
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <ChatThread
-                isStreaming={isStreaming}
-                items={items}
-                onFeedback={handleFeedback}
-                scrollRequest={scrollRequest}
-              />
-            </div>
-
-            <div className="shrink-0 px-3 pb-4 pt-2 sm:px-5">
-              <MessageComposer
-                isSubmitting={isStreaming}
-                onStop={handleStop}
-                onSubmit={handleSubmit}
-                skills={userSkills}
-                onSkillSelect={setSelectedSkillId}
-              />
-            </div>
+            {messages.some((m) => m.role === "user") ? (
+              <>
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                  <ChatThread
+                    isStreaming={isStreaming}
+                    items={items.filter((i) => !(i.type === "message" && i.value.id === "assistant-welcome"))}
+                    onFeedback={handleFeedback}
+                    scrollRequest={scrollRequest}
+                  />
+                </div>
+                <div className="shrink-0 px-3 pb-4 pt-2 sm:px-5">
+                  <MessageComposer
+                    isSubmitting={isStreaming}
+                    onStop={handleStop}
+                    onSubmit={handleSubmit}
+                    skills={userSkills}
+                    activeSkillId={selectedSkillId}
+                    onSkillSelect={setSelectedSkillId}
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-1 flex-col items-center justify-center px-4 pb-8">
+                <div className="w-full max-w-[680px] space-y-8">
+                  <div className="space-y-2 text-center">
+                    <h1 className="text-[2rem] font-semibold tracking-tight text-foreground">
+                      {chatGreeting(userName ?? null)}
+                    </h1>
+                    <p className="text-[14px] text-muted-foreground">
+                      Como posso ajudá-lo hoje?
+                    </p>
+                  </div>
+                  <MessageComposer
+                    isSubmitting={isStreaming}
+                    onStop={handleStop}
+                    onSubmit={handleSubmit}
+                    skills={userSkills}
+                    activeSkillId={selectedSkillId}
+                    onSkillSelect={setSelectedSkillId}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </main>
       </div>
