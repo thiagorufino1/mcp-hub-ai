@@ -65,3 +65,7 @@ docs/superpowers/
 
 # Prisma generated client
 /src/generated/prisma
+
+# MCP connector local configs (user-specific, not for version control)
+*.mcp.config.usrlocal.*
+mcpServer.mcp.config.usrlocal.*
