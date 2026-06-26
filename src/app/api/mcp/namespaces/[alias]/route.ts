@@ -25,14 +25,29 @@ async function handleNamespaceRequest(
 ): Promise<Response> {
   const bearer = extractBearer(request);
   if (!bearer) {
-    return Response.json(
-      { error: "Provide a personal access token as a Bearer token." },
-      { status: 401 },
+    return new Response(
+      JSON.stringify({ error: "Provide a personal access token as a Bearer token." }),
+      {
+        status: 401,
+        headers: {
+          "Content-Type": "application/json",
+          "WWW-Authenticate": `Bearer realm="mcp-hub", resource_metadata="${process.env.NEXTAUTH_URL ?? "http://localhost:3000"}/.well-known/oauth-protected-resource"`,
+        },
+      },
     );
   }
   const tokenUser = await resolveTokenUser(bearer);
   if (!tokenUser) {
-    return Response.json({ error: "Invalid personal access token." }, { status: 401 });
+    return new Response(
+      JSON.stringify({ error: "Invalid personal access token." }),
+      {
+        status: 401,
+        headers: {
+          "Content-Type": "application/json",
+          "WWW-Authenticate": `Bearer realm="mcp-hub", error="invalid_token", resource_metadata="${process.env.NEXTAUTH_URL ?? "http://localhost:3000"}/.well-known/oauth-protected-resource"`,
+        },
+      },
+    );
   }
 
   const { alias } = await context.params;
