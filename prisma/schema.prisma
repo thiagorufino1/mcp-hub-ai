@@ -24,8 +24,11 @@ model User {
   connections    UserMcpConnection[]
   mcpPreferences UserMcpPreference[]
   toolExecutions McpToolExecution[]
-  workspaces     Workspace[]         @relation("WorkspaceUsers")
-  namespaces     McpNamespace[]      @relation("NamespaceUsers")
+  workspaces         Workspace[]         @relation("WorkspaceUsers")
+  namespaces         McpNamespace[]      @relation("NamespaceUsers")
+  oauthAuthCodes     OAuthAuthCode[]
+  oauthAccessTokens  OAuthAccessToken[]
+  oauthRefreshTokens OAuthRefreshToken[]
 }
 
 model Account {
@@ -343,4 +346,70 @@ model NamespaceTool {
   @@unique([namespaceId, alias])
   @@index([registryToolId])
   @@index([namespaceId, enabled])
+}
+
+model OAuthClient {
+  id                      String              @id @default(cuid())
+  clientName              String
+  clientUri               String?
+  redirectUris            String[]
+  grantTypes              String[]            @default(["authorization_code", "refresh_token"])
+  responseTypes           String[]            @default(["code"])
+  tokenEndpointAuthMethod String              @default("none")
+  createdAt               DateTime            @default(now())
+  authCodes               OAuthAuthCode[]
+  accessTokens            OAuthAccessToken[]
+  refreshTokens           OAuthRefreshToken[]
+
+  @@index([createdAt])
+}
+
+model OAuthAuthCode {
+  id                String      @id @default(cuid())
+  clientId          String
+  client            OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash          String      @unique
+  redirectUri       String
+  scope             String
+  codeChallengeHash String
+  expiresAt         DateTime
+  usedAt            DateTime?
+  createdAt         DateTime    @default(now())
+
+  @@index([expiresAt])
+}
+
+model OAuthAccessToken {
+  id         String      @id @default(cuid())
+  clientId   String
+  client     OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String      @unique
+  scope      String
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  lastUsedAt DateTime?
+  createdAt  DateTime    @default(now())
+
+  @@index([expiresAt])
+  @@index([userId, createdAt])
+}
+
+model OAuthRefreshToken {
+  id        String      @id @default(cuid())
+  clientId  String
+  client    OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String      @unique
+  scope     String
+  expiresAt DateTime
+  revokedAt DateTime?
+  usedAt    DateTime?
+  createdAt DateTime    @default(now())
+
+  @@index([expiresAt])
 }
