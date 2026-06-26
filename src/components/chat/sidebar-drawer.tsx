@@ -9,7 +9,6 @@ import type { LLMConfig } from "@/types/llm-config";
 import type { McpServerConfig } from "@/types/mcp";
 import type { SystemPrompt } from "@/components/chat/system-prompt-section";
 import type { TokenUsage } from "@/types/chat";
-import type { WorkspaceOption } from "@/components/chat/workspace-selector";
 
 type Props = {
   isOpen: boolean;
@@ -32,16 +31,10 @@ type Props = {
   onChangeLlmConfig: (config: LLMConfig | null) => void;
   usageTotals: TokenUsage;
   usageState: "idle" | "available" | "unavailable";
-  userSkills: { id: string; name: string; description: string | null }[];
   allowedModels: string[];
   hasCorporateLlm: boolean;
-  selectedSkillId: string | null;
   selectedModel: string | null;
-  onSkillChange: (id: string | null) => void;
   onModelChange: (model: string) => void;
-  workspaces: WorkspaceOption[];
-  selectedWorkspaceId: string | null;
-  onWorkspaceChange: (id: string | null) => void;
 };
 
 export function SidebarDrawer({
@@ -65,16 +58,10 @@ export function SidebarDrawer({
   onChangeLlmConfig,
   usageTotals,
   usageState,
-  userSkills,
   allowedModels,
   hasCorporateLlm,
-  selectedSkillId,
   selectedModel,
-  onSkillChange,
   onModelChange,
-  workspaces,
-  selectedWorkspaceId,
-  onWorkspaceChange,
 }: Props) {
   const titleId = useId();
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -150,16 +137,10 @@ export function SidebarDrawer({
             onChangeLlmConfig={onChangeLlmConfig}
             usageTotals={usageTotals}
             usageState={usageState}
-            userSkills={userSkills}
             allowedModels={allowedModels}
             hasCorporateLlm={hasCorporateLlm}
-            selectedSkillId={selectedSkillId}
             selectedModel={selectedModel}
-            onSkillChange={onSkillChange}
             onModelChange={onModelChange}
-            workspaces={workspaces}
-            selectedWorkspaceId={selectedWorkspaceId}
-            onWorkspaceChange={onWorkspaceChange}
           />
         </div>
       </div>

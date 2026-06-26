@@ -30,7 +30,6 @@ type ExecutionEntry = {
   attemptCount: number;
 };
 
-type WorkspaceEntry = { id: string; name: string; slug: string };
 type Metrics = { total24h: number; failures24h: number; averageLatency: number };
 
 const ADMIN_ACTIVITY_ACTIONS = new Set([
@@ -40,9 +39,7 @@ const ADMIN_ACTIVITY_ACTIONS = new Set([
   "namespace.group.remove","namespace.access.update",
   "namespace.tool.enable","namespace.tool.disable",
   "llm.create","llm.update","llm.default","llm.delete",
-  "skill.create","skill.update","skill.delete",
   "group.upsert","group.delete",
-  "workspace.create","workspace.update","workspace.delete",
 ]);
 
 function actionVariant(action: string): string {
@@ -99,12 +96,10 @@ type Tab = "activity" | "executions" | "proxy" | "llm";
 export function AuditClient({
   auditLogs,
   executions,
-  workspaces,
   metrics,
 }: {
   auditLogs: AuditLogEntry[];
   executions: ExecutionEntry[];
-  workspaces: WorkspaceEntry[];
   metrics: Metrics;
 }) {
   const [tab, setTab] = useState<Tab>("activity");
@@ -126,8 +121,6 @@ export function AuditClient({
     (l) => (l.action === "llm.test" || l.action === "llm.chat") &&
       (!q || (l.userEmail ?? "").toLowerCase().includes(q) || l.resource.toLowerCase().includes(q)),
   );
-
-  const workspaceById = new Map(workspaces.map((w) => [w.id, w]));
 
   const tabs: { id: Tab; label: string; count: number }[] = [
     { id: "activity",   label: "Admin Activity",   count: filteredLogs.length },
@@ -351,7 +344,6 @@ export function AuditClient({
                 <TH right>Tokens</TH>
                 <TH right>Latência</TH>
                 <TH>Status</TH>
-                <TH>Workspace</TH>
               </tr>
             </thead>
             <tbody>
@@ -363,8 +355,6 @@ export function AuditClient({
                 const latencyMs    = typeof meta.latencyMs    === "number" ? meta.latencyMs    : 0;
                 const ok = meta.ok !== false;
                 const model = typeof meta.model === "string" && meta.model ? meta.model : null;
-                const wsId = typeof meta.workspaceId === "string" && meta.workspaceId ? meta.workspaceId : null;
-                const ws = wsId ? workspaceById.get(wsId) : null;
                 return (
                   <tr key={log.id} className="border-t border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]/40">
                     <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">{fmtDate(log.createdAt)}</td>
@@ -376,14 +366,10 @@ export function AuditClient({
                     </td>
                     <td className="px-4 py-3 text-right text-xs text-muted-foreground">{latencyMs > 0 ? `${latencyMs} ms` : "—"}</td>
                     <td className="px-4 py-3"><StatusBadge ok={ok} /></td>
-                    <td className="px-4 py-3 text-xs">
-                      <p className="font-medium">{ws ? ws.name : wsId ?? "—"}</p>
-                      {ws && <p className="font-mono text-[10px] text-muted-foreground">/{ws.slug}</p>}
-                    </td>
                   </tr>
                 );
               })}
-              {filteredLlm.length === 0 && <EmptyRow cols={7} message="Nenhum evento LLM registrado." />}
+              {filteredLlm.length === 0 && <EmptyRow cols={6} message="Nenhum evento LLM registrado." />}
             </tbody>
           </table>
         </div>

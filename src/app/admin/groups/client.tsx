@@ -34,7 +34,7 @@ export function GroupsAdminClient({ groups }: { groups: GroupRow[] }) {
         <div>
           <h1 className="text-2xl font-bold">Groups</h1>
           <p className="text-sm text-muted-foreground">
-            Register Entra ID groups. Assign them to Workspaces to control access.
+            Register Entra ID groups to control namespace access.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -91,7 +91,7 @@ export function GroupsAdminClient({ groups }: { groups: GroupRow[] }) {
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {groups.length === 0
-                      ? "Add a group to use it in Workspace access control."
+                      ? "Add a group to use it in namespace access control."
                       : "Try a different search term."}
                   </p>
                 </td>

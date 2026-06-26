@@ -7,16 +7,8 @@ import {
 } from "@/lib/secret-crypto";
 import { resolveDelegatedAuthorizationHeaders } from "@/lib/delegated-oauth";
 
-export type SkillOption = {
-  id: string;
-  name: string;
-  description: string | null;
-  content: string;
-};
-
 export type UserContext = {
   mcpServers: McpServerConfig[];
-  skills: SkillOption[];
   allowedModels: string[];
   llmConfig: LLMConfig | null;
   llmConfigId: string | null;
@@ -27,41 +19,24 @@ export async function getUserContext(
   selectedModel?: string,
   userId?: string,
 ): Promise<UserContext> {
-  const empty: UserContext = { mcpServers: [], skills: [], allowedModels: [], llmConfig: null, llmConfigId: null };
+  const empty: UserContext = { mcpServers: [], allowedModels: [], llmConfig: null, llmConfigId: null };
 
   try {
-    const [workspaces, directNamespaces, defaultLlm] = await Promise.all([
-      prisma.workspace.findMany({
-        where: { enabled: true },
-        include: {
-          groups: { select: { entraGroupId: true } },
-          users: { select: { id: true } },
-          skills: { where: { enabled: true } },
-          llmConfig: true,
-          namespace: {
-            where: { enabled: true },
-            include: {
-              servers: {
-                where: { enabled: true, mcpServer: { enabled: true } },
-                include: { mcpServer: true },
-              },
-            },
-          },
-        },
-      }),
+    const [accessibleNamespaces, defaultLlm] = await Promise.all([
       prisma.mcpNamespace.findMany({
         where: {
           enabled: true,
+          published: true,
           OR: [
-            { groups: { some: { entraGroupId: { in: entraGroups.length > 0 ? entraGroups : ["__never__"] } } } },
             ...(userId ? [{ users: { some: { id: userId } } }] : []),
-            { AND: [{ groups: { none: {} } }, { users: { none: {} } }] },
+            ...(entraGroups.length > 0 ? [{ groups: { some: { entraGroupId: { in: entraGroups } } } }] : []),
           ],
         },
         include: {
           servers: {
-            where: { enabled: true, mcpServer: { enabled: true } },
+            where: { enabled: true },
             include: { mcpServer: true },
+            orderBy: { displayOrder: "asc" },
           },
         },
       }),
@@ -71,52 +46,20 @@ export async function getUserContext(
       }),
     ]);
 
-    const accessible = workspaces.filter((ws) => {
-      if (ws.groups.length === 0 && ws.users.length === 0) return true;
-      return (
-        ws.groups.some((g) => entraGroups.includes(g.entraGroupId)) ||
-        ws.users.some((u) => u.id === (userId ?? ""))
-      );
-    });
-
     const mcpMap = new Map<string, {
       id: string; name: string; description: string | null; transport: string;
       command: string | null; args: string[]; url: string | null;
       env: unknown; headers: unknown; authType: string; sharedSecret: string | null; enabled: boolean;
     }>();
-    const skillMap = new Map<string, SkillOption>();
     const modelSet = new Set<string>();
-    let resolvedLlm: typeof defaultLlm = null;
 
-    for (const ws of accessible) {
-      if (ws.namespace) {
-        for (const entry of ws.namespace.servers) {
-          mcpMap.set(entry.mcpServer.id, entry.mcpServer);
-        }
-      }
-      for (const skill of ws.skills) {
-        skillMap.set(skill.id, {
-          id: skill.id,
-          name: skill.name,
-          description: skill.description,
-          content: skill.content,
-        });
-      }
-      if (ws.llmConfig) {
-        for (const m of ws.llmConfig.allowedModels) modelSet.add(m);
-        if (!resolvedLlm || ws.llmConfig.isDefault) resolvedLlm = ws.llmConfig;
-      }
-    }
-
-    // MCPs from namespaces the user has direct access to (McpNamespace.groups/users)
-    for (const ns of directNamespaces) {
+    for (const ns of accessibleNamespaces) {
       for (const entry of ns.servers) {
         mcpMap.set(entry.mcpServer.id, entry.mcpServer);
       }
     }
 
-    // Fall back to global default LLM if no workspace provided one
-    if (!resolvedLlm) resolvedLlm = defaultLlm;
+    const resolvedLlm = defaultLlm;
     if (resolvedLlm) {
       for (const m of resolvedLlm.allowedModels) modelSet.add(m);
     }
@@ -147,7 +90,6 @@ export async function getUserContext(
       mcpServers: [...mcpMap.values()].map((mcp) =>
         dbMcpToConfig(mcp, delegatedHeaders.get(mcp.id)),
       ),
-      skills: [...skillMap.values()],
       allowedModels: [...modelSet],
       llmConfig: resolvedLlm ? buildLlmConfig(resolvedLlm, validatedModel) : null,
       llmConfigId: resolvedLlm?.id ?? null,

@@ -8,7 +8,6 @@ import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/chat", label: "Nova Conversa", icon: MessageSquare },
-  { href: "/workspaces", label: "Workspaces", icon: Bot },
   { href: "/connections", label: "My Connections", icon: Cable },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

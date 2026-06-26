@@ -7,7 +7,6 @@ import {
 
 import { getUserContext } from "@/lib/user-context";
 import { resolveTokenUser } from "@/lib/token-auth";
-import { resolveWorkspaceBySlug } from "@/lib/workspace-context";
 import { executeGovernedMcpTool } from "@/lib/mcp-governance";
 import {
   getRegisteredToolPermission,
@@ -77,28 +76,8 @@ async function handleProxyRequest(request: Request): Promise<Response> {
     );
   }
 
-  const url = new URL(request.url);
-  const workspaceSlug = url.searchParams.get("workspace");
-
-  let proxyServers: McpServerConfig[];
-
-  if (workspaceSlug) {
-    const wsContext = await resolveWorkspaceBySlug(
-      workspaceSlug,
-      tokenUser.userId,
-      tokenUser.entraGroups,
-    );
-    if (!wsContext) {
-      return new Response(
-        JSON.stringify({ error: "Workspace not found or not accessible." }),
-        { status: 404, headers: { "Content-Type": "application/json" } },
-      );
-    }
-    proxyServers = wsContext.mcpServers;
-  } else {
-    const context = await getUserContext(tokenUser.entraGroups, undefined, tokenUser.userId);
-    proxyServers = context.mcpServers.filter((server) => server.enabled);
-  }
+  const context = await getUserContext(tokenUser.entraGroups, undefined, tokenUser.userId);
+  const proxyServers = context.mcpServers.filter((server) => server.enabled);
 
   const traceId = request.headers.get("x-request-id") ?? crypto.randomUUID();
 
@@ -117,12 +96,10 @@ async function handleProxyRequest(request: Request): Promise<Response> {
       userId: tokenUser.userId,
       userEmail: tokenUser.userEmail ?? undefined,
       action: "mcp.proxy",
-      resource: workspaceSlug ? "Workspace" : "McpProxy",
-      resourceId: workspaceSlug ?? undefined,
+      resource: "McpProxy",
       metadata: {
         traceId,
         method: request.method,
-        workspaceSlug,
         proxyServerCount: proxyServers.length,
         event: "discovery_tools",
       },
@@ -185,12 +162,10 @@ async function handleProxyRequest(request: Request): Promise<Response> {
       userId: tokenUser.userId,
       userEmail: tokenUser.userEmail ?? undefined,
       action: "mcp.proxy",
-      resource: workspaceSlug ? "Workspace" : "McpProxy",
-      resourceId: workspaceSlug ?? undefined,
+      resource: "McpProxy",
       metadata: {
         traceId,
         method: request.method,
-        workspaceSlug,
         serverId: mcpServer.id,
         toolName: parsed.toolName,
         event: "tool_used",

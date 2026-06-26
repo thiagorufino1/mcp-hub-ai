@@ -3,17 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { Activity, Bot, Boxes, Cable, Layers3, MessageSquare, Settings, Shield, User } from "@/components/ui/icons";
+import { Activity, Bot, Cable, Layers3, MessageSquare, Settings, Shield, User } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/admin", label: "Dashboard", icon: Activity },
   { href: "/chat", label: "User Chat", icon: MessageSquare },
   { href: "/admin/mcp", label: "MCP Servers", icon: Cable },
-  { href: "/admin/workspaces", label: "Workspaces", icon: Boxes },
   { href: "/admin/namespaces", label: "Namespaces", icon: Layers3 },
   { href: "/admin/llm", label: "LLM Config", icon: Bot },
-  { href: "/admin/skills", label: "Skills", icon: Layers3 },
   { href: "/admin/groups", label: "Groups", icon: User },
   { href: "/admin/audit", label: "Audit Log", icon: Shield },
 ];

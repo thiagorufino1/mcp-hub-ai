@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { saveNamespace, type NamespaceRow } from "@/app/admin/workspaces/actions";
+import { saveNamespace, type NamespaceRow } from "@/app/admin/namespaces/actions";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,

@@ -12,7 +12,7 @@ export const metadata = { title: "My Connections — MCP Hub" };
 export default async function ConnectionsPage() {
   const user = await requireAuth();
 
-  // 1. All MCPs the user has access to (workspace + direct namespace), ignoring user preferences
+  // 1. All MCPs the user has access to via namespaces, ignoring user preferences
   //    getUserContext removes disabled servers — My Connections must show them all so user can re-enable.
   const context = await getUserContext(user.groups ?? [], undefined, user.id);
   const [accessibleNamespaces2] = await Promise.all([
@@ -30,23 +30,8 @@ export default async function ConnectionsPage() {
       },
     }),
   ]);
-  // Also include workspace-linked namespaces
-  const accessibleWorkspaces = await prisma.workspace.findMany({
-    where: { enabled: true },
-    include: {
-      groups: { select: { entraGroupId: true } },
-      users: { select: { id: true } },
-      namespace: { where: { enabled: true }, include: { servers: { where: { enabled: true, mcpServer: { enabled: true } }, select: { mcpServerId: true } } } },
-    },
-  });
   const allMcpIdSet = new Set<string>();
   for (const ns of accessibleNamespaces2) ns.servers.forEach((s) => allMcpIdSet.add(s.mcpServerId));
-  for (const ws of accessibleWorkspaces) {
-    const hasAccess = ws.groups.length === 0 && ws.users.length === 0
-      ? true
-      : ws.groups.some((g) => user.groups?.includes(g.entraGroupId)) || ws.users.some((u) => u.id === user.id);
-    if (hasAccess && ws.namespace) ws.namespace.servers.forEach((s) => allMcpIdSet.add(s.mcpServerId));
-  }
   const allMcpIds = [...allMcpIdSet];
 
   // 2. Accessible namespaces (for endpoint display)

@@ -21,6 +21,9 @@ export type AuditAction =
   | "namespace.access.update"
   | "namespace.tool.enable"
   | "namespace.tool.disable"
+  | "namespace.create"
+  | "namespace.update"
+  | "namespace.delete"
   // LLM Config
   | "llm.create"
   | "llm.update"
@@ -28,18 +31,10 @@ export type AuditAction =
   | "llm.delete"
   | "llm.test"
   | "llm.chat"
-  // Skill
-  | "skill.create"
-  | "skill.update"
-  | "skill.delete"
   // Group / Access Policy
   | "group.upsert"
   | "group.sync"
   | "group.delete"
-  // Workspace
-  | "workspace.create"
-  | "workspace.update"
-  | "workspace.delete"
   // User preferences
   | "user.mcp.enable"
   | "user.mcp.disable"

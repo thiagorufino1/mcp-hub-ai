@@ -4,11 +4,9 @@ import { requireAdmin } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/db";
 import {
   Bot,
-  Boxes,
   Cable,
   Layers3,
   Shield,
-  Sparkles,
   User,
   Zap,
 } from "@/components/ui/icons";
@@ -26,9 +24,7 @@ export default async function AdminDashboardPage() {
 
   const [
     mcpTotal,
-    workspaceTotal, workspaceEnabled,
     namespaceTotal, namespacePublished,
-    skillEnabled,
     llmEnabled,
     groupCount,
     userCount,
@@ -38,11 +34,8 @@ export default async function AdminDashboardPage() {
     llmByDay,
   ] = await Promise.all([
     prisma.mcpServer.count(),
-    prisma.workspace.count(),
-    prisma.workspace.count({ where: { enabled: true } }),
     prisma.mcpNamespace.count(),
     prisma.mcpNamespace.count({ where: { published: true } }),
-    prisma.skill.count({ where: { enabled: true } }),
     prisma.llmConfig.count({ where: { enabled: true } }),
     prisma.entraGroup.count(),
     prisma.user.count(),
@@ -91,7 +84,6 @@ export default async function AdminDashboardPage() {
   }
 
   const successRate = execTotal > 0 ? Math.round((execSuccess / execTotal) * 100) : 100;
-  const platformReady = llmEnabled > 0 && workspaceEnabled > 0;
 
   // Discover unique models
   const llmModels = [...new Set(llmByDay.map((r) => r.model))];
@@ -125,18 +117,16 @@ export default async function AdminDashboardPage() {
         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/60">Control center</p>
         <h2 className="mt-2 text-xl font-semibold">Build your governed AI environment</h2>
         <p className="mt-2 max-w-xl text-sm leading-6 text-white/72">
-          Connect MCP servers, configure an LLM provider, define namespaces and publish workspaces for your users.
+          Connect MCP servers, configure an LLM provider, and publish namespaces for your users.
         </p>
       </div>
 
       {/* KPIs — 2 rows of 4 */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="MCP Servers" value={String(mcpTotal)} sub="registered servers" icon={Cable} href="/admin/mcp" tone="info" />
-        <KpiCard label="Workspaces" value={`${workspaceEnabled}/${workspaceTotal}`} sub="enabled" icon={Boxes} href="/admin/workspaces" tone="info" />
         <KpiCard label="Namespaces" value={`${namespacePublished}/${namespaceTotal}`} sub="published endpoints" icon={Layers3} href="/admin/namespaces" tone="info" />
         <KpiCard label="Executions (7d)" value={String(execTotal)} sub={`${successRate}% success rate`} icon={Zap} href="/admin/audit" tone={execError > 0 && successRate < 90 ? "error" : "success"} />
         <KpiCard label="LLM Configs" value={String(llmEnabled)} sub="enabled providers" icon={Bot} href="/admin/llm" tone="info" />
-        <KpiCard label="Active Skills" value={String(skillEnabled)} sub="enabled skills" icon={Sparkles} href="/admin/skills" tone="info" />
         <KpiCard label="Entra Groups" value={String(groupCount)} sub="registered groups" icon={Shield} href="/admin/groups" tone="neutral" />
         <KpiCard label="Users" value={String(userCount)} sub="authenticated" icon={User} href="/admin/audit" tone="neutral" />
       </div>

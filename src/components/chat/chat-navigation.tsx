@@ -5,7 +5,6 @@ import {
   Cable,
   CheckCircle2,
   Globe,
-  Layers3,
   LoaderCircle,
   MessageSquarePlus,
   PencilLine,
@@ -23,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import type { McpServerConfig } from "@/types/mcp";
-import type { WorkspaceOption } from "@/components/chat/workspace-selector";
 
 export type ChatSession = {
   id: string;
@@ -48,9 +46,6 @@ type Props = {
   onRemoveServer: (id: string) => void;
   onRetestServer: (id: string) => void;
   onToggleServerEnabled: (id: string) => void;
-  workspaces: WorkspaceOption[];
-  selectedWorkspaceId: string | null;
-  onWorkspaceChange: (id: string | null) => void;
 };
 
 function getTransportIcon(transport: string) {
@@ -125,13 +120,10 @@ export function ChatNavigation({
   onSessionDelete,
   onSessionSwitch,
   onToggleServerEnabled,
-  onWorkspaceChange,
   retestingServerIds,
-  selectedWorkspaceId,
   servers,
   sessions,
   togglingServerIds,
-  workspaces,
 }: Props) {
   return (
     <aside className="portal-sidebar">
@@ -160,11 +152,6 @@ export function ChatNavigation({
             <MessageSquarePlus className="size-4" />
             <span>Nova Conversa</span>
           </button>
-
-          <Link href="/workspaces" className="portal-nav-item">
-            <Layers3 className="size-4" />
-            <span>Workspaces</span>
-          </Link>
 
           <Link href="/connections" className="portal-nav-item">
             <Cable className="size-4" />

@@ -7,7 +7,7 @@ export const metadata = { title: "Audit Log — Admin" };
 export default async function AdminAuditPage() {
   await requireAdmin();
 
-  const [auditLogs, executions, workspaces, metrics] = await Promise.all([
+  const [auditLogs, executions, metrics] = await Promise.all([
     prisma.auditLog.findMany({
       orderBy: { createdAt: "desc" },
       take: 200,
@@ -39,10 +39,6 @@ export default async function AdminAuditPage() {
         attemptCount: true,
       },
     }),
-    prisma.workspace.findMany({
-      orderBy: { name: "asc" },
-      select: { id: true, name: true, slug: true },
-    }),
     prisma.$queryRaw<
       Array<{ averageLatency: number | null; failures: bigint; total: bigint }>
     >`
@@ -67,9 +63,6 @@ export default async function AdminAuditPage() {
       executions={executions.map((e) => ({
         ...e,
         createdAt: e.createdAt.toISOString(),
-      }))}
-      workspaces={workspaces.map((workspace) => ({
-        ...workspace,
       }))}
       metrics={{
         total24h: Number(metric?.total ?? 0),

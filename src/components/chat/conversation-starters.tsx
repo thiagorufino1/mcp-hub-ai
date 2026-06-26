@@ -7,10 +7,9 @@ import { useAppPreferences } from "@/components/providers/app-preferences-provid
 type Props = {
   disabled?: boolean;
   onSelect: (prompt: string) => void | Promise<void>;
-  workspaceStarters?: string[];
 };
 
-export function ConversationStarters({ disabled, onSelect, workspaceStarters = [] }: Props) {
+export function ConversationStarters({ disabled, onSelect }: Props) {
   const { t } = useAppPreferences();
   const defaultStarters = [
     {
@@ -34,14 +33,7 @@ export function ConversationStarters({ disabled, onSelect, workspaceStarters = [
       prompt: t("starters.example.prompt"),
     },
   ];
-  const starterIcons = [ClipboardList, MapPinned, RadioTower, Layers3];
-  const starters = workspaceStarters.length > 0
-    ? workspaceStarters.map((prompt, index) => ({
-        icon: starterIcons[index % starterIcons.length]!,
-        label: `Workspace prompt ${index + 1}`,
-        prompt,
-      }))
-    : defaultStarters;
+  const starters = defaultStarters;
 
   return (
     <section className="surface-panel surface-subtle rounded-3xl p-5 sm:p-6">

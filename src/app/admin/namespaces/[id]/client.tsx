@@ -37,7 +37,7 @@ import {
   setNamespaceToolEnabled,
 } from "./actions";
 import { syncAllGroups } from "@/app/admin/groups/actions";
-import { saveNamespace } from "@/app/admin/workspaces/actions";
+import { saveNamespace } from "@/app/admin/namespaces/actions";
 
 type McpServerEntry = {
   id: string;

@@ -9,7 +9,6 @@ import { getModel } from "@/lib/ai-provider";
 import { getApprovedTools } from "@/lib/mcp-authorization";
 import { executeGovernedMcpTool } from "@/lib/mcp-governance";
 import { resolveMcpServerTools } from "@/lib/mcp-tool-registry";
-import { resolveWorkspaceContext } from "@/lib/workspace-context";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import type { ChatStreamEvent, Message, TokenUsage } from "@/types/chat";
@@ -81,14 +80,8 @@ const ChatRequestBodySchema = z.object({
     .optional(),
   mcpServers: z.array(McpServerSchema).max(40).optional(),
   requestId: z.string().min(1).max(120).optional(),
-  skillId: z.string().optional(),
   selectedModel: z.string().max(120).optional(),
-  workspaceId: z.string().min(1).max(120).optional(),
-  workspaceSystemPrompt: z.string().max(20000).optional(),
-  maxSteps: z.number().int().min(1).max(12).optional(),
   llmConfigId: z.string().min(1).optional(),
-  skillContent: z.string().optional(),
-  availableSkills: z.array(z.object({ id: z.string(), name: z.string(), description: z.string().nullable().optional(), content: z.string().optional() })).optional(),
   llmConfig: z.object({ provider: z.string() }).passthrough().optional(),
 });
 
@@ -140,27 +133,11 @@ export async function POST(request: Request) {
 
   const body = parsed.data as ChatRequestBody;
 
-  const workspaceContext = body.workspaceId
-    ? await resolveWorkspaceContext(
-        body.workspaceId,
-        session.user.id,
-        session.user.groups,
-        body.selectedModel,
-      )
-    : null;
-  if (body.workspaceId && !workspaceContext) {
-    return streamSingleEvent(
-      { type: "error", message: "Workspace not found or access denied." },
-      403,
-    );
-  }
-  const corporateContext =
-    workspaceContext ??
-    (await getUserContext(
-      session.user.groups,
-      body.selectedModel ?? undefined,
-      session.user.id,
-    ));
+  const corporateContext = await getUserContext(
+    session.user.groups,
+    body.selectedModel ?? undefined,
+    session.user.id,
+  );
 
   // LLM config: corporate DB config takes precedence over client-provided.
   // corporateContext.llmConfig is already a resolved LLMConfig (built by getUserContext with selectedModel applied).
@@ -172,21 +149,11 @@ export async function POST(request: Request) {
   const allMcpServers: McpServerConfig[] = [...corporateContext.mcpServers, ...personalMcps];
 
 
-  // Skill content injection
-  const selectedSkill = body.skillId
-    ? corporateContext.skills.find((s) => s.id === body.skillId)
-    : undefined;
-
   const effectiveBody = {
     ...body,
     llmConfig: resolvedLlmConfig ?? undefined,
     llmConfigId: corporateContext.llmConfigId ?? undefined,
     mcpServers: allMcpServers,
-    skillContent: selectedSkill?.content,
-    // When no skill selected, pass all available skills for auto-trigger
-    availableSkills: selectedSkill ? undefined : corporateContext.skills,
-    maxSteps: workspaceContext?.maxSteps ?? 6,
-    workspaceSystemPrompt: workspaceContext?.systemPrompt ?? undefined,
   };
 
   if (!resolvedLlmConfig) {
@@ -236,13 +203,10 @@ async function streamWithAISDK(
           messages: buildConversation(
             userPrompt,
             body.customPrompt,
-            body.workspaceSystemPrompt,
-            body.skillContent,
-            body.availableSkills,
             body.messages ?? [],
             resolvedServers,
           ),
-          stopWhen: stepCountIs(body.maxSteps ?? 6),
+          stopWhen: stepCountIs(6),
           toolChoice: "auto",
           tools: buildAiSdkTools(resolvedServers, body.requestId, userId, enqueue),
         });
@@ -306,7 +270,6 @@ async function streamWithAISDK(
               outputTokens: usage.outputTokens ?? 0,
               totalTokens: usage.totalTokens ?? 0,
               latencyMs: Math.max(0, Math.round(Date.now() - startedAt)),
-              workspaceId: body.workspaceId ?? null,
             },
           });
         }
@@ -378,42 +341,14 @@ async function resolveLiveMcpServers(mcpServers: McpServerConfig[]) {
   return inspectedServers.filter((server) => server.connectionStatus === "connected");
 }
 
-function buildSkillsPrompt(
-  availableSkills: Array<{ id: string; name: string; description?: string | null; content?: string }>,
-): string {
-  if (!availableSkills.length) return "";
-
-  const skillBlocks = availableSkills
-    .map((s) => {
-      const desc = s.description ? ` description="${sanitizePromptValue(s.description, 120)}"` : "";
-      return `<skill name="${sanitizePromptValue(s.name, 80)}"${desc} />`;
-    })
-    .join("\n");
-
-  return [
-    "<available_skills>",
-    "You have access to the following skills. Apply the most relevant one automatically when the user's request matches its purpose.",
-    "If no skill matches, respond normally.",
-    "",
-    skillBlocks,
-    "</available_skills>",
-  ].join("\n");
-}
-
 function buildConversation(
   userPrompt: string,
   customPrompt: string | undefined,
-  workspaceSystemPrompt: string | undefined,
-  skillContent: string | undefined,
-  availableSkills: Array<{ id: string; name: string; description?: string | null; content?: string }> | undefined,
   messages: Array<Pick<Message, "content" | "role">>,
   mcpServers: McpServerConfig[],
 ): ModelMessage[] {
   const contextualServers = mcpServers.filter((s) => s.connectionStatus === "connected");
   const contextPrompt = buildMcpContext(contextualServers);
-  const autoSkillsPrompt = !skillContent && availableSkills?.length
-    ? buildSkillsPrompt(availableSkills)
-    : undefined;
   const defaultPrompt = [
     "You are a helpful assistant with access to MCP tools. Use tools when they help answer accurately.",
     "For charts/dashboards render fenced blocks: ```chart {JSON}``` All blocks: {type,title?,description?,...fields}",
@@ -431,7 +366,7 @@ function buildConversation(
     "Use device-cards for NE/gateway monitoring. Use info-cards for circuit/link key-value details. Use alert-list for active alarm feeds with severity colors.",
     "For dashboards combine blocks in sequence. Introduce each block with one short sentence.",
   ].join(" ");
-  const instructions = [defaultPrompt, workspaceSystemPrompt, autoSkillsPrompt, skillContent, customPrompt, contextPrompt]
+  const instructions = [defaultPrompt, customPrompt, contextPrompt]
     .filter(Boolean)
     .join("\n\n");
 

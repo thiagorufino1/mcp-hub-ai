@@ -29,7 +29,6 @@ import type { PendingMcpOAuth } from "@/lib/mcp-oauth-browser";
 import type { ChatStreamEvent, Message, ToolEvent } from "@/types/chat";
 import type { McpInspectResponse, McpServerConfig } from "@/types/mcp";
 import type { LLMConfig } from "@/types/llm-config";
-import type { WorkspaceOption } from "@/components/chat/workspace-selector";
 import { LEGACY_LLM_CONFIG_STORAGE_KEY } from "@/types/llm-config";
 
 const MESSAGE_STORAGE_KEY = "ai-chat-messages";
@@ -146,12 +145,10 @@ function normalizeStoredToolEvent(event: Partial<ToolEvent>): ToolEvent | null {
 }
 
 export function ChatShell({
-  initialWorkspaceId = null,
   isAdmin = false,
   userName,
   userImage,
 }: {
-  initialWorkspaceId?: string | null;
   isAdmin?: boolean;
   userName?: string | null;
   userImage?: string | null;
@@ -175,14 +172,9 @@ export function ChatShell({
   const [isHydrated, setIsHydrated] = useState(false);
   const [storageNotice, setStorageNotice] = useState<string | null>(null);
   const [llmConfig, setLlmConfig] = useState<LLMConfig | null>(null);
-  const [userSkills, setUserSkills] = useState<{ id: string; name: string; description: string | null }[]>([]);
   const [allowedModels, setAllowedModels] = useState<string[]>([]);
   const [hasCorporateLlm, setHasCorporateLlm] = useState(false);
-  const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
-  const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
-  const [workspaceStarters, setWorkspaceStarters] = useState<string[]>([]);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [scrollRequest, setScrollRequest] = useState(0);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -331,23 +323,11 @@ export function ChatShell({
     fetch("/api/user/context")
       .then((res) => res.json())
       .then((data: {
-        skills: typeof userSkills;
         allowedModels: string[];
         hasCorporateLlm: boolean;
-        starters: string[];
-        workspaces: WorkspaceOption[];
       }) => {
-        setUserSkills(data.skills ?? []);
         setAllowedModels(data.allowedModels ?? []);
         setHasCorporateLlm(data.hasCorporateLlm ?? false);
-        setWorkspaceStarters(data.starters ?? []);
-        setWorkspaces(data.workspaces ?? []);
-        if (initialWorkspaceId && data.workspaces?.some((w) => w.id === initialWorkspaceId)) {
-          setSelectedWorkspaceId(initialWorkspaceId);
-        } else {
-          const defaultWorkspace = data.workspaces?.find((workspace) => workspace.isDefault);
-          if (defaultWorkspace) setSelectedWorkspaceId(defaultWorkspace.id);
-        }
         if (data.allowedModels?.length > 0) {
           setSelectedModel(data.allowedModels[0]);
         }
@@ -356,29 +336,6 @@ export function ChatShell({
         // Silently ignore — user context is enhancement, not required
       });
   }, []);
-
-  useEffect(() => {
-    if (!selectedWorkspaceId) {
-      setWorkspaceStarters([]);
-      return;
-    }
-    fetch(`/api/user/context?workspaceId=${encodeURIComponent(selectedWorkspaceId)}`)
-      .then((response) => response.json())
-      .then((data: {
-        skills: typeof userSkills;
-        allowedModels: string[];
-        hasCorporateLlm: boolean;
-        starters: string[];
-      }) => {
-        setUserSkills(data.skills ?? []);
-        setAllowedModels(data.allowedModels ?? []);
-        setHasCorporateLlm(data.hasCorporateLlm ?? false);
-        setWorkspaceStarters(data.starters ?? []);
-        setSelectedSkillId(null);
-        setSelectedModel(data.allowedModels?.[0] ?? null);
-      })
-      .catch(() => undefined);
-  }, [selectedWorkspaceId]);
 
   useEffect(() => {
     if (!storageNotice) {
@@ -1022,17 +979,12 @@ export function ChatShell({
             role: message.role,
           })),
           requestId,
-          skillId: selectedSkillId ?? undefined,
           selectedModel: selectedModel ?? undefined,
-          workspaceId: selectedWorkspaceId ?? undefined,
-          availableSkills: selectedSkillId ? undefined : userSkills,
         }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
         signal: controller.signal,
       });
-      setSelectedSkillId(null);
-
       if (!response.ok) {
         const errorText = await response.text();
         applyStreamEvent({
@@ -1378,16 +1330,10 @@ export function ChatShell({
     usageState: tokenUsageState,
   };
   const corporateProps = {
-    userSkills,
     allowedModels,
     hasCorporateLlm,
-    selectedSkillId,
     selectedModel,
-    onSkillChange: setSelectedSkillId,
     onModelChange: setSelectedModel,
-    workspaces,
-    selectedWorkspaceId,
-    onWorkspaceChange: setSelectedWorkspaceId,
   };
   return (
     <div className="fixed inset-0 flex flex-col bg-[var(--color-bg)]">
@@ -1411,13 +1357,10 @@ export function ChatShell({
             onSessionDelete={handleSessionDelete}
             onSessionSwitch={handleSessionSwitch}
             onToggleServerEnabled={handleToggleServerEnabled}
-            onWorkspaceChange={setSelectedWorkspaceId}
             retestingServerIds={retestingServerIds}
-            selectedWorkspaceId={selectedWorkspaceId}
             servers={mcpServers}
             sessions={sessions}
             togglingServerIds={togglingServerIds}
-            workspaces={workspaces}
           />
         </div>
 
@@ -1474,9 +1417,6 @@ export function ChatShell({
                     isSubmitting={isStreaming}
                     onStop={handleStop}
                     onSubmit={handleSubmit}
-                    skills={userSkills}
-                    activeSkillId={selectedSkillId}
-                    onSkillSelect={setSelectedSkillId}
                   />
                 </div>
               </>
@@ -1495,9 +1435,6 @@ export function ChatShell({
                     isSubmitting={isStreaming}
                     onStop={handleStop}
                     onSubmit={handleSubmit}
-                    skills={userSkills}
-                    activeSkillId={selectedSkillId}
-                    onSkillSelect={setSelectedSkillId}
                   />
                 </div>
               </div>

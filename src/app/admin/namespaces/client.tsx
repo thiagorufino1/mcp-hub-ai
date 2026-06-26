@@ -8,7 +8,7 @@ import {
   setNamespaceEnabled,
   setNamespacePublished,
   type NamespaceRow,
-} from "@/app/admin/workspaces/actions";
+} from "@/app/admin/namespaces/actions";
 import { NamespaceForm } from "@/components/admin/namespace-form";
 import { Button } from "@/components/ui/button";
 import { Check, Copy, Layers3, PencilLine, Search, Trash2 } from "@/components/ui/icons";
