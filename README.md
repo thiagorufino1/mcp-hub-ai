@@ -49,6 +49,7 @@ All traffic stays on `localhost` except direct calls to the LLM providers you co
   - [LLM Providers](#llm-providers)
   - [MCP Servers](#mcp-servers)
   - [Chat](#chat)
+- [MCP Proxy — Connect Claude Desktop](#mcp-proxy--connect-claude-desktop)
 - [Stack](#stack)
 - [Security](#security)
 - [Limitations](#limitations)
@@ -142,6 +143,72 @@ Inspect tools, schemas, and execute calls directly from the sidebar.
 
 ---
 
+## MCP Proxy — Connect Claude Desktop
+
+MCP Hub exposes a Streamable HTTP MCP endpoint at `/api/mcp/proxy` that aggregates all your configured servers into a single connection. Claude Desktop and other MCP clients can connect to it without any manual token setup.
+
+### OAuth 2.1 (recommended)
+
+The hub implements a full OAuth 2.1 Authorization Server with Dynamic Client Registration (DCR). Clients that support MCP OAuth discovery (Claude Desktop, VS Code extension) authenticate automatically:
+
+1. Client hits `/api/mcp/proxy` → receives `401` with `WWW-Authenticate` pointing to well-known metadata
+2. Client discovers the AS at `/.well-known/oauth-authorization-server`
+3. Client registers itself via DCR at `/api/oauth/register` (no manual setup)
+4. Browser opens the hub's approval page — user approves once
+5. Client stores tokens and renews them automatically
+
+**Claude Desktop config** (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "mcp-hub": {
+      "url": "http://localhost:3000/api/mcp/proxy",
+      "type": "http"
+    }
+  }
+}
+```
+
+For a specific published namespace:
+
+```json
+{
+  "mcpServers": {
+    "github-tools": {
+      "url": "http://localhost:3000/api/mcp/namespaces/github",
+      "type": "http"
+    }
+  }
+}
+```
+
+No token required. The OAuth flow runs once per client, then renews silently.
+
+### Personal Access Tokens (legacy)
+
+Tokens created in the UI still work as Bearer tokens and will continue to do so during a deprecation window. Pass them via `Authorization: Bearer <token>` or configure them directly in the MCP client.
+
+### OAuth endpoints
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /.well-known/oauth-authorization-server` | AS metadata (RFC 8414) |
+| `GET /.well-known/oauth-protected-resource` | Resource metadata (RFC 9728) |
+| `POST /api/oauth/register` | Dynamic Client Registration (RFC 7591) |
+| `GET /api/oauth/authorize` | Authorization endpoint (PKCE S256 mandatory) |
+| `POST /api/oauth/token` | Token exchange and refresh rotation |
+| `POST /api/oauth/revoke` | Token revocation (RFC 7009) |
+
+### Scopes
+
+| Scope | Access |
+|---|---|
+| `mcp:proxy` | All tools via the proxy endpoint |
+| `mcp:namespace:{alias}` | Tools in a specific published namespace |
+
+---
+
 ## Stack
 
 | Layer | Technology |
@@ -176,6 +243,7 @@ See [SECURITY.md](./SECURITY.md) for the full security model.
 - Provider credentials are session-scoped, so you must re-enter them in new browser sessions
 - Remote MCP OAuth config is also session-scoped, so re-auth may be needed after session end
 - Remote multi-user deployment is out of scope
+- OAuth 2.1 Personal Token deprecation window: legacy tokens remain valid for 90 days, then OAuth 2.1 only
 
 ---
 
