@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
 import { prisma } from "@/lib/db";
+import { resolveOAuthAccessToken } from "@/lib/oauth-server";
 
 export function hashToken(raw: string): string {
   return createHash("sha256").update(raw).digest("hex");
@@ -7,9 +8,24 @@ export function hashToken(raw: string): string {
 
 export async function resolveTokenUser(
   bearerToken: string,
-): Promise<{ userId: string; userEmail: string | null; entraGroups: string[]; tokenId: string } | null> {
+): Promise<{ userId: string; userEmail: string | null; entraGroups: string[]; tokenId: string; scope?: string } | null> {
   if (!bearerToken || bearerToken.length < 16) return null;
 
+  // Try OAuth access token first (64-char hex from randomBytes(32))
+  if (bearerToken.length === 64 && /^[0-9a-f]+$/.test(bearerToken)) {
+    const oauthUser = await resolveOAuthAccessToken(bearerToken);
+    if (oauthUser) {
+      return {
+        userId: oauthUser.userId,
+        userEmail: oauthUser.userEmail,
+        entraGroups: oauthUser.entraGroups,
+        tokenId: `oauth:${oauthUser.userId}`,
+        scope: oauthUser.scope,
+      };
+    }
+  }
+
+  // Fall back to PersonalToken (legacy — deprecation window 90 days)
   const tokenHash = hashToken(bearerToken);
 
   const record = await prisma.personalToken.findUnique({
