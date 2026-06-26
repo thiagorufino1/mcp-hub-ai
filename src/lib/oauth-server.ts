@@ -7,8 +7,8 @@ export const AUTH_CODE_TTL_MS = 10 * 60 * 1000; // 10 min
 
 const VALID_SCOPES = new Set(["mcp:proxy"]);
 
-export function generateOpaqueToken(): string {
-  return randomBytes(32).toString("hex");
+export function generateOpaqueToken(prefix: "mcp_at_" | "mcp_rt_" = "mcp_at_"): string {
+  return prefix + randomBytes(32).toString("hex");
 }
 
 export function hashToken(raw: string): string {
@@ -123,8 +123,8 @@ export async function createTokenPair(
   userId: string,
   scope: string,
 ): Promise<{ accessToken: string; refreshToken: string; expiresAt: Date }> {
-  const rawAccess = generateOpaqueToken();
-  const rawRefresh = generateOpaqueToken();
+  const rawAccess = generateOpaqueToken("mcp_at_");
+  const rawRefresh = generateOpaqueToken("mcp_rt_");
   const expiresAt = new Date(Date.now() + ACCESS_TOKEN_TTL_MS);
 
   await Promise.all([

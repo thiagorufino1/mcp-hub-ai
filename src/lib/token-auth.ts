@@ -11,8 +11,8 @@ export async function resolveTokenUser(
 ): Promise<{ userId: string; userEmail: string | null; entraGroups: string[]; tokenId: string; scope?: string } | null> {
   if (!bearerToken || bearerToken.length < 16) return null;
 
-  // Try OAuth access token first (64-char hex from randomBytes(32))
-  if (bearerToken.length === 64 && /^[0-9a-f]+$/.test(bearerToken)) {
+  // Try OAuth access token first (prefix mcp_at_)
+  if (bearerToken.startsWith("mcp_at_")) {
     const oauthUser = await resolveOAuthAccessToken(bearerToken);
     if (oauthUser) {
       return {
