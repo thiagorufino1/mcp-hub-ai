@@ -17,26 +17,32 @@ export async function GET(request: Request) {
   const codeChallenge = p.get("code_challenge");
   const codeChallengeMethod = p.get("code_challenge_method");
 
+  // 1. Verify redirect_uri is present before any redirect — no redirect until uri is confirmed.
+  if (!redirectUri) return new Response("redirect_uri required", { status: 400 });
+
+  // 2. Verify client_id is present — still no redirect, uri not yet confirmed registered.
+  if (!clientId) return new Response("client_id required", { status: 400 });
+
+  // 3. Look up client and confirm redirect_uri is registered on it.
+  const client = await prisma.oAuthClient.findUnique({ where: { id: clientId } });
+  if (!client || !client.redirectUris.includes(redirectUri)) {
+    return new Response("invalid client or redirect_uri", { status: 400 });
+  }
+
+  // redirect_uri is now confirmed registered — safe to use errorRedirect for remaining checks.
   function errorRedirect(error: string): Response {
-    if (!redirectUri) return new Response(error, { status: 400 });
-    const target = new URL(redirectUri);
+    const target = new URL(redirectUri!);
     target.searchParams.set("error", error);
     if (state) target.searchParams.set("state", state);
     return Response.redirect(target.toString(), 302);
   }
 
   if (responseType !== "code") return errorRedirect("unsupported_response_type");
-  if (!clientId) return errorRedirect("invalid_request");
-  if (!redirectUri) return new Response("redirect_uri required", { status: 400 });
   if (!codeChallenge) return errorRedirect("invalid_request");
   if (codeChallengeMethod !== "S256") return errorRedirect("invalid_request");
 
   const normalizedScope = validateScope(scope);
   if (!normalizedScope) return errorRedirect("invalid_scope");
-
-  const client = await prisma.oAuthClient.findUnique({ where: { id: clientId } });
-  if (!client) return errorRedirect("invalid_client");
-  if (!client.redirectUris.includes(redirectUri)) return errorRedirect("invalid_request");
 
   const session = await auth();
   if (!session?.user?.email) {
