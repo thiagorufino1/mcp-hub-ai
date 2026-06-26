@@ -259,13 +259,7 @@ function isImageKey(key: string) {
 
 function looksLikeImageUrl(url: string) {
   const clean = cleanUrl(url);
-  if (!/^https?:\/\//i.test(clean)) return false;
-  if (/\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(clean)) return true;
-  try {
-    return new URL(clean).hostname.endsWith("cdn.shopify.com");
-  } catch {
-    return false;
-  }
+  return /^https?:\/\//i.test(clean) && /\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(clean);
 }
 
 function cleanUrl(url: string) {

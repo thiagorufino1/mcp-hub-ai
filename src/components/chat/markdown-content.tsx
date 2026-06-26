@@ -213,13 +213,7 @@ function MarkdownImage({ src, alt }: { src?: string | Blob; alt?: string }) {
 }
 
 function looksLikeImageUrl(value: string) {
-  if (!/^https?:\/\/\S+$/i.test(value)) return false;
-  if (/\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(value)) return true;
-  try {
-    return new URL(value).hostname.endsWith("cdn.shopify.com");
-  } catch {
-    return false;
-  }
+  return /^https?:\/\/\S+$/i.test(value) && /\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(value);
 }
 
 function toNodeArray(children: ReactNode): ReactNode[] {
