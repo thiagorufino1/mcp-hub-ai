@@ -51,6 +51,20 @@ async function handleNamespaceRequest(
   }
 
   const { alias } = await context.params;
+
+  // Scope enforcement: OAuth tokens must have mcp:proxy or mcp:namespace:{alias} scope
+  if (tokenUser.scope !== undefined) {
+    const scopes = tokenUser.scope.split(" ");
+    const hasProxy = scopes.includes("mcp:proxy");
+    const hasNamespace = scopes.includes(`mcp:namespace:${alias}`);
+    if (!hasProxy && !hasNamespace) {
+      return Response.json(
+        { error: `Insufficient scope. mcp:proxy or mcp:namespace:${alias} required.` },
+        { status: 403 },
+      );
+    }
+  }
+
   const namespace = await resolveAccessibleNamespace(
     alias,
     tokenUser.userId,

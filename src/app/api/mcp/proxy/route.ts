@@ -69,6 +69,14 @@ async function handleProxyRequest(request: Request): Promise<Response> {
     );
   }
 
+  // Scope enforcement: OAuth tokens must have mcp:proxy scope
+  if (tokenUser.scope !== undefined && !tokenUser.scope.split(" ").includes("mcp:proxy")) {
+    return new Response(
+      JSON.stringify({ error: "Insufficient scope. mcp:proxy required." }),
+      { status: 403, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
   const url = new URL(request.url);
   const workspaceSlug = url.searchParams.get("workspace");
 
