@@ -31,7 +31,10 @@ export function validateScope(requested: string): string | null {
 
   const valid = parts.filter((s) => {
     if (VALID_SCOPES.has(s)) return true;
-    if (s.startsWith("mcp:namespace:") && s.split(":").length === 3) return true;
+    if (s.startsWith("mcp:namespace:")) {
+      const parts = s.split(":");
+      return parts.length === 3 && parts[2].length > 0;
+    }
     return false;
   });
 
@@ -91,22 +94,26 @@ export async function consumeAuthCode(
 ): Promise<{ userId: string; scope: string } | null> {
   const codeHash = hashToken(rawCode);
 
+  // Atomic mark-as-used — prevents replay via concurrent requests
+  const updated = await prisma.oAuthAuthCode.updateMany({
+    where: {
+      codeHash,
+      usedAt: null,
+      expiresAt: { gt: new Date() },
+      clientId,
+      redirectUri,
+    },
+    data: { usedAt: new Date() },
+  });
+  if (updated.count === 0) return null;
+
+  // Now safe to read for userId/scope (record is marked used)
   const record = await prisma.oAuthAuthCode.findUnique({ where: { codeHash } });
   if (!record) return null;
-  if (record.usedAt) return null; // replay attack
-  if (record.expiresAt < new Date()) return null;
-  if (record.clientId !== clientId) return null;
-  if (record.redirectUri !== redirectUri) return null;
 
   // PKCE S256 verification
   const computedChallenge = hashPkceVerifier(codeVerifier);
   if (computedChallenge !== record.codeChallengeHash) return null;
-
-  // Mark as used (one-time use)
-  await prisma.oAuthAuthCode.update({
-    where: { codeHash },
-    data: { usedAt: new Date() },
-  });
 
   return { userId: record.userId, scope: record.scope };
 }

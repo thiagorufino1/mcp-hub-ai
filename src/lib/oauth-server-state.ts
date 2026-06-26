@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "crypto";
 
 type AuthorizeStatePayload = {
   clientId: string;
@@ -21,7 +21,7 @@ function sign(encoded: string) {
 export function createAuthorizeState(payload: Omit<AuthorizeStatePayload, "nonce" | "expiresAt">) {
   const full: AuthorizeStatePayload = {
     ...payload,
-    nonce: crypto.randomUUID(),
+    nonce: randomUUID(),
     expiresAt: Date.now() + 10 * 60 * 1000,
   };
   const encoded = Buffer.from(JSON.stringify(full)).toString("base64url");
