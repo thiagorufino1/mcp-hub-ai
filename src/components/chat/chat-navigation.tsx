@@ -38,7 +38,7 @@ export function ChatNavigation({
 }: Props) {
   return (
     <aside className="portal-sidebar">
-      {/* Header — identical structure to AdminNavigation */}
+      {/* Header - identical structure to AdminNavigation */}
       <div className="flex items-center gap-3 border-b border-border/70 px-4 py-4">
         <span className="flex size-9 items-center justify-center rounded-xl bg-[var(--color-primary)] text-white">
           <Sparkles className="size-4" />
@@ -53,7 +53,7 @@ export function ChatNavigation({
 
       {/* Scrollable body */}
       <div className="app-scroll flex flex-1 flex-col overflow-y-auto">
-        {/* Primary nav — same <nav> pattern as admin */}
+        {/* Primary nav - same <nav> pattern as admin */}
         <nav className="flex flex-col gap-1 p-3">
           <button
             type="button"

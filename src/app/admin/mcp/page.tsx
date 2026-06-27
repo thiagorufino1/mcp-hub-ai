@@ -6,7 +6,7 @@ import {
 import { McpAdminClient } from "./client";
 import type { McpServerRow } from "./actions";
 
-export const metadata = { title: "MCP Servers — Admin" };
+export const metadata = { title: "MCP Servers - Admin" };
 
 export default async function AdminMcpPage() {
   await requireAdmin();

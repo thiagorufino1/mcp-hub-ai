@@ -132,7 +132,7 @@ export function GroupsAdminClient({ groups }: { groups: GroupRow[] }) {
                         dateStyle: "short",
                         timeStyle: "short",
                       }).format(new Date(group.lastSyncedAt))
-                    : "—"}
+                    : "-"}
                 </td>
                 <td className="px-4 py-4 text-center">
                   <Badge

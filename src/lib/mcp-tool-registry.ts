@@ -22,7 +22,7 @@ export async function resolveMcpServerTools(
   server: McpServerConfig,
   options: ResolveOptions = {},
 ) {
-  // oauth_delegated servers use per-user tokens — never read/write global DB cache.
+  // oauth_delegated servers use per-user tokens - never read/write global DB cache.
   // Tool discovery is ephemeral: live-probe every request, no DB side effects.
   if (server.requiresUserAuthorization) {
     return resolveUserDelegatedServerTools(server);

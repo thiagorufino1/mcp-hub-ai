@@ -26,7 +26,7 @@ test("package manifest exposes verification scripts", () => {
 test("@lobehub/icons is declared as a dependency", () => {
   assert.ok(
     packageJson.dependencies?.["@lobehub/icons"],
-    "@lobehub/icons must be in dependencies — provider icons depend on it",
+    "@lobehub/icons must be in dependencies - provider icons depend on it",
   );
 });
 

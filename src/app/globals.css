@@ -281,7 +281,7 @@ textarea {
 .tool-result-md a { color: hsl(var(--primary)); text-decoration: underline; }
 .tool-result-md hr { border: none; border-top: 1px solid hsl(var(--border)); margin: 0.5em 0; }
 
-/* Global scrollbar — ultra-thin, refined */
+/* Global scrollbar - ultra-thin, refined */
 html, body, * {
   scrollbar-width: thin;
   scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
@@ -572,7 +572,7 @@ html, body, * {
   text-transform: uppercase;
 }
 
-/* Text inputs inside admin dialogs — explicit white background */
+/* Text inputs inside admin dialogs - explicit white background */
 .admin-dialog input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]) {
   background: #ffffff;
   color: var(--color-text-primary);
@@ -702,7 +702,7 @@ html, body, * {
   animation: pulse-dot 1.4s ease-in-out infinite;
 }
 
-/* ── Admin form input backgrounds (scoped — does not affect chat UI) ── */
+/* ── Admin form input backgrounds (scoped - does not affect chat UI) ── */
 .admin-dialog input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
 .admin-dialog textarea,
 [data-admin-form] input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]),

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { SettingsClient } from "./client";
 import { PortalShell } from "@/components/layout/portal-shell";
 
-export const metadata = { title: "Settings — MCP Hub" };
+export const metadata = { title: "Settings - MCP Hub" };
 
 export default async function SettingsPage() {
   const user = await requireAuth();

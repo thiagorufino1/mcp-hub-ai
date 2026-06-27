@@ -151,7 +151,7 @@ function tokenizeJson(src: string): { text: string; cls: string }[] {
   while ((m = re.exec(src)) !== null) {
     if (m.index > last) out.push({ text: src.slice(last, m.index), cls: "text-muted-foreground/50" });
     if (m[1]) {
-      // string — key or value
+      // string - key or value
       out.push({ text: m[1], cls: m[2] ? "text-[#2563eb]" : "text-[#16a34a]" });
       if (m[2]) out.push({ text: m[2], cls: "text-slate-500" });
     } else if (m[3]) {

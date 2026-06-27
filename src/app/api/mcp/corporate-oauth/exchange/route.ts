@@ -11,7 +11,7 @@ import {
 } from "@/lib/secret-crypto";
 
 // tokenEndpoint, clientId, clientSecret are intentionally NOT accepted from the client
-// to prevent SSRF — they are resolved server-side from the DB and OAuth discovery.
+// to prevent SSRF - they are resolved server-side from the DB and OAuth discovery.
 const ExchangeSchema = z.object({
   mcpServerId: z.string().min(1),
   code: z.string().min(1),
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
   }
 
   // Verify user has access to this MCP and fetch OAuth credentials from DB (not from client)
-  // Check access via namespace query — not getUserContext which filters by user preference.
+  // Check access via namespace query - not getUserContext which filters by user preference.
   // A user must be able to connect to a server even if they previously disabled it.
   const accessible = await prisma.mcpNamespace.findFirst({
     where: {
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Re-discover OAuth metadata server-side — never trust client-provided tokenEndpoint
+    // Re-discover OAuth metadata server-side - never trust client-provided tokenEndpoint
     const discovery = await discoverMcpOAuth(dbMcp.url);
 
     const result = await exchangeMcpOAuthCode(discovery.tokenEndpoint, {
@@ -128,7 +128,7 @@ export async function POST(request: Request) {
     const linkedServer = await prisma.mcpServer.findUnique({
       where: { id: body.data.mcpServerId },
     });
-    // Do NOT call resolveMcpServerTools here — oauth_delegated tool discovery
+    // Do NOT call resolveMcpServerTools here - oauth_delegated tool discovery
     // must happen in the user's own request context, not as a global side effect
     // that would pollute registryTools and healthStatus for all users.
 

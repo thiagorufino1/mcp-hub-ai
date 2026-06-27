@@ -1,4 +1,4 @@
-# Recomendações de Roadmap — Claude Desktop Melhorado + MetaMCP
+# Recomendações de Roadmap - Claude Desktop Melhorado + MetaMCP
 
 ## Visão do produto
 

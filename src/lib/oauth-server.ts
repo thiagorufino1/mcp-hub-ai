@@ -94,7 +94,7 @@ export async function consumeAuthCode(
 ): Promise<{ userId: string; scope: string } | null> {
   const codeHash = hashToken(rawCode);
 
-  // Atomic mark-as-used — prevents replay via concurrent requests
+  // Atomic mark-as-used - prevents replay via concurrent requests
   const updated = await prisma.oAuthAuthCode.updateMany({
     where: {
       codeHash,

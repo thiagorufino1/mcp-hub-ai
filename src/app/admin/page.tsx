@@ -6,29 +6,35 @@ import {
   Bot,
   Cable,
   Layers3,
+  RadioTower,
   Shield,
   User,
+  Wrench,
   Zap,
 } from "@/components/ui/icons";
 import { ExecutionChart, type ExecDayData } from "@/components/admin/execution-chart";
 import { LlmUsageChart, type LlmDayData } from "@/components/admin/llm-usage-chart";
 
-export const metadata = { title: "Admin Dashboard — MCP Hub" };
-
+export const metadata = { title: "Admin Dashboard - MCP Hub" };
 
 export default async function AdminDashboardPage() {
   await requireAdmin();
 
   const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const fourteenDaysWindowAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
 
   const [
     mcpTotal,
-    namespaceTotal, namespacePublished,
+    namespaceTotal,
+    namespacePublished,
+    toolTotal,
+    oauthConnectionTotal,
     llmEnabled,
     groupCount,
     userCount,
-    execTotal, execSuccess, execError,
+    execTotal,
+    execSuccess,
+    execError,
     execByDay,
     topServers,
     llmByDay,
@@ -36,12 +42,14 @@ export default async function AdminDashboardPage() {
     prisma.mcpServer.count(),
     prisma.mcpNamespace.count(),
     prisma.mcpNamespace.count({ where: { published: true } }),
+    prisma.mcpToolRegistry.count({ where: { enabled: true } }),
+    prisma.userMcpConnection.count({ where: { status: "connected" } }),
     prisma.llmConfig.count({ where: { enabled: true } }),
     prisma.entraGroup.count(),
     prisma.user.count(),
-    prisma.mcpToolExecution.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
-    prisma.mcpToolExecution.count({ where: { createdAt: { gte: sevenDaysAgo }, status: "success" } }),
-    prisma.mcpToolExecution.count({ where: { createdAt: { gte: sevenDaysAgo }, status: { not: "success" } } }),
+    prisma.mcpToolExecution.count({ where: { createdAt: { gte: fourteenDaysWindowAgo } } }),
+    prisma.mcpToolExecution.count({ where: { createdAt: { gte: fourteenDaysWindowAgo }, status: "success" } }),
+    prisma.mcpToolExecution.count({ where: { createdAt: { gte: fourteenDaysWindowAgo }, status: { not: "success" } } }),
     prisma.$queryRaw<Array<{ day: Date; status: string; count: bigint }>>`
       SELECT
         DATE_TRUNC('day', "createdAt") AS day,
@@ -54,7 +62,7 @@ export default async function AdminDashboardPage() {
     `,
     prisma.mcpToolExecution.groupBy({
       by: ["serverName"],
-      where: { createdAt: { gte: sevenDaysAgo } },
+      where: { createdAt: { gte: fourteenDaysWindowAgo } },
       _count: { serverName: true },
       orderBy: { _count: { serverName: "desc" } },
       take: 5,
@@ -71,19 +79,16 @@ export default async function AdminDashboardPage() {
     `,
   ]);
 
-  // Pre-group execByDay into Map<"YYYY-MM-DD:status", number>
   const execMap = new Map<string, number>();
   for (const r of execByDay) {
     execMap.set(`${r.day.toISOString().slice(0, 10)}:${r.status}`, Number(r.count));
   }
 
-  // Pre-group llmByDay into Map<"YYYY-MM-DD:model", number>
   const llmMap = new Map<string, number>();
   for (const r of llmByDay) {
     llmMap.set(`${r.day.toISOString().slice(0, 10)}:${r.model}`, Number(r.totalTokens ?? 0));
   }
 
-  // Build 14-day chart data
   const chartData: ExecDayData[] = [];
   for (let i = 13; i >= 0; i--) {
     const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
@@ -96,7 +101,6 @@ export default async function AdminDashboardPage() {
 
   const successRate = execTotal > 0 ? Math.round((execSuccess / execTotal) * 100) : 100;
 
-  // Discover unique models
   const llmModels = [...new Set(llmByDay.map((r) => r.model))];
   const llmChartData = Array.from({ length: 14 }, (_, i) => {
     const d = new Date(Date.now() - (13 - i) * 24 * 60 * 60 * 1000);
@@ -111,7 +115,6 @@ export default async function AdminDashboardPage() {
 
   return (
     <div className="portal-page">
-      {/* Heading */}
       <div className="portal-page-heading">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -121,9 +124,10 @@ export default async function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Hero */}
-      <div className="rounded-2xl border border-white/10 p-6 text-white shadow-[0_14px_32px_rgba(17,63,124,0.18)]"
-        style={{ background: "var(--gradient-action)" }}>
+      <div
+        className="rounded-2xl border border-white/10 p-6 text-white shadow-[0_14px_32px_rgba(17,63,124,0.18)]"
+        style={{ background: "var(--gradient-action)" }}
+      >
         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/60">Control center</p>
         <h2 className="mt-2 text-xl font-semibold">Build your governed AI environment</h2>
         <p className="mt-2 max-w-xl text-sm leading-6 text-white/72">
@@ -131,22 +135,22 @@ export default async function AdminDashboardPage() {
         </p>
       </div>
 
-      {/* KPIs — 2 rows of 4 */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="MCP Servers" value={String(mcpTotal)} sub="registered servers" icon={Cable} href="/admin/mcp" tone="info" />
-        <KpiCard label="Namespaces" value={`${namespacePublished}/${namespaceTotal}`} sub="published endpoints" icon={Layers3} href="/admin/namespaces" tone="info" />
-        <KpiCard label="Executions (7d)" value={String(execTotal)} sub={`${successRate}% success rate`} icon={Zap} href="/admin/audit" tone={execError > 0 && successRate < 90 ? "error" : "success"} />
-        <KpiCard label="LLM Configs" value={String(llmEnabled)} sub="enabled providers" icon={Bot} href="/admin/llm" tone="info" />
-        <KpiCard label="Entra Groups" value={String(groupCount)} sub="registered groups" icon={Shield} href="/admin/groups" tone="neutral" />
-        <KpiCard label="Users" value={String(userCount)} sub="authenticated" icon={User} href="/admin/audit" tone="neutral" />
+        <KpiCard href="/admin/mcp" label="MCP Servers" value={String(mcpTotal)} sub="registered servers" icon={Cable} tone="info" />
+        <KpiCard href="/admin/namespaces" label="Namespaces" value={`${namespacePublished}/${namespaceTotal}`} sub="published endpoints" icon={Layers3} tone="info" />
+        <KpiCard href="/admin/audit" label="Executions (14d)" value={String(execTotal)} sub={`${successRate}% success rate`} icon={Zap} tone={execError > 0 && successRate < 90 ? "error" : "success"} />
+        <KpiCard href="/admin/llm" label="LLM" value={String(llmEnabled)} sub="enabled providers" icon={Bot} tone="info" />
+        <KpiCard href="/admin/mcp" label="MCP Tools" value={String(toolTotal)} sub="enabled tools" icon={Wrench} tone="info" />
+        <KpiCard label="OAuth Connections" value={String(oauthConnectionTotal)} sub="active connections" icon={RadioTower} tone="neutral" />
+        <KpiCard href="/admin/groups" label="Entra Groups" value={String(groupCount)} sub="registered groups" icon={Shield} tone="neutral" />
+        <KpiCard label="Users" value={String(userCount)} sub="authenticated" icon={User} tone="neutral" />
       </div>
 
-      {/* Execution chart */}
       <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_8px_24px_rgba(17,63,124,0.04)]">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold">Tool executions — last 14 days</h2>
-            <p className="text-xs text-muted-foreground">{execTotal} calls in last 7d · {successRate}% success</p>
+            <h2 className="text-sm font-semibold">Tool executions - last 14 days</h2>
+            <p className="text-xs text-muted-foreground">{execTotal} calls in last 14d - {successRate}% success</p>
           </div>
           <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
             <span className="flex items-center gap-1.5">
@@ -162,10 +166,9 @@ export default async function AdminDashboardPage() {
         </div>
         <ExecutionChart data={chartData} />
 
-        {/* Top servers mini-bar */}
         {topServers.length > 0 && (
           <div className="mt-5 border-t border-border/60 pt-4">
-            <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Top servers (7d)</p>
+            <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Top servers (14d)</p>
             <div className="flex flex-col gap-2">
               {topServers.map((row) => {
                 const pct = execTotal > 0 ? Math.round((row._count.serverName / execTotal) * 100) : 0;
@@ -184,11 +187,10 @@ export default async function AdminDashboardPage() {
         )}
       </section>
 
-      {/* LLM Usage chart */}
       <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_8px_24px_rgba(17,63,124,0.04)]">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold">Consumo de tokens LLM — últimos 14 dias</h2>
+            <h2 className="text-sm font-semibold">Consumo de tokens LLM - ultimos 14 dias</h2>
             <p className="text-xs text-muted-foreground">Total de tokens por dia (input + output)</p>
           </div>
           <div className="flex items-center gap-3">
@@ -197,7 +199,6 @@ export default async function AdminDashboardPage() {
         </div>
         <LlmUsageChart data={llmChartData} models={llmModels} />
       </section>
-
     </div>
   );
 }
@@ -210,24 +211,30 @@ function KpiCard({
   tone,
   value,
 }: {
-  href: string;
+  href?: string;
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   sub: string;
   tone: "info" | "success" | "error" | "neutral";
   value: string;
 }) {
-  const color = tone === "success" ? "text-[var(--color-success)]"
-    : tone === "error" ? "text-[var(--color-error)]"
-    : tone === "neutral" ? "text-[var(--color-text-secondary)]"
-    : "text-[var(--color-primary)]";
-  const bg = tone === "success" ? "bg-[var(--color-success-soft)]"
-    : tone === "error" ? "bg-[var(--color-error-soft)]"
-    : tone === "neutral" ? "bg-[var(--color-surface-muted)]"
-    : "bg-[var(--color-primary-soft)]";
+  const color =
+    tone === "success" ? "text-[var(--color-success)]"
+      : tone === "error" ? "text-[var(--color-error)]"
+        : tone === "neutral" ? "text-[var(--color-text-secondary)]"
+          : "text-[var(--color-primary)]";
+  const bg =
+    tone === "success" ? "bg-[var(--color-success-soft)]"
+      : tone === "error" ? "bg-[var(--color-error-soft)]"
+        : tone === "neutral" ? "bg-[var(--color-surface-muted)]"
+          : "bg-[var(--color-primary-soft)]";
 
-  return (
-    <Link href={href} className="group flex flex-col gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_8px_24px_rgba(17,63,124,0.04)] transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(17,63,124,0.10)]">
+  const cardClassName = href
+    ? "group flex flex-col gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_8px_24px_rgba(17,63,124,0.04)] transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(17,63,124,0.10)]"
+    : "group flex flex-col gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_8px_24px_rgba(17,63,124,0.04)] transition-all";
+
+  const content = (
+    <div className={cardClassName}>
       <div className="flex items-center justify-between gap-2">
         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
         <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${bg} ${color} transition-transform group-hover:scale-110`}>
@@ -238,6 +245,8 @@ function KpiCard({
         <p className={`text-2xl font-bold ${color}`}>{value}</p>
         <p className="mt-0.5 text-[11px] text-muted-foreground">{sub}</p>
       </div>
-    </Link>
+    </div>
   );
+
+  return href ? <Link href={href}>{content}</Link> : content;
 }

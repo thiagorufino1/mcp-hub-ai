@@ -25,7 +25,7 @@ export async function resolveTokenUser(
     }
   }
 
-  // Fall back to PersonalToken (legacy — deprecation window 90 days)
+  // Fall back to PersonalToken (legacy - deprecation window 90 days)
   const tokenHash = hashToken(bearerToken);
 
   const record = await prisma.personalToken.findUnique({
@@ -37,7 +37,7 @@ export async function resolveTokenUser(
 
   if (!record) return null;
 
-  // Update lastUsedAt asynchronously — don't block the response
+  // Update lastUsedAt asynchronously - don't block the response
   void prisma.personalToken
     .update({ where: { id: record.id }, data: { lastUsedAt: new Date() } })
     .catch(() => undefined);

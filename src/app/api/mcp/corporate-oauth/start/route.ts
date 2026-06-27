@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid OAuth redirect URI." }, { status: 400 });
   }
 
-  // Verify access via namespace — not getUserContext which filters by user preference.
+  // Verify access via namespace - not getUserContext which filters by user preference.
   const accessibleNs = await prisma.mcpNamespace.findFirst({
     where: {
       enabled: true,
@@ -132,7 +132,7 @@ export async function POST(request: Request) {
     });
 
     // Only return values needed by the browser for the popup + exchange request.
-    // clientId, clientSecret, tokenEndpoint stay server-side — re-discovered on exchange.
+    // clientId, clientSecret, tokenEndpoint stay server-side - re-discovered on exchange.
     return Response.json({
       authorizationUrl,
       codeVerifier,

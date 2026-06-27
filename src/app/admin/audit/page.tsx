@@ -2,7 +2,7 @@ import { requireAdmin } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/db";
 import { AuditClient } from "./client";
 
-export const metadata = { title: "Audit Log — Admin" };
+export const metadata = { title: "Audit Log - Admin" };
 
 export default async function AdminAuditPage() {
   await requireAdmin();

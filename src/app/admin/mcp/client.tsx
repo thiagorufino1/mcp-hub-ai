@@ -185,7 +185,7 @@ function McpRow({ mcp }: { mcp: McpServerRow }) {
           </Badge>
         </td>
         <td className="whitespace-nowrap px-4 py-4 text-center text-xs text-muted-foreground">
-          {mcp.lastLatencyMs !== null ? `${mcp.lastLatencyMs} ms` : "—"}
+          {mcp.lastLatencyMs !== null ? `${mcp.lastLatencyMs} ms` : "-"}
         </td>
         <td className="px-4 py-4 text-center">
           <span className="text-xs text-muted-foreground">

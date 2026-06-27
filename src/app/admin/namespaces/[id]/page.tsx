@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db";
 import { NamespaceDetailClient } from "./client";
 
 export const metadata: Metadata = {
-  title: "Namespace details — Admin",
+  title: "Namespace details - Admin",
 };
 
 export default async function NamespaceDetailPage({

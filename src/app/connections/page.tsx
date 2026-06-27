@@ -7,13 +7,13 @@ import { resolveDelegatedAuthorizationHeaders } from "@/lib/delegated-oauth";
 import { ConnectionsClient } from "./client";
 import { PortalShell } from "@/components/layout/portal-shell";
 
-export const metadata = { title: "My Connections — MCP Hub" };
+export const metadata = { title: "My Connections - MCP Hub" };
 
 export default async function ConnectionsPage() {
   const user = await requireAuth();
 
   // 1. All MCPs the user has access to via namespaces, ignoring user preferences
-  //    getUserContext removes disabled servers — My Connections must show them all so user can re-enable.
+  //    getUserContext removes disabled servers - My Connections must show them all so user can re-enable.
   const context = await getUserContext(user.groups ?? [], undefined, user.id);
 
   const accessibleNamespaces = await prisma.mcpNamespace.findMany({
@@ -73,13 +73,13 @@ export default async function ConnectionsPage() {
 
   const connectionMap = new Map(connections.map((c) => [c.mcpServerId, c]));
   const preferenceMap = new Map(preferences.map((p) => [p.mcpServerId, p.enabled]));
-  // connectedOauthServerIds from DB connections — independent of user preference
+  // connectedOauthServerIds from DB connections - independent of user preference
   const connectedOauthServerIds = new Set(connections.filter((c) => c.status === "connected").map((c) => c.mcpServerId));
 
   // For connected oauth servers, do live probe to get real tool count.
   // Build server configs with tokens from context (includes disabled) or fallback to context servers.
   const oauthToolCounts = new Map<string, number>();
-  // context.mcpServers may exclude preference-disabled servers — use full server map from getUserContext
+  // context.mcpServers may exclude preference-disabled servers - use full server map from getUserContext
   // by temporarily including all oauth servers that have a DB connection.
   const allContextServers = new Map(context.mcpServers.map((s) => [s.id, s]));
   // For servers not in context (disabled pref), rebuild config with delegated headers

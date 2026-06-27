@@ -174,7 +174,7 @@ export function AuditClient({
         </div>
       </div>
 
-      {/* Tabs + Search — full width */}
+      {/* Tabs + Search - full width */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex flex-1 gap-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)]/50 p-1">
           {tabs.map((t) => (
@@ -236,7 +236,7 @@ export function AuditClient({
                     <p className="text-xs font-medium">{log.resource}</p>
                     {log.resourceId && <p className="max-w-[120px] truncate font-mono text-[10px] text-muted-foreground">{log.resourceId}</p>}
                   </td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">{log.userEmail ?? "—"}</td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">{log.userEmail ?? "-"}</td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">
                     {Object.keys(log.metadata).length > 0 && (
                       <span className="font-mono">{Object.entries(log.metadata).map(([k, v]) => `${k}: ${String(v)}`).join(" · ")}</span>
@@ -281,7 +281,7 @@ export function AuditClient({
                   <td className="px-4 py-3 text-right text-xs font-mono text-muted-foreground">{exec.latencyMs} ms</td>
                   <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                     <p className="truncate max-w-[140px]">{exec.actorUserId ?? "unknown"}</p>
-                    <p className="truncate max-w-[140px] text-[10px]">{exec.traceId ?? "—"}</p>
+                    <p className="truncate max-w-[140px] text-[10px]">{exec.traceId ?? "-"}</p>
                   </td>
                 </tr>
               ))}
@@ -308,21 +308,21 @@ export function AuditClient({
             <tbody>
               {filteredProxy.map((log) => {
                 const meta = log.metadata as Record<string, unknown>;
-                const target = typeof meta.workspaceSlug === "string" ? meta.workspaceSlug : typeof meta.slug === "string" ? meta.slug : log.resourceId ?? "—";
+                const target = typeof meta.workspaceSlug === "string" ? meta.workspaceSlug : typeof meta.slug === "string" ? meta.slug : log.resourceId ?? "-";
                 const traceId = typeof meta.traceId === "string" && meta.traceId ? meta.traceId : null;
-                const toolName = typeof meta.toolName === "string" && meta.toolName ? meta.toolName : "—";
+                const toolName = typeof meta.toolName === "string" && meta.toolName ? meta.toolName : "-";
                 const event = meta.event === "tool_used" ? "tool utilizada" : meta.event === "discovery_tools" ? "discovery tools" : "mcp event";
                 return (
                   <tr key={log.id} className="border-t border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]/40">
                     <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">{fmtDate(log.createdAt)}</td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">{log.userEmail ?? log.userId ?? "—"}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{log.userEmail ?? log.userId ?? "-"}</td>
                     <td className="px-4 py-3 text-xs">{event}</td>
                     <td className="px-4 py-3">
                       <p className="text-xs font-medium">{target}</p>
                       <p className="font-mono text-[10px] text-muted-foreground">{log.resource}</p>
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{toolName}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground truncate max-w-[140px]">{traceId ?? "—"}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground truncate max-w-[140px]">{traceId ?? "-"}</td>
                   </tr>
                 );
               })}
@@ -358,13 +358,13 @@ export function AuditClient({
                 return (
                   <tr key={log.id} className="border-t border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]/40">
                     <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">{fmtDate(log.createdAt)}</td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">{log.userEmail ?? "—"}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{model ?? "—"}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{log.userEmail ?? "-"}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{model ?? "-"}</td>
                     <td className="px-4 py-3 text-right text-xs font-mono">
                       <p className="text-foreground">{formatTokenCount(totalTokens)}</p>
                       <p className="text-[10px] text-muted-foreground">↑{formatTokenCount(inputTokens)} ↓{formatTokenCount(outputTokens)}</p>
                     </td>
-                    <td className="px-4 py-3 text-right text-xs text-muted-foreground">{latencyMs > 0 ? `${latencyMs} ms` : "—"}</td>
+                    <td className="px-4 py-3 text-right text-xs text-muted-foreground">{latencyMs > 0 ? `${latencyMs} ms` : "-"}</td>
                     <td className="px-4 py-3"><StatusBadge ok={ok} /></td>
                   </tr>
                 );

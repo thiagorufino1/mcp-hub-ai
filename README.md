@@ -49,7 +49,7 @@ All traffic stays on `localhost` except direct calls to the LLM providers you co
   - [LLM Providers](#llm-providers)
   - [MCP Servers](#mcp-servers)
   - [Chat](#chat)
-- [MCP Proxy — Connect Claude Desktop](#mcp-proxy--connect-claude-desktop)
+- [MCP Proxy - Connect Claude Desktop](#mcp-proxy--connect-claude-desktop)
 - [Stack](#stack)
 - [Security](#security)
 - [Limitations](#limitations)
@@ -143,7 +143,7 @@ Inspect tools, schemas, and execute calls directly from the sidebar.
 
 ---
 
-## MCP Proxy — Connect Claude Desktop
+## MCP Proxy - Connect Claude Desktop
 
 MCP Hub exposes a Streamable HTTP MCP endpoint at `/api/mcp/proxy` that aggregates all your configured servers into a single connection. Claude Desktop and other MCP clients can connect to it without any manual token setup.
 
@@ -154,7 +154,7 @@ The hub implements a full OAuth 2.1 Authorization Server with Dynamic Client Reg
 1. Client hits `/api/mcp/proxy` → receives `401` with `WWW-Authenticate` pointing to well-known metadata
 2. Client discovers the AS at `/.well-known/oauth-authorization-server`
 3. Client registers itself via DCR at `/api/oauth/register` (no manual setup)
-4. Browser opens the hub's approval page — user approves once
+4. Browser opens the hub's approval page - user approves once
 5. Client stores tokens and renews them automatically
 
 **Claude Desktop config** (`claude_desktop_config.json`):

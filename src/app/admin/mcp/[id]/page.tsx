@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db";
 import { McpServerDetailClient } from "./client";
 
 export const metadata: Metadata = {
-  title: "MCP Server details — Admin",
+  title: "MCP Server details - Admin",
 };
 
 export default async function McpServerDetailPage({

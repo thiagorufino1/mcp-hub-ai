@@ -17,10 +17,10 @@ export async function GET(request: Request) {
   const codeChallenge = p.get("code_challenge");
   const codeChallengeMethod = p.get("code_challenge_method");
 
-  // 1. Verify redirect_uri is present before any redirect — no redirect until uri is confirmed.
+  // 1. Verify redirect_uri is present before any redirect - no redirect until uri is confirmed.
   if (!redirectUri) return new Response("redirect_uri required", { status: 400 });
 
-  // 2. Verify client_id is present — still no redirect, uri not yet confirmed registered.
+  // 2. Verify client_id is present - still no redirect, uri not yet confirmed registered.
   if (!clientId) return new Response("client_id required", { status: 400 });
 
   // 3. Look up client and confirm redirect_uri is registered on it.
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     return new Response("invalid client or redirect_uri", { status: 400 });
   }
 
-  // redirect_uri is now confirmed registered — safe to use errorRedirect for remaining checks.
+  // redirect_uri is now confirmed registered - safe to use errorRedirect for remaining checks.
   function errorRedirect(error: string): Response {
     const target = new URL(redirectUri!);
     target.searchParams.set("error", error);

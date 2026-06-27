@@ -189,7 +189,7 @@ export function ChatShell({
         setSessions(sessionsList);
         setActiveSessionId(existingActiveId);
       } else {
-        // First setup — migrate current messages into a session
+        // First setup - migrate current messages into a session
         const newId = crypto.randomUUID();
         const storedMsgs = localStorage.getItem(MESSAGE_STORAGE_KEY);
         const storedTools = localStorage.getItem(TOOL_EVENT_STORAGE_KEY);
@@ -211,7 +211,7 @@ export function ChatShell({
         localStorage.setItem(ACTIVE_SESSION_ID_KEY, newId);
       }
     } catch {
-      // ignore — sessions are enhancement, not critical
+      // ignore - sessions are enhancement, not critical
     }
 
     setIsHydrated(true);
@@ -224,7 +224,7 @@ export function ChatShell({
         setLlmConfig(stored);
       }
     } catch {
-      // Corrupted config — ignore, user will reconfigure.
+      // Corrupted config - ignore, user will reconfigure.
     }
   }, []);
 
@@ -242,7 +242,7 @@ export function ChatShell({
         }
       })
       .catch(() => {
-        // Silently ignore — user context is enhancement, not required
+        // Silently ignore - user context is enhancement, not required
       });
   }, []);
 
@@ -284,7 +284,7 @@ export function ChatShell({
     try {
       localStorage.setItem(MESSAGE_STORAGE_KEY, JSON.stringify(messages));
     } catch {
-      // Quota exceeded — skip persistence silently.
+      // Quota exceeded - skip persistence silently.
     }
   }, [messages, isHydrated]);
 
@@ -293,7 +293,7 @@ export function ChatShell({
     try {
       localStorage.setItem(TOOL_EVENT_STORAGE_KEY, JSON.stringify(toolEvents));
     } catch {
-      // Quota exceeded — skip persistence silently.
+      // Quota exceeded - skip persistence silently.
     }
   }, [isHydrated, toolEvents]);
 
@@ -346,7 +346,7 @@ export function ChatShell({
       localStorage.setItem(SESSIONS_INDEX_KEY, JSON.stringify(updated));
       setSessions(updated);
     } catch {
-      // quota exceeded — ignore
+      // quota exceeded - ignore
     }
   }
 
@@ -852,7 +852,7 @@ export function ChatShell({
 
       {/* Same layout container as PortalShell */}
       <div className="mx-auto flex min-h-0 w-full max-w-[1500px] flex-1 gap-5 px-4 py-5 lg:px-6">
-        {/* Desktop sidebar — hidden on mobile, portal-sidebar handles sticky + sizing */}
+        {/* Desktop sidebar - hidden on mobile, portal-sidebar handles sticky + sizing */}
         <div className="hidden lg:block">
           <ChatNavigation
             activeSessionId={activeSessionId}
@@ -873,7 +873,7 @@ export function ChatShell({
           onClose={() => setIsSidebarOpen(false)}
         />
 
-        {/* Chat content — flex-1 fills remaining height after header */}
+        {/* Chat content - flex-1 fills remaining height after header */}
         <main
           className="portal-content min-h-0 min-w-0 flex-1 overflow-hidden p-0"
           style={{ minHeight: 0 }}

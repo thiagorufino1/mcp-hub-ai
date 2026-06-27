@@ -1,7 +1,7 @@
 import { signIn } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 
-export const metadata = { title: "Login — MCP Hub" };
+export const metadata = { title: "Login - MCP Hub" };
 
 export default function LoginPage() {
   return (
