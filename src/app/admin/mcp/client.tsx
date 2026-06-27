@@ -96,41 +96,6 @@ export function McpAdminClient({ mcps, stats }: Props) {
 
   return (
     <div className="portal-page">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 mb-6">
-        <div className="rounded-xl border bg-[var(--color-surface)] px-4 py-3">
-          <p className="text-xs text-muted-foreground">Total</p>
-          <p className="text-2xl font-bold">{stats.total}</p>
-        </div>
-        <div className="rounded-xl border bg-[var(--color-surface)] px-4 py-3">
-          <p className="text-xs text-muted-foreground">Enabled Tools</p>
-          <p className="text-2xl font-bold">{stats.toolsTotal}</p>
-        </div>
-        <div className="rounded-xl border bg-[var(--color-surface)] px-4 py-3">
-          <p className="text-xs text-muted-foreground">With Auth</p>
-          <p className="text-2xl font-bold">{stats.withAuth}</p>
-        </div>
-        <div className="rounded-xl border bg-[var(--color-surface)] px-4 py-3">
-          <p className="text-xs text-muted-foreground">Disabled</p>
-          <p className={`text-2xl font-bold${stats.disabled > 0 ? " text-[var(--color-error)]" : ""}`}>
-            {stats.disabled}
-          </p>
-        </div>
-        <div className="rounded-xl border bg-[var(--color-surface)] px-4 py-3">
-          <p className="text-xs text-muted-foreground">By Transport</p>
-          <div className="flex flex-col gap-0.5 mt-1">
-            {Object.entries(stats.byTransport).map(([t, count]) => (
-              <p key={t} className="text-xs">
-                <span className="font-medium">{count}</span>{" "}
-                <span className="text-muted-foreground">{t}</span>
-              </p>
-            ))}
-            {Object.keys(stats.byTransport).length === 0 && (
-              <p className="text-xs text-muted-foreground">-</p>
-            )}
-          </div>
-        </div>
-      </div>
-
       <div className="portal-page-heading flex-row items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">MCP Servers</h1>
@@ -151,6 +116,40 @@ export function McpAdminClient({ mcps, stats }: Props) {
             onChange={handleImportFile}
           />
           <Button onClick={() => setForm({ open: true })}>+ Add MCP</Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">
+        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4 shadow-[0_2px_8px_rgba(17,63,124,0.04)]">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Servidores</p>
+          <p className="mt-1 text-3xl font-bold tabular-nums">{stats.total}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {stats.total - stats.disabled} ativos · {stats.disabled > 0 ? <span className="text-[var(--color-error)] font-medium">{stats.disabled} desabilitados</span> : "nenhum desabilitado"}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4 shadow-[0_2px_8px_rgba(17,63,124,0.04)]">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Tools</p>
+          <p className="mt-1 text-3xl font-bold tabular-nums">{stats.toolsTotal}</p>
+          <p className="mt-1 text-xs text-muted-foreground">habilitadas no registry</p>
+        </div>
+        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4 shadow-[0_2px_8px_rgba(17,63,124,0.04)]">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Autenticação</p>
+          <p className="mt-1 text-3xl font-bold tabular-nums">{stats.withAuth}</p>
+          <p className="mt-1 text-xs text-muted-foreground">servidores com auth</p>
+        </div>
+        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4 shadow-[0_2px_8px_rgba(17,63,124,0.04)]">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Transport</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {Object.entries(stats.byTransport).map(([t, count]) => (
+              <span key={t} className="inline-flex items-center gap-1 rounded-full bg-[var(--color-surface-muted)] px-2.5 py-1 text-[11px] font-medium">
+                <span className="font-bold text-foreground">{count}</span>
+                <span className="text-muted-foreground">{t === "streamable-http" ? "HTTP" : t.toUpperCase()}</span>
+              </span>
+            ))}
+            {Object.keys(stats.byTransport).length === 0 && (
+              <span className="text-xs text-muted-foreground">-</span>
+            )}
+          </div>
         </div>
       </div>
 
