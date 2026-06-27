@@ -71,15 +71,26 @@ export default async function AdminDashboardPage() {
     `,
   ]);
 
+  // Pre-group execByDay into Map<"YYYY-MM-DD:status", number>
+  const execMap = new Map<string, number>();
+  for (const r of execByDay) {
+    execMap.set(`${r.day.toISOString().slice(0, 10)}:${r.status}`, Number(r.count));
+  }
+
+  // Pre-group llmByDay into Map<"YYYY-MM-DD:model", number>
+  const llmMap = new Map<string, number>();
+  for (const r of llmByDay) {
+    llmMap.set(`${r.day.toISOString().slice(0, 10)}:${r.model}`, Number(r.totalTokens ?? 0));
+  }
+
   // Build 14-day chart data
   const chartData: ExecDayData[] = [];
   for (let i = 13; i >= 0; i--) {
     const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
     const dayKey = d.toISOString().slice(0, 10);
     const label = d.toLocaleDateString("en", { month: "short", day: "numeric" });
-    const rows = execByDay.filter((r) => r.day.toISOString().slice(0, 10) === dayKey);
-    const success = Number(rows.find((r) => r.status === "success")?.count ?? 0);
-    const error = Number(rows.find((r) => r.status === "error")?.count ?? 0);
+    const success = execMap.get(`${dayKey}:success`) ?? 0;
+    const error = execMap.get(`${dayKey}:error`) ?? 0;
     chartData.push({ date: label, success, error, total: success + error });
   }
 
@@ -93,8 +104,7 @@ export default async function AdminDashboardPage() {
     const label = d.toLocaleDateString("pt-BR", { month: "short", day: "numeric" });
     const entry: Record<string, string | number> = { date: label };
     for (const model of llmModels) {
-      const row = llmByDay.find((r) => r.day.toISOString().slice(0, 10) === dayKey && r.model === model);
-      entry[model] = row?.totalTokens ?? 0;
+      entry[model] = llmMap.get(`${dayKey}:${model}`) ?? 0;
     }
     return entry;
   });
