@@ -100,27 +100,9 @@ export function McpAdminClient({ mcps, stats }: Props) {
 
   return (
     <div className="portal-page">
-      <div className="portal-page-heading flex-row items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">MCP Servers</h1>
-          <p className="text-sm text-muted-foreground">Connections, registry health and runtime governance.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleExport} disabled={isPending}>
-            Exportar
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isPending}>
-            Importar
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json,application/json"
-            className="hidden"
-            onChange={handleImportFile}
-          />
-          <Button onClick={() => setForm({ open: true })}>+ Add MCP</Button>
-        </div>
+      <div className="portal-page-heading">
+        <h1 className="text-2xl font-bold">MCP Servers</h1>
+        <p className="text-sm text-muted-foreground">Connections, registry health and runtime governance.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">
@@ -201,19 +183,37 @@ export function McpAdminClient({ mcps, stats }: Props) {
         <p className="text-sm text-[var(--color-error)]">{importError}</p>
       )}
 
-      <div className="relative max-w-sm">
-        <Search
-          aria-hidden="true"
-          className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-        />
-        <Input
-          type="search"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search MCP servers..."
-          aria-label="Search MCP servers"
-          className="pl-9 text-[var(--color-text-secondary)]"
-        />
+      <div className="flex items-center gap-3">
+        <div className="relative max-w-sm flex-1">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+          />
+          <Input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search MCP servers..."
+            aria-label="Search MCP servers"
+            className="pl-9 text-[var(--color-text-secondary)]"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleExport} disabled={isPending}>
+            Exportar
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isPending}>
+            Importar
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={handleImportFile}
+          />
+          <Button onClick={() => setForm({ open: true })}>+ Add MCP</Button>
+        </div>
       </div>
 
       <div className="portal-table-shell overflow-x-auto">
