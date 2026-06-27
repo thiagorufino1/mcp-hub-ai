@@ -6,7 +6,6 @@ import { useEffect, useId, useRef } from "react";
 import { SidebarToolsContent } from "@/components/chat/sidebar-tools";
 import { useAppPreferences } from "@/components/providers/app-preferences-provider";
 import type { LLMConfig } from "@/types/llm-config";
-import type { McpServerConfig } from "@/types/mcp";
 import type { SystemPrompt } from "@/components/chat/system-prompt-section";
 import type { TokenUsage } from "@/types/chat";
 
@@ -19,14 +18,6 @@ type Props = {
   onEditPrompt: (prompt: SystemPrompt) => void;
   onDeletePrompt: (id: string) => void;
   onSelectPrompt: (id: string | null) => void;
-  onAddServer?: () => void;
-  onEditServer?: (serverId: string) => void;
-  onRemoveServer?: (serverId: string) => void;
-  onRetestServer?: (serverId: string) => void;
-  onToggleServerEnabled?: (serverId: string) => void;
-  retestingServerIds?: string[];
-  togglingServerIds?: string[];
-  servers?: McpServerConfig[];
   llmConfig: LLMConfig | null;
   onChangeLlmConfig: (config: LLMConfig | null) => void;
   usageTotals: TokenUsage;
@@ -46,14 +37,6 @@ export function SidebarDrawer({
   onEditPrompt,
   onDeletePrompt,
   onSelectPrompt,
-  onAddServer = () => {},
-  onEditServer = () => {},
-  onRemoveServer = () => {},
-  onRetestServer = () => {},
-  onToggleServerEnabled = () => {},
-  retestingServerIds = [],
-  togglingServerIds = [],
-  servers = [],
   llmConfig,
   onChangeLlmConfig,
   usageTotals,
@@ -125,14 +108,6 @@ export function SidebarDrawer({
             onEditPrompt={onEditPrompt}
             onDeletePrompt={onDeletePrompt}
             onSelectPrompt={onSelectPrompt}
-            onAddServer={onAddServer}
-            onEditServer={onEditServer}
-            onRemoveServer={onRemoveServer}
-            onRetestServer={onRetestServer}
-            onToggleServerEnabled={onToggleServerEnabled}
-            retestingServerIds={retestingServerIds}
-            togglingServerIds={togglingServerIds}
-            servers={servers}
             llmConfig={llmConfig}
             onChangeLlmConfig={onChangeLlmConfig}
             usageTotals={usageTotals}
