@@ -11,8 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
   Cable,
-  FileExport,
-  FileImport,
+  Download,
+  Upload,
   LoaderCircle,
   Plus,
   RadioTower,
@@ -203,11 +203,11 @@ export function McpAdminClient({ mcps, stats }: Props) {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" className="h-9 gap-1.5" onClick={handleExport} disabled={isPending}>
-            <FileExport className="size-4" />
+            <Download className="size-4" />
             Exportar
           </Button>
           <Button variant="outline" className="h-9 gap-1.5" onClick={() => fileInputRef.current?.click()} disabled={isPending}>
-            <FileImport className="size-4" />
+            <Upload className="size-4" />
             Importar
           </Button>
           <input
