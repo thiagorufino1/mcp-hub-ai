@@ -488,7 +488,6 @@ export function ChatShell({
           customPrompt: systemPrompts.find((p) => p.id === activePromptId)?.content || undefined,
           llmConfig: llmConfig ?? undefined,
           locale,
-          mcpServers: [],
           message: content,
           messages: nextMessages.map((message) => ({
             content: message.content,

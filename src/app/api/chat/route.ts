@@ -98,7 +98,7 @@ export async function POST(request: Request) {
   const resolvedLlmConfig: LLMConfig | null =
     corporateContext.llmConfig ?? (body.llmConfig as LLMConfig | undefined ?? null);
 
-  const effectiveBody = {
+  const effectiveBody: EffectiveBody = {
     ...body,
     llmConfig: resolvedLlmConfig ?? undefined,
     llmConfigId: corporateContext.llmConfigId ?? undefined,
@@ -106,11 +106,11 @@ export async function POST(request: Request) {
   };
 
   if (!resolvedLlmConfig) {
-    return streamMockResponse(effectiveBody as EffectiveBody);
+    return streamMockResponse(effectiveBody);
   }
 
   return streamWithAISDK(
-    effectiveBody as EffectiveBody,
+    effectiveBody,
     session.user.id,
     session.user.email ?? undefined,
   );

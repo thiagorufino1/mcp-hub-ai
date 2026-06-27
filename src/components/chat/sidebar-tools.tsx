@@ -93,17 +93,3 @@ export function SidebarToolsContent({
   );
 }
 
-type SidebarToolsProps = SidebarToolsContentProps;
-
-export function SidebarTools(props: SidebarToolsProps) {
-  return (
-    <div className="sticky top-5 py-6">
-      <div
-        className="app-scroll max-h-[calc(100dvh-132px)] overflow-y-auto pr-1"
-        style={{ scrollbarGutter: "stable both-edges" }}
-      >
-        <SidebarToolsContent {...props} />
-      </div>
-    </div>
-  );
-}
