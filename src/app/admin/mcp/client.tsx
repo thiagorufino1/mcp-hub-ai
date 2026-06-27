@@ -183,8 +183,8 @@ export function McpAdminClient({ mcps, stats }: Props) {
         <p className="text-sm text-[var(--color-error)]">{importError}</p>
       )}
 
-      <div className="flex items-center gap-3">
-        <div className="relative max-w-sm flex-1">
+      <div className="flex items-center justify-between gap-3">
+        <div className="relative w-64">
           <Search
             aria-hidden="true"
             className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
@@ -195,14 +195,14 @@ export function McpAdminClient({ mcps, stats }: Props) {
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search MCP servers..."
             aria-label="Search MCP servers"
-            className="pl-9 text-[var(--color-text-secondary)]"
+            className="h-9 pl-9 text-[var(--color-text-secondary)]"
           />
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleExport} disabled={isPending}>
+          <Button variant="outline" className="h-9" onClick={handleExport} disabled={isPending}>
             Exportar
           </Button>
-          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isPending}>
+          <Button variant="outline" className="h-9" onClick={() => fileInputRef.current?.click()} disabled={isPending}>
             Importar
           </Button>
           <input
@@ -212,7 +212,7 @@ export function McpAdminClient({ mcps, stats }: Props) {
             className="hidden"
             onChange={handleImportFile}
           />
-          <Button onClick={() => setForm({ open: true })}>+ Add MCP</Button>
+          <Button className="h-9" onClick={() => setForm({ open: true })}>+ Add</Button>
         </div>
       </div>
 
