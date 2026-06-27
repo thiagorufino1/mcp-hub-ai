@@ -94,13 +94,15 @@ export default async function AdminDashboardPage() {
       orderBy: { _count: { id: "desc" } },
       take: 5,
     }),
-    prisma.mcpToolExecution.groupBy({
-      by: ["serverName"],
-      _avg: { latencyMs: true },
-      where: { createdAt: { gte: fourteenDaysAgo } },
-      orderBy: { _avg: { latencyMs: "desc" } },
-      take: 5,
-    }),
+    prisma.$queryRaw<Array<{ serverName: string; p95: number }>>`
+      SELECT "serverName",
+             PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY "latencyMs") AS p95
+      FROM "McpToolExecution"
+      WHERE "createdAt" >= ${fourteenDaysAgo}
+      GROUP BY "serverName"
+      ORDER BY p95 DESC
+      LIMIT 5
+    `,
     prisma.mcpToolExecution.groupBy({
       by: ["source"],
       _count: { id: true },
@@ -233,12 +235,12 @@ export default async function AdminDashboardPage() {
           )}
           {avgLatency.length > 0 && (
             <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_8px_24px_rgba(17,63,124,0.04)]">
-              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Latência Média (14d)</p>
+              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Latência P95 (14d)</p>
               <div className="flex flex-col gap-2">
                 {avgLatency.map((s) => (
                   <div key={s.serverName} className="flex items-center justify-between gap-2">
                     <span className="truncate text-[12px] text-[var(--color-text-secondary)]">{s.serverName}</span>
-                    <span className="shrink-0 text-[11px] font-semibold text-[var(--color-primary)]">{Math.round(s._avg.latencyMs ?? 0)}ms</span>
+                    <span className="shrink-0 text-[11px] font-semibold text-[var(--color-primary)]">{Math.round(Number(s.p95))}ms</span>
                   </div>
                 ))}
               </div>
