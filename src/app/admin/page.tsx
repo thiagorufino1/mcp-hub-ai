@@ -216,46 +216,48 @@ export default async function AdminDashboardPage() {
         )}
       </section>
 
-      {topTools.length > 0 && (
-        <section className="rounded-2xl border bg-[var(--color-surface)] p-5">
-          <h2 className="mb-4 text-sm font-semibold">Top Tools (14d)</h2>
-          <div className="space-y-2">
-            {topTools.map((t) => (
-              <div key={t.toolName} className="flex items-center justify-between text-sm">
-                <span className="truncate text-muted-foreground font-mono text-xs">{t.toolName}</span>
-                <span className="font-semibold">{t._count.id}</span>
+      {(topTools.length > 0 || avgLatency.length > 0 || bySource.length > 0) && (
+        <div className="grid gap-4 md:grid-cols-3">
+          {topTools.length > 0 && (
+            <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_8px_24px_rgba(17,63,124,0.04)]">
+              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Top Tools (14d)</p>
+              <div className="flex flex-col gap-2">
+                {topTools.map((t) => (
+                  <div key={t.toolName} className="flex items-center justify-between gap-2">
+                    <span className="truncate font-mono text-[12px] text-[var(--color-text-secondary)]">{t.toolName}</span>
+                    <span className="shrink-0 text-[11px] font-semibold text-[var(--color-primary)]">{t._count.id}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {avgLatency.length > 0 && (
-        <section className="rounded-2xl border bg-[var(--color-surface)] p-5">
-          <h2 className="mb-4 text-sm font-semibold">Latência Média (14d)</h2>
-          <div className="space-y-2">
-            {avgLatency.map((s) => (
-              <div key={s.serverName} className="flex items-center justify-between text-sm">
-                <span className="truncate text-muted-foreground">{s.serverName}</span>
-                <span className="font-semibold">{Math.round(s._avg.latencyMs ?? 0)}ms</span>
+            </section>
+          )}
+          {avgLatency.length > 0 && (
+            <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_8px_24px_rgba(17,63,124,0.04)]">
+              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Latência Média (14d)</p>
+              <div className="flex flex-col gap-2">
+                {avgLatency.map((s) => (
+                  <div key={s.serverName} className="flex items-center justify-between gap-2">
+                    <span className="truncate text-[12px] text-[var(--color-text-secondary)]">{s.serverName}</span>
+                    <span className="shrink-0 text-[11px] font-semibold text-[var(--color-primary)]">{Math.round(s._avg.latencyMs ?? 0)}ms</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {bySource.length > 0 && (
-        <section className="rounded-2xl border bg-[var(--color-surface)] p-5">
-          <h2 className="mb-4 text-sm font-semibold">Execuções por Origem (14d)</h2>
-          <div className="space-y-2">
-            {bySource.map((s) => (
-              <div key={s.source} className="flex items-center justify-between text-sm">
-                <span className="capitalize text-muted-foreground">{s.source}</span>
-                <span className="font-semibold">{s._count.id}</span>
+            </section>
+          )}
+          {bySource.length > 0 && (
+            <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_8px_24px_rgba(17,63,124,0.04)]">
+              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Execuções por Origem (14d)</p>
+              <div className="flex flex-col gap-2">
+                {bySource.map((s) => (
+                  <div key={s.source} className="flex items-center justify-between gap-2">
+                    <span className="capitalize text-[12px] text-[var(--color-text-secondary)]">{s.source}</span>
+                    <span className="shrink-0 text-[11px] font-semibold text-[var(--color-primary)]">{s._count.id}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
+            </section>
+          )}
+        </div>
       )}
 
       <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_8px_24px_rgba(17,63,124,0.04)]">

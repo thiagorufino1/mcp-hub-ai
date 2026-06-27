@@ -299,6 +299,7 @@ export async function exportMcpServers(): Promise<string> {
         : {};
     const redactedEnv: Record<string, string> = {};
     for (const key of Object.keys(env)) {
+      if (key === "__mcpHubEncrypted") continue; // internal encryption key — not exported
       redactedEnv[key] = "[REDACTED]";
     }
 
@@ -308,6 +309,7 @@ export async function exportMcpServers(): Promise<string> {
         : {};
     const redactedHeaders: Record<string, string> = {};
     for (const key of Object.keys(headers)) {
+      if (key === "__mcpHubEncrypted") continue;
       redactedHeaders[key] = "[REDACTED]";
     }
 
