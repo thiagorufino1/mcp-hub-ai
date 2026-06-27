@@ -1,7 +1,6 @@
 "use client";
 
 export const SESSION_LLM_CONFIG_KEY = "mcp-hub-session-llm-config";
-export const SESSION_MCP_SERVER_KEY = "mcp-hub-session-mcp-servers";
 
 function parseJson<T>(value: string | null): T | null {
   if (!value) {

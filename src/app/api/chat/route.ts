@@ -16,55 +16,6 @@ import type { AppLocale } from "@/lib/i18n";
 import type { LLMConfig } from "@/types/llm-config";
 import type { McpServerConfig } from "@/types/mcp";
 
-const McpServerSchema = z.object({
-  authMode: z.enum(["none", "oauth"]).optional().default("none"),
-  approvalMode: z.enum(["always", "never", "selected"]).optional().default("never"),
-  approvedToolNames: z.array(z.string()).optional().default([]),
-  args: z.array(z.string()).optional().default([]),
-  command: z.string().trim().optional(),
-  description: z.string().trim().optional(),
-  enabled: z.boolean().optional().default(true),
-  env: z.record(z.string(), z.string()).optional().default({}),
-  errorMessage: z.string().optional(),
-  headers: z.record(z.string(), z.string()).optional().default({}),
-  id: z.string().min(1),
-  lastCheckedAt: z.string().optional(),
-  name: z.string().trim().min(1),
-  oauth: z
-    .object({
-      accessToken: z.string().optional(),
-      authorizationServerUrl: z.string().trim().url().optional(),
-      clientId: z.string().trim().optional(),
-      clientName: z.string().trim().optional(),
-      clientSecret: z.string().trim().optional(),
-      expiresAt: z.string().trim().optional(),
-      refreshToken: z.string().trim().optional(),
-      redirectUri: z.string().trim().url().optional(),
-      resourceUrl: z.string().trim().url().optional(),
-      scope: z.string().trim().optional(),
-      tokenEndpoint: z.string().trim().url().optional(),
-      tokenType: z.string().trim().optional(),
-    })
-    .optional(),
-  tools: z.array(z.any()).optional().default([]),
-  transport: z.enum(["stdio", "sse", "streamable-http"]),
-  url: z.string().trim().optional(),
-  connectionStatus: z.enum(["pending", "connected", "error"]).optional().default("pending"),
-}).refine((data) => {
-  if (data.transport === "stdio" && (!data.command || data.command.length === 0)) {
-    return false;
-  }
-
-  return true;
-}, { message: "stdio transport requires a command.", path: ["command"] })
-  .refine((data) => {
-    if (data.transport !== "stdio" && (!data.url || data.url.length === 0)) {
-      return false;
-    }
-
-    return true;
-  }, { message: "Remote transport requires a URL.", path: ["url"] });
-
 const ChatRequestBodySchema = z.object({
   customPrompt: z.string().max(8000).optional(),
   locale: z.enum(["pt-BR", "en"]).optional().default("en"),
@@ -78,7 +29,6 @@ const ChatRequestBodySchema = z.object({
     )
     .max(100)
     .optional(),
-  mcpServers: z.array(McpServerSchema).max(40).optional(),
   requestId: z.string().min(1).max(120).optional(),
   selectedModel: z.string().max(120).optional(),
   llmConfigId: z.string().min(1).optional(),
@@ -86,6 +36,10 @@ const ChatRequestBodySchema = z.object({
 });
 
 type ChatRequestBody = z.infer<typeof ChatRequestBodySchema>;
+
+type EffectiveBody = ChatRequestBody & {
+  mcpServers: McpServerConfig[];
+};
 
 type ExecutableTool = {
   displayName: string;
@@ -144,31 +98,26 @@ export async function POST(request: Request) {
   const resolvedLlmConfig: LLMConfig | null =
     corporateContext.llmConfig ?? (body.llmConfig as LLMConfig | undefined ?? null);
 
-  // Merge MCPs: corporate first, then personal from body
-  const personalMcps = (body.mcpServers ?? []) as McpServerConfig[];
-  const allMcpServers: McpServerConfig[] = [...corporateContext.mcpServers, ...personalMcps];
-
-
   const effectiveBody = {
     ...body,
     llmConfig: resolvedLlmConfig ?? undefined,
     llmConfigId: corporateContext.llmConfigId ?? undefined,
-    mcpServers: allMcpServers,
+    mcpServers: corporateContext.mcpServers,
   };
 
   if (!resolvedLlmConfig) {
-    return streamMockResponse(effectiveBody as ChatRequestBody);
+    return streamMockResponse(effectiveBody as EffectiveBody);
   }
 
   return streamWithAISDK(
-    effectiveBody as ChatRequestBody,
+    effectiveBody as EffectiveBody,
     session.user.id,
     session.user.email ?? undefined,
   );
 }
 
 async function streamWithAISDK(
-  body: ChatRequestBody,
+  body: EffectiveBody,
   userId: string,
   userEmail?: string,
 ) {
@@ -487,7 +436,7 @@ function mapUsage(usage: {
   return Object.values(mapped).some((value) => typeof value === "number") ? mapped : undefined;
 }
 
-function streamMockResponse(body: ChatRequestBody) {
+function streamMockResponse(body: EffectiveBody) {
   const { locale = "en", message, mcpServers = [], requestId } = body;
   const encoder = new TextEncoder();
   const assistantId = `assistant-${Date.now()}`;
