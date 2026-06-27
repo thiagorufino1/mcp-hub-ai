@@ -32,9 +32,17 @@ import {
   type McpServerRow,
 } from "./actions";
 
-type Props = { mcps: McpServerRow[] };
+type Stats = {
+  total: number;
+  toolsTotal: number;
+  byTransport: Record<string, number>;
+  withAuth: number;
+  disabled: number;
+};
 
-export function McpAdminClient({ mcps }: Props) {
+type Props = { mcps: McpServerRow[]; stats: Stats };
+
+export function McpAdminClient({ mcps, stats }: Props) {
   const [form, setForm] = useState<{ open: boolean; mcp?: McpServerRow }>({ open: false });
   const [search, setSearch] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -88,6 +96,41 @@ export function McpAdminClient({ mcps }: Props) {
 
   return (
     <div className="portal-page">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 mb-6">
+        <div className="rounded-xl border bg-[var(--color-surface)] px-4 py-3">
+          <p className="text-xs text-muted-foreground">Total</p>
+          <p className="text-2xl font-bold">{stats.total}</p>
+        </div>
+        <div className="rounded-xl border bg-[var(--color-surface)] px-4 py-3">
+          <p className="text-xs text-muted-foreground">Enabled Tools</p>
+          <p className="text-2xl font-bold">{stats.toolsTotal}</p>
+        </div>
+        <div className="rounded-xl border bg-[var(--color-surface)] px-4 py-3">
+          <p className="text-xs text-muted-foreground">With Auth</p>
+          <p className="text-2xl font-bold">{stats.withAuth}</p>
+        </div>
+        <div className="rounded-xl border bg-[var(--color-surface)] px-4 py-3">
+          <p className="text-xs text-muted-foreground">Disabled</p>
+          <p className={`text-2xl font-bold${stats.disabled > 0 ? " text-[var(--color-error)]" : ""}`}>
+            {stats.disabled}
+          </p>
+        </div>
+        <div className="rounded-xl border bg-[var(--color-surface)] px-4 py-3">
+          <p className="text-xs text-muted-foreground">By Transport</p>
+          <div className="flex flex-col gap-0.5 mt-1">
+            {Object.entries(stats.byTransport).map(([t, count]) => (
+              <p key={t} className="text-xs">
+                <span className="font-medium">{count}</span>{" "}
+                <span className="text-muted-foreground">{t}</span>
+              </p>
+            ))}
+            {Object.keys(stats.byTransport).length === 0 && (
+              <p className="text-xs text-muted-foreground">-</p>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="portal-page-heading flex-row items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">MCP Servers</h1>
