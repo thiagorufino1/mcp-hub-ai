@@ -1,5 +1,6 @@
 "use client";
 
+import type React from "react";
 import Link from "next/link";
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -11,9 +12,12 @@ import { Switch } from "@/components/ui/switch";
 import {
   Cable,
   LoaderCircle,
+  RadioTower,
   RefreshCw,
   Search,
+  Shield,
   Trash2,
+  Wrench,
 } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
 import {
@@ -120,15 +124,20 @@ export function McpAdminClient({ mcps, stats }: Props) {
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">
-        <McpKpiCard label="Servidores" value={String(stats.total)} sub={`${stats.total - stats.disabled} ativos`} tone={stats.disabled > 0 ? "error" : "neutral"} />
-        <McpKpiCard label="Tools" value={String(stats.toolsTotal)} sub="habilitadas no registry" tone="info" />
-        <McpKpiCard label="Autenticação" value={String(stats.withAuth)} sub="com auth" tone="neutral" />
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-[0_8px_24px_rgba(17,63,124,0.04)]">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Transport</p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
+        <McpKpiCard icon={Cable} label="Servidores" value={String(stats.total)} sub={`${stats.total - stats.disabled} ativos`} tone={stats.disabled > 0 ? "error" : "neutral"} />
+        <McpKpiCard icon={Wrench} label="Tools" value={String(stats.toolsTotal)} sub="habilitadas no registry" tone="info" />
+        <McpKpiCard icon={Shield} label="Autenticação" value={String(stats.withAuth)} sub="servidores com auth" tone="neutral" />
+        <div className="group flex flex-col gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_8px_24px_rgba(17,63,124,0.04)] transition-all">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Transport</p>
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)]">
+              <RadioTower className="size-4" />
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
             {Object.entries(stats.byTransport).map(([t, count]) => (
               <span key={t} className="inline-flex items-center gap-1 rounded-full bg-[var(--color-surface-muted)] px-2.5 py-1 text-[11px] font-medium">
-                <span className="text-[var(--color-primary)] font-bold">{count}</span>
+                <span className="font-bold text-[var(--color-primary)]">{count}</span>
                 <span className="text-muted-foreground">{t === "streamable-http" ? "HTTP" : t.toUpperCase()}</span>
               </span>
             ))}
@@ -387,25 +396,34 @@ function transportLabel(transport: string) {
   return transport.toUpperCase();
 }
 
-function McpKpiCard({ label, value, sub, tone }: {
+function McpKpiCard({ icon: Icon, label, value, sub, tone }: {
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string;
   sub?: string;
   tone: "info" | "success" | "neutral" | "error";
 }) {
-  const valueClass = tone === "success"
-    ? "text-[var(--color-success)]"
-    : tone === "info"
-      ? "text-[var(--color-primary)]"
-      : tone === "error"
-        ? "text-[var(--color-error)]"
-        : "text-[var(--color-text-secondary)]";
+  const color = tone === "success" ? "text-[var(--color-success)]"
+    : tone === "error" ? "text-[var(--color-error)]"
+      : tone === "neutral" ? "text-[var(--color-text-secondary)]"
+        : "text-[var(--color-primary)]";
+  const bg = tone === "success" ? "bg-[var(--color-success-soft)]"
+    : tone === "error" ? "bg-[var(--color-error-soft)]"
+      : tone === "neutral" ? "bg-[var(--color-surface-muted)]"
+        : "bg-[var(--color-primary-soft)]";
 
   return (
-    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-[0_8px_24px_rgba(17,63,124,0.04)]">
-      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{label}</p>
-      <p className={`mt-1 text-3xl font-semibold ${valueClass}`}>{value}</p>
-      {sub && <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>}
+    <div className="group flex flex-col gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_8px_24px_rgba(17,63,124,0.04)] transition-all">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+        <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${bg} ${color}`}>
+          <Icon className="size-4" />
+        </span>
+      </div>
+      <div>
+        <p className={`text-2xl font-bold ${color}`}>{value}</p>
+        {sub && <p className="mt-0.5 text-[11px] text-muted-foreground">{sub}</p>}
+      </div>
     </div>
   );
 }
