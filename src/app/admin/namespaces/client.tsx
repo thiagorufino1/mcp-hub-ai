@@ -19,16 +19,28 @@ import { cn } from "@/lib/utils";
 type Option = { id: string; displayName: string };
 type McpOption = { id: string; name: string; description: string | null; transport: string };
 
+type NamespaceStats = {
+  total: number;
+  enabled: number;
+  disabled: number;
+  published: number;
+  unpublished: number;
+  mcpLinks: number;
+  toolLinks: number;
+};
+
 export function NamespacesAdminClient({
   groups,
   mcpServers,
   namespaces,
   users,
+  stats,
 }: {
   groups: Option[];
   mcpServers: McpOption[];
   namespaces: NamespaceRow[];
   users: Array<{ id: string; name: string | null; email: string | null }>;
+  stats: NamespaceStats;
 }) {
   const [form, setForm] = useState<NamespaceRow | null | undefined>();
   const [search, setSearch] = useState("");
@@ -46,6 +58,23 @@ export function NamespacesAdminClient({
 
   return (
     <div className="portal-page">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 mb-4">
+        {[
+          { label: "Total", value: stats.total },
+          { label: "Habilitados", value: stats.enabled },
+          { label: "Publicados", value: stats.published },
+          { label: "Servidores vinculados", value: stats.mcpLinks },
+          { label: "Tools disponíveis", value: stats.toolLinks },
+          { label: "Desabilitados", value: stats.disabled, error: stats.disabled > 0 },
+          { label: "Não publicados", value: stats.unpublished },
+        ].map(({ label, value, error }) => (
+          <div key={label} className="rounded-xl border bg-[var(--color-surface)] px-4 py-3">
+            <p className="text-xs text-muted-foreground">{label}</p>
+            <p className={`text-2xl font-bold ${error ? "text-[var(--color-error)]" : ""}`}>{value}</p>
+          </div>
+        ))}
+      </div>
+
       <div className="portal-page-heading flex-row items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Namespaces</h1>

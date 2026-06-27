@@ -7,7 +7,7 @@ export const metadata = { title: "Namespaces - Admin" };
 export default async function AdminNamespacesPage() {
   await requireAdmin();
 
-  const [namespaces, groups, users, mcpServers] = await Promise.all([
+  const [namespaces, groups, users, mcpServers, nsStats] = await Promise.all([
     prisma.mcpNamespace.findMany({
       orderBy: { name: "asc" },
       include: {
@@ -30,6 +30,23 @@ export default async function AdminNamespacesPage() {
       orderBy: { name: "asc" },
       select: { id: true, name: true, description: true, transport: true },
     }),
+    prisma.mcpNamespace.aggregate({ _count: { id: true }, where: {} }).then(async (total) => {
+      const [enabled, published, mcpLinks, toolLinks] = await Promise.all([
+        prisma.mcpNamespace.count({ where: { enabled: true } }),
+        prisma.mcpNamespace.count({ where: { published: true } }),
+        prisma.namespaceMcpServer.count({ where: { enabled: true } }),
+        prisma.namespaceTool.count({ where: { enabled: true } }),
+      ]);
+      return {
+        total: total._count.id,
+        enabled,
+        disabled: total._count.id - enabled,
+        published,
+        unpublished: total._count.id - published,
+        mcpLinks,
+        toolLinks,
+      };
+    }),
   ]);
 
   return (
@@ -43,6 +60,7 @@ export default async function AdminNamespacesPage() {
         toolsCount: ns.tools.length,
       }))}
       users={users}
+      stats={nsStats}
     />
   );
 }
