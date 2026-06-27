@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { McpForm } from "@/components/admin/mcp-form";
@@ -17,7 +17,16 @@ import {
 } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
 import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   deleteMcp,
+  exportMcpServers,
+  importMcpServers,
   refreshMcpConfig,
   setMcpEnabled,
   type McpServerRow,
@@ -28,6 +37,44 @@ type Props = { mcps: McpServerRow[] };
 export function McpAdminClient({ mcps }: Props) {
   const [form, setForm] = useState<{ open: boolean; mcp?: McpServerRow }>({ open: false });
   const [search, setSearch] = useState("");
+  const [isPending, startTransition] = useTransition();
+  const [importResult, setImportResult] = useState<{
+    imported: string[];
+    skipped: string[];
+    errors: string[];
+  } | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleExport() {
+    startTransition(async () => {
+      const json = await exportMcpServers();
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `mcp-servers-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportError(null);
+    const text = await file.text();
+    startTransition(async () => {
+      try {
+        const result = await importMcpServers(text);
+        setImportResult(result);
+      } catch (err) {
+        setImportError(err instanceof Error ? err.message : "Erro ao importar.");
+      }
+    });
+    e.target.value = "";
+  }
+
   const filteredMcps = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("pt-BR");
     if (!query) return mcps;
@@ -46,8 +93,76 @@ export function McpAdminClient({ mcps }: Props) {
           <h1 className="text-2xl font-bold">MCP Servers</h1>
           <p className="text-sm text-muted-foreground">Connections, registry health and runtime governance.</p>
         </div>
-        <Button onClick={() => setForm({ open: true })}>+ Add MCP</Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleExport} disabled={isPending}>
+            Exportar
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isPending}>
+            Importar
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={handleImportFile}
+          />
+          <Button onClick={() => setForm({ open: true })}>+ Add MCP</Button>
+        </div>
       </div>
+
+      {importResult && (
+        <Dialog open onOpenChange={() => setImportResult(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Resultado da Importação</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 text-sm">
+              {importResult.imported.length > 0 && (
+                <div>
+                  <p className="font-medium text-[var(--color-success)]">
+                    ✓ {importResult.imported.length} importado(s)
+                  </p>
+                  <ul className="mt-1 list-disc pl-4">
+                    {importResult.imported.map((n) => <li key={n}>{n}</li>)}
+                  </ul>
+                </div>
+              )}
+              {importResult.skipped.length > 0 && (
+                <div>
+                  <p className="font-medium text-[var(--color-warning)]">
+                    ⚠ {importResult.skipped.length} ignorado(s) por conflito de nome
+                  </p>
+                  <ul className="mt-1 list-disc pl-4">
+                    {importResult.skipped.map((n) => <li key={n}>{n}</li>)}
+                  </ul>
+                </div>
+              )}
+              {importResult.errors.length > 0 && (
+                <div>
+                  <p className="font-medium text-[var(--color-error)]">
+                    ✗ {importResult.errors.length} com erro
+                  </p>
+                  <ul className="mt-1 list-disc pl-4">
+                    {importResult.errors.map((e, i) => <li key={i}>{e}</li>)}
+                  </ul>
+                </div>
+              )}
+              {importResult.imported.length === 0 &&
+                importResult.skipped.length === 0 &&
+                importResult.errors.length === 0 && (
+                  <p>Nenhum servidor encontrado no arquivo.</p>
+                )}
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setImportResult(null)}>Fechar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+      {importError && (
+        <p className="text-sm text-[var(--color-error)]">{importError}</p>
+      )}
 
       <div className="relative max-w-sm">
         <Search
