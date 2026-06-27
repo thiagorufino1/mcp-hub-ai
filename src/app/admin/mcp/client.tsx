@@ -11,7 +11,10 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
   Cable,
+  FileExport,
+  FileImport,
   LoaderCircle,
+  Plus,
   RadioTower,
   RefreshCw,
   Search,
@@ -199,10 +202,12 @@ export function McpAdminClient({ mcps, stats }: Props) {
           />
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" className="h-9" onClick={handleExport} disabled={isPending}>
+          <Button variant="outline" className="h-9 gap-1.5" onClick={handleExport} disabled={isPending}>
+            <FileExport className="size-4" />
             Exportar
           </Button>
-          <Button variant="outline" className="h-9" onClick={() => fileInputRef.current?.click()} disabled={isPending}>
+          <Button variant="outline" className="h-9 gap-1.5" onClick={() => fileInputRef.current?.click()} disabled={isPending}>
+            <FileImport className="size-4" />
             Importar
           </Button>
           <input
@@ -212,7 +217,10 @@ export function McpAdminClient({ mcps, stats }: Props) {
             className="hidden"
             onChange={handleImportFile}
           />
-          <Button className="h-9" onClick={() => setForm({ open: true })}>+ Add</Button>
+          <Button className="h-9 gap-1.5" onClick={() => setForm({ open: true })}>
+            <Plus className="size-4" />
+            Add
+          </Button>
         </div>
       </div>
 
