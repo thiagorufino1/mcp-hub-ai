@@ -101,6 +101,8 @@ model McpServer {
   registryTools       McpToolRegistry[]
   toolExecutions      McpToolExecution[]
   namespaceMembers    NamespaceMcpServer[]
+
+  @@unique([name])
 }
 
 model McpToolRegistry {

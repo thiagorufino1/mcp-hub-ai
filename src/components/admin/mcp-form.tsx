@@ -78,6 +78,7 @@ export function McpForm({ open, onClose, mcp }: Props) {
   const [enabled, setEnabled] = useState(mcp?.enabled ?? true);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -92,6 +93,7 @@ export function McpForm({ open, onClose, mcp }: Props) {
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setNameError(null);
 
     const formData = new FormData(event.currentTarget);
     formData.set("transport", transport);
@@ -124,9 +126,12 @@ export function McpForm({ open, onClose, mcp }: Props) {
         }
         onClose();
       } catch (submitError) {
-        setError(
-          submitError instanceof Error ? submitError.message : "Failed to save MCP server.",
-        );
+        const msg = submitError instanceof Error ? submitError.message : "Failed to save MCP server.";
+        if (msg.includes("nome")) {
+          setNameError(msg);
+        } else {
+          setError(msg);
+        }
       }
     });
   }
@@ -163,6 +168,9 @@ export function McpForm({ open, onClose, mcp }: Props) {
               className={fieldClass}
               required
             />
+            {nameError && (
+              <p className="text-xs text-[var(--color-error)]">{nameError}</p>
+            )}
           </div>
 
           <div className="space-y-2">

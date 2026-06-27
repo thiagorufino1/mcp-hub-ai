@@ -59,6 +59,12 @@ export type McpServerRow = {
 export async function createMcp(formData: FormData): Promise<void> {
   const user = await requireAdmin();
 
+  const nameValue = formData.get("name") as string;
+  const existing = await prisma.mcpServer.findUnique({ where: { name: nameValue }, select: { id: true } });
+  if (existing) {
+    throw new Error("Já existe um MCP Server cadastrado com este nome.");
+  }
+
   const transport = formData.get("transport") as string;
   const envRaw = (formData.get("env") as string | null) ?? "{}";
   const headersRaw = (formData.get("headers") as string | null) ?? "{}";
@@ -105,6 +111,15 @@ export async function createMcp(formData: FormData): Promise<void> {
 
 export async function updateMcp(id: string, formData: FormData): Promise<void> {
   const user = await requireAdmin();
+
+  const nameValue = formData.get("name") as string;
+  const conflict = await prisma.mcpServer.findFirst({
+    where: { name: nameValue, NOT: { id } },
+    select: { id: true },
+  });
+  if (conflict) {
+    throw new Error("Já existe um MCP Server cadastrado com este nome.");
+  }
 
   const transport = formData.get("transport") as string;
   const envRaw = (formData.get("env") as string | null) ?? "{}";
