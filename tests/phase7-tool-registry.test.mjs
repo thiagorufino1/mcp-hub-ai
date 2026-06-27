@@ -41,9 +41,13 @@ test("chat and proxy resolve tools through the persistent registry", () => {
   const proxy = read("src/app/api/mcp/proxy/route.ts");
 
   assert.match(chat, /resolveMcpServerTools/);
+  assert.match(chat, /buildStableMcpToolName/);
   assert.doesNotMatch(chat, /MCP_CHAT_SERVER_CACHE_TTL_MS/);
   assert.match(proxy, /resolveMcpServerTools/);
   assert.match(proxy, /isRegisteredToolEnabled/);
+  assert.doesNotMatch(proxy, /buildStableMcpToolName/);
+  assert.match(proxy, /name:\s*tool\.name/);
+  assert.match(proxy, /title:\s*tool\.displayName \?\? tool\.name/);
 });
 
 test("admin can configure registered tool permissions", () => {

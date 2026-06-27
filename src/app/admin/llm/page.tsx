@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { decryptSecretJson } from "@/lib/secret-crypto";
 import { LlmAdminClient } from "./client";
 
-export const metadata = { title: "LLM Config — Admin" };
+export const metadata = { title: "LLM — Admin" };
 
 export default async function AdminLlmPage() {
   await requireAdmin();

@@ -1,7 +1,6 @@
 "use client";
 
 import { IconBrandGithub } from "@tabler/icons-react";
-import { CircleFlag } from "react-circle-flags";
 import { useState } from "react";
 import Link from "next/link";
 
@@ -170,37 +169,6 @@ export function Topbar({
                 aria-label={t("theme.dark")}
               >
                 <MoonStar className="size-3.5" />
-              </button>
-            </div>
-
-            <div className="relative flex items-center rounded-full bg-white/[0.08] p-1 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)] backdrop-blur-md">
-              <div
-                className="absolute size-7 rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] transition-all duration-300 ease-in-out"
-                style={{
-                  transform: locale === "pt-BR" ? "translateX(28px)" : "translateX(0)",
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => setLocale("en")}
-                className={cn(
-                  "relative z-10 flex size-7 items-center justify-center rounded-full transition-all duration-300",
-                  locale === "en" ? "scale-110 opacity-100" : "scale-90 opacity-40 hover:opacity-100"
-                )}
-                aria-label={t("language.en")}
-              >
-                <CircleFlag countryCode="us" height="10" className="size-5" aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setLocale("pt-BR")}
-                className={cn(
-                  "relative z-10 flex size-7 items-center justify-center rounded-full transition-all duration-300",
-                  locale === "pt-BR" ? "scale-110 opacity-100" : "scale-90 opacity-40 hover:opacity-100"
-                )}
-                aria-label={t("language.pt")}
-              >
-                <CircleFlag countryCode="br" height="10" className="size-5" aria-hidden="true" />
               </button>
             </div>
 

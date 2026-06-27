@@ -37,7 +37,7 @@ export function LlmAdminClient({ llms }: Props) {
     <div className="portal-page">
       <div className="portal-page-heading flex-row items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">LLM Config</h1>
+          <h1 className="text-2xl font-bold">LLM</h1>
           <p className="text-sm text-muted-foreground">Corporate model providers and token usage.</p>
         </div>
         <Button onClick={() => setForm({ open: true })}>+ Add Provider</Button>

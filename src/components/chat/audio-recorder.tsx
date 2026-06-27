@@ -54,7 +54,7 @@ function subscribeVoiceSupport(onStoreChange: () => void) {
 }
 
 export function AudioRecorder({ disabled = false, onTranscriptReady }: Props) {
-  const { locale, t } = useAppPreferences();
+  const { t } = useAppPreferences();
   const [status, setStatus] = useState<RecorderStatus>("idle");
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -98,7 +98,7 @@ export function AudioRecorder({ disabled = false, onTranscriptReady }: Props) {
       const recognition = new SpeechRecognitionImpl();
       recognition.continuous = true;
       recognition.interimResults = true;
-      recognition.lang = locale;
+      recognition.lang = "pt-BR";
       recognition.onresult = (event) => {
         const transcript = Array.from(event.results)
           .map((result) => result[0]?.transcript ?? "")

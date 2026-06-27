@@ -12,7 +12,6 @@ import type {
   McpDiscoveredTool,
   McpInspectResponse,
   McpServerConfig,
-  McpTransport,
 } from "@/types/mcp";
 
 type MutableMcpServer = Omit<McpServerConfig, "tools" | "connectionStatus"> & {
@@ -294,7 +293,7 @@ export async function executeMcpTool(
   server: McpServerConfig,
   toolName: string,
   args: Record<string, unknown>,
-) {
+): Promise<{ result: unknown; resolvedServer: McpServerConfig }> {
   if (!isToolExecutionAllowed(server, toolName)) {
     throw new Error(`Tool "${toolName}" is not approved for execution on server "${server.name}".`);
   }
@@ -312,28 +311,9 @@ export async function executeMcpTool(
     }
   });
 
-  if (server.authMode === "oauth" && resolvedServer.oauth) {
-    server.oauth = resolvedServer.oauth;
-  }
-
-  return result;
-}
-
-export function supportsOpenAIMcpTool(server: McpServerConfig) {
-  return server.transport === "streamable-http" && server.connectionStatus === "connected";
+  return { result, resolvedServer };
 }
 
 export function getRemoteMcpHeaders(server: McpServerConfig) {
   return buildHeaders(server);
-}
-
-export function describeMcpTransport(transport: McpTransport) {
-  switch (transport) {
-    case "stdio":
-      return "STDIO";
-    case "sse":
-      return "SSE";
-    default:
-      return "Streamable HTTP";
-  }
 }

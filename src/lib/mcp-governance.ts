@@ -83,10 +83,15 @@ export async function executeGovernedMcpTool(
 
       for (attempts = 1; attempts <= retryCount + 1; attempts += 1) {
         try {
-          const result = await withTimeout(
+          const { result, resolvedServer } = await withTimeout(
             executeMcpTool(server, toolName, args),
             policy.toolTimeoutMs,
           );
+          // Propagate refreshed OAuth token so subsequent tool calls in the same
+          // request use the updated credentials without a redundant refresh.
+          if (server.authMode === "oauth" && resolvedServer.oauth) {
+            server.oauth = resolvedServer.oauth;
+          }
           auditStatus = resultIsToolError(result) ? "tool_error" : "success";
           await recordSuccess(policy);
           return result;

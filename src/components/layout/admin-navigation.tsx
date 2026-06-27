@@ -11,7 +11,7 @@ const items = [
   { href: "/chat", label: "User Chat", icon: MessageSquare },
   { href: "/admin/mcp", label: "MCP Servers", icon: Cable },
   { href: "/admin/namespaces", label: "Namespaces", icon: Layers3 },
-  { href: "/admin/llm", label: "LLM Config", icon: Bot },
+  { href: "/admin/llm", label: "LLM", icon: Bot },
   { href: "/admin/groups", label: "Groups", icon: User },
   { href: "/admin/audit", label: "Audit Log", icon: Shield },
 ];

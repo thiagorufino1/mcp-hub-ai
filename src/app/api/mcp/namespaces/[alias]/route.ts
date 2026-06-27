@@ -19,10 +19,15 @@ function extractBearer(request: Request) {
     : null;
 }
 
+function resourceMetadataUrl(request: Request, alias: string) {
+  return `${new URL(request.url).origin}/.well-known/oauth-protected-resource/api/mcp/namespaces/${alias}`;
+}
+
 async function handleNamespaceRequest(
   request: Request,
   context: { params: Promise<{ alias: string }> },
 ): Promise<Response> {
+  const { alias } = await context.params;
   const bearer = extractBearer(request);
   if (!bearer) {
     return new Response(
@@ -31,7 +36,7 @@ async function handleNamespaceRequest(
         status: 401,
         headers: {
           "Content-Type": "application/json",
-          "WWW-Authenticate": `Bearer realm="mcp-hub", resource_metadata="${process.env.NEXTAUTH_URL ?? "http://localhost:3000"}/.well-known/oauth-protected-resource"`,
+          "WWW-Authenticate": `Bearer realm="mcp-hub", resource_metadata="${resourceMetadataUrl(request, alias)}"`,
         },
       },
     );
@@ -44,13 +49,11 @@ async function handleNamespaceRequest(
         status: 401,
         headers: {
           "Content-Type": "application/json",
-          "WWW-Authenticate": `Bearer realm="mcp-hub", error="invalid_token", resource_metadata="${process.env.NEXTAUTH_URL ?? "http://localhost:3000"}/.well-known/oauth-protected-resource"`,
+          "WWW-Authenticate": `Bearer realm="mcp-hub", error="invalid_token", resource_metadata="${resourceMetadataUrl(request, alias)}"`,
         },
       },
     );
   }
-
-  const { alias } = await context.params;
 
   // Scope enforcement: OAuth tokens must have mcp:proxy or mcp:namespace:{alias} scope
   if (tokenUser.scope !== undefined) {

@@ -159,18 +159,6 @@ export async function isRegisteredToolEnabled(
   return record?.enabled ?? false;
 }
 
-export async function getRegisteredToolPermission(
-  mcpServerId: string,
-  toolName: string,
-) {
-  const record = await prisma.mcpToolRegistry.findUnique({
-    where: { mcpServerId_name: { mcpServerId, name: toolName } },
-    select: { enabled: true, permissionMode: true },
-  });
-  if (!record?.enabled || record.permissionMode === "blocked") return "blocked";
-  return "allow";
-}
-
 async function persistToolSnapshot(
   mcpServerId: string,
   tools: McpDiscoveredTool[],

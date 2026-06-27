@@ -9,6 +9,7 @@ import { getModel } from "@/lib/ai-provider";
 import { getApprovedTools } from "@/lib/mcp-authorization";
 import { executeGovernedMcpTool } from "@/lib/mcp-governance";
 import { resolveMcpServerTools } from "@/lib/mcp-tool-registry";
+import { buildStableMcpToolName } from "@/lib/mcp-tool-name";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import type { ChatStreamEvent, Message, TokenUsage } from "@/types/chat";
@@ -536,14 +537,7 @@ function buildExecutableTools(mcpServers: McpServerConfig[]): ExecutableTool[] {
 }
 
 function buildToolFunctionName(serverId: string, toolName: string) {
-  return `mcp_${sanitizeFunctionToken(serverId)}__${sanitizeFunctionToken(toolName)}`.slice(
-    0,
-    64,
-  );
-}
-
-function sanitizeFunctionToken(value: string) {
-  return value.replace(/[^a-zA-Z0-9_]/g, "_");
+  return buildStableMcpToolName(serverId, toolName);
 }
 
 function buildMcpContext(mcpServers: McpServerConfig[]) {

@@ -6,7 +6,7 @@ const schema = await readFile(new URL("../prisma/schema.prisma", import.meta.url
 const governance = await readFile(new URL("../src/lib/mcp-governance.ts", import.meta.url), "utf8");
 const chatRoute = await readFile(new URL("../src/app/api/chat/route.ts", import.meta.url), "utf8");
 const proxyRoute = await readFile(new URL("../src/app/api/mcp/proxy/route.ts", import.meta.url), "utf8");
-const directRoute = await readFile(new URL("../src/app/api/mcp/call/route.ts", import.meta.url), "utf8");
+const namespaceRoute = await readFile(new URL("../src/app/api/mcp/namespaces/[alias]/route.ts", import.meta.url), "utf8");
 const auditPage = await readFile(new URL("../src/app/admin/audit/page.tsx", import.meta.url), "utf8");
 
 test("governance schema persists runtime policy and indexed execution audits", () => {
@@ -29,7 +29,7 @@ test("governed executor enforces timeout, safe retry, circuit, concurrency, rate
 });
 
 test("all MCP execution entry points use the governed executor", () => {
-  for (const source of [chatRoute, proxyRoute, directRoute]) {
+  for (const source of [chatRoute, proxyRoute, namespaceRoute]) {
     assert.match(source, /executeGovernedMcpTool/);
     assert.doesNotMatch(source, /executeMcpTool\(/);
   }

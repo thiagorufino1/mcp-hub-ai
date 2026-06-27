@@ -98,7 +98,6 @@ model McpServer {
   updatedAt           DateTime             @updatedAt
   connections         UserMcpConnection[]
   userPreferences     UserMcpPreference[]
-  policies            AccessPolicy[]
   registryTools       McpToolRegistry[]
   toolExecutions      McpToolExecution[]
   namespaceMembers    NamespaceMcpServer[]
@@ -181,18 +180,7 @@ model EntraGroup {
   lastSyncedAt DateTime?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
-  policy       AccessPolicy?
   namespaces   McpNamespace[]
-}
-
-model AccessPolicy {
-  id            String      @id @default(cuid())
-  groupId       String      @unique
-  group         EntraGroup  @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  allowedModels String[]    @default([])
-  mcpServers    McpServer[]
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
 }
 
 model PersonalToken {
