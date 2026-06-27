@@ -268,6 +268,7 @@ export async function exportMcpServers(): Promise<string> {
       args: true,
       url: true,
       env: true,
+      headers: true,
       authType: true,
       enabled: true,
     },
@@ -285,12 +286,22 @@ export async function exportMcpServers(): Promise<string> {
       redactedEnv[key] = "[REDACTED]";
     }
 
+    const headers =
+      typeof server.headers === "object" && server.headers !== null
+        ? (server.headers as Record<string, string>)
+        : {};
+    const redactedHeaders: Record<string, string> = {};
+    for (const key of Object.keys(headers)) {
+      redactedHeaders[key] = "[REDACTED]";
+    }
+
     result[server.name] = {
       command: server.command ?? undefined,
       args: server.args,
       url: server.url ?? undefined,
       transport: server.transport,
       env: redactedEnv,
+      headers: redactedHeaders,
       description: server.description ?? undefined,
       enabled: server.enabled,
       authType: server.authType,
