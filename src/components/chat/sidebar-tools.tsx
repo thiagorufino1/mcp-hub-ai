@@ -4,7 +4,6 @@ import { LlmConfigSection } from "@/components/chat/llm-config-section";
 import { ModelSelector } from "@/components/chat/model-selector";
 import { SystemPromptSection } from "@/components/chat/system-prompt-section";
 import type { SystemPrompt } from "@/components/chat/system-prompt-section";
-import { useAppPreferences } from "@/components/providers/app-preferences-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { LLMConfig } from "@/types/llm-config";
 import type { TokenUsage } from "@/types/chat";
@@ -43,8 +42,6 @@ export function SidebarToolsContent({
   selectedModel,
   onModelChange,
 }: SidebarToolsContentProps) {
-  const { t: _t } = useAppPreferences();
-
   return (
     <TooltipProvider delayDuration={300}>
       <div className="flex flex-col gap-3">
