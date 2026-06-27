@@ -18,6 +18,7 @@ import {
   PencilLine,
   RefreshCw,
   Search,
+  Shield,
   Wrench,
   Trash2,
   XCircle,
@@ -214,6 +215,12 @@ export function McpServerDetailClient({ mcp }: { mcp: McpDetail }) {
           <Badge variant={health.variant}>{health.label}</Badge>
           <Badge variant={enabled ? "success" : "secondary"}>{enabled ? "Enabled" : "Disabled"}</Badge>
           <Badge variant="info">{transportLabel(mcp.transport)}</Badge>
+          {mcp.authType !== "none" && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-warning-soft)] px-2 py-0.5 text-xs font-medium text-[var(--color-warning)]">
+              <Shield className="size-3" />
+              Autenticação requerida
+            </span>
+          )}
         </div>
       </div>
 
@@ -264,15 +271,29 @@ export function McpServerDetailClient({ mcp }: { mcp: McpDetail }) {
           >
             {enabled ? <CheckCircle2 aria-hidden="true" /> : <XCircle aria-hidden="true" />}
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="size-9 rounded-full px-0"
-            onClick={refresh}
-            aria-label="Refresh MCP server"
-          >
-            <RefreshCw aria-hidden="true" />
-          </Button>
+          {mcp.authType === "oauth_delegated" ? (
+            <span title="Sincronização não disponível para servidores com autenticação delegada">
+              <Button
+                size="sm"
+                variant="outline"
+                className="size-9 rounded-full px-0"
+                disabled
+                aria-label="Refresh MCP server"
+              >
+                <RefreshCw aria-hidden="true" />
+              </Button>
+            </span>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              className="size-9 rounded-full px-0"
+              onClick={refresh}
+              aria-label="Refresh MCP server"
+            >
+              <RefreshCw aria-hidden="true" />
+            </Button>
+          )}
           <form action={async () => { await deleteMcp(mcp.id); }}>
             <Button
               type="submit"
