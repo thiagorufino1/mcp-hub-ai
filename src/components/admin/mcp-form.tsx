@@ -173,6 +173,19 @@ export function McpForm({ open, onClose, mcp }: Props) {
             )}
           </div>
 
+          <div className="space-y-1.5">
+            <Label htmlFor="admin-mcp-description" className={labelClass}>
+              Descrição <span className="text-muted-foreground font-normal">(opcional)</span>
+            </Label>
+            <Input
+              id="admin-mcp-description"
+              name="description"
+              defaultValue={mcp?.description ?? ""}
+              className={fieldClass}
+              placeholder="Breve descrição deste servidor MCP"
+            />
+          </div>
+
           <div className="space-y-2">
             <Label className={labelClass}>Transporte</Label>
             <div className="flex gap-1 rounded-2xl border border-[#dbe4f1] bg-[var(--color-surface-muted)] p-1">
@@ -325,16 +338,6 @@ export function McpForm({ open, onClose, mcp }: Props) {
               <ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" />
             </summary>
             <div className="space-y-4 border-t border-[#dbe4f1] p-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="admin-mcp-description" className={labelClass}>Descrição</Label>
-                <Input
-                  id="admin-mcp-description"
-                  name="description"
-                  defaultValue={mcp?.description ?? ""}
-                  className={fieldClass}
-                />
-              </div>
-
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <NumberField label="Connection timeout (ms)" name="connectionTimeoutMs" value={mcp?.connectionTimeoutMs ?? 10000} min={1000} />
                 <NumberField label="Tool timeout (ms)" name="toolTimeoutMs" value={mcp?.toolTimeoutMs ?? 30000} min={1000} />
