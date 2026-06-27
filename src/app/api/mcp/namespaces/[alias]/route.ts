@@ -146,7 +146,6 @@ async function handleNamespaceRequest(
         {
           ...tool.server,
           approvalMode: "always",
-          approvedToolNames: [],
         },
         tool.originalToolName,
         toolRequest.params.arguments ?? {},

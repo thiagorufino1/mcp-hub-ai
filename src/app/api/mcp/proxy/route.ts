@@ -61,7 +61,6 @@ async function handleProxyRequest(request: Request): Promise<Response> {
   const context = await getUserContext(tokenUser.entraGroups, undefined, tokenUser.userId);
   const proxyServers = context.mcpServers.filter((server) => server.enabled);
   const traceId = request.headers.get("x-request-id") ?? crypto.randomUUID();
-  const serverMap = new Map<string, McpServerConfig>(proxyServers.map((server) => [server.id, server]));
 
   const server = new Server(
     { name: "mcp-hub-proxy", version: "1.0.0" },
@@ -168,7 +167,6 @@ async function handleProxyRequest(request: Request): Promise<Response> {
     const execServer: McpServerConfig = {
       ...mcpServer,
       approvalMode: "always",
-      approvedToolNames: [],
     };
 
     try {

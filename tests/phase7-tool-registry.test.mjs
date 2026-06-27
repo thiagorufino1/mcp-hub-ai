@@ -62,7 +62,7 @@ test("admin can configure registered tool permissions", () => {
   assert.match(client, /Actions/);
 });
 
-test("tool permissions persist allow, approval and blocked modes", () => {
+test("tool permissions persist allow and blocked modes", () => {
   const schema = read("prisma/schema.prisma");
   const migration = read(
     "prisma/migrations/20260621021500_add_mcp_tool_permission_mode/migration.sql",

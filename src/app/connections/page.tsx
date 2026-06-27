@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { getUserContext, dbMcpToConfig } from "@/lib/user-context";
 import { resolveMcpServerTools } from "@/lib/mcp-tool-registry";
 import { resolveDelegatedAuthorizationHeaders } from "@/lib/delegated-oauth";
+import { isOAuthConnectionActive } from "@/lib/oauth-connection";
 import { ConnectionsClient } from "./client";
 import { PortalShell } from "@/components/layout/portal-shell";
 
@@ -73,8 +74,9 @@ export default async function ConnectionsPage() {
 
   const connectionMap = new Map(connections.map((c) => [c.mcpServerId, c]));
   const preferenceMap = new Map(preferences.map((p) => [p.mcpServerId, p.enabled]));
-  // connectedOauthServerIds from DB connections - independent of user preference
-  const connectedOauthServerIds = new Set(connections.filter((c) => c.status === "connected").map((c) => c.mcpServerId));
+  const activeOauthConnectionIds = new Set(
+    connections.filter((connection) => isOAuthConnectionActive(connection)).map((connection) => connection.mcpServerId),
+  );
 
   // For connected oauth servers, do live probe to get real tool count.
   // Build server configs with tokens from context (includes disabled) or fallback to context servers.
@@ -83,7 +85,7 @@ export default async function ConnectionsPage() {
   // by temporarily including all oauth servers that have a DB connection.
   const allContextServers = new Map(context.mcpServers.map((s) => [s.id, s]));
   // For servers not in context (disabled pref), rebuild config with delegated headers
-  const oauthMcpIds = [...connectedOauthServerIds];
+  const oauthMcpIds = [...activeOauthConnectionIds];
   const delegatedHeaders = await resolveDelegatedAuthorizationHeaders(user.id, oauthMcpIds);
   const oauthMcpRecords = await prisma.mcpServer.findMany({
     where: { id: { in: oauthMcpIds }, enabled: true },
@@ -112,7 +114,7 @@ export default async function ConnectionsPage() {
       toolCount: oauthToolCounts.get(mcp.id) ?? mcp._count.registryTools,
       userEnabled: mcp.authType === "oauth_delegated"
         // OAuth: only enabled if actually connected AND user hasn't explicitly disabled it
-        ? connectionMap.get(mcp.id)?.status === "connected" && (preferenceMap.get(mcp.id) ?? true)
+        ? isOAuthConnectionActive(connectionMap.get(mcp.id)) && (preferenceMap.get(mcp.id) ?? true)
         : (preferenceMap.get(mcp.id) ?? true),
       connection: conn
         ? { status: conn.status === "connected" && isExpired ? "expired" : conn.status, updatedAt: conn.updatedAt }

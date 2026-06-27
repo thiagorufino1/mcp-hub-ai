@@ -1,29 +1,12 @@
 import type { McpDiscoveredTool, McpServerConfig } from "@/types/mcp";
 
 export function getApprovedTools(server: McpServerConfig): McpDiscoveredTool[] {
-  switch (server.approvalMode) {
-    case "always":
-      return server.tools;
-    case "selected": {
-      const approved = new Set(server.approvedToolNames);
-      return server.tools.filter((tool) => approved.has(tool.name));
-    }
-    default:
-      return [];
-  }
+  return server.approvalMode === "always" ? server.tools : [];
 }
 
 export function isToolExecutionAllowed(
-  server: Pick<McpServerConfig, "approvalMode" | "approvedToolNames">,
+  server: Pick<McpServerConfig, "approvalMode">,
   toolName: string,
 ) {
-  if (server.approvalMode === "always") {
-    return true;
-  }
-
-  if (server.approvalMode === "selected") {
-    return server.approvedToolNames.includes(toolName);
-  }
-
-  return false;
+  return server.approvalMode === "always";
 }

@@ -37,26 +37,3 @@ export function removeSessionValue(key: string) {
     // Ignore storage failures.
   }
 }
-
-export function migrateLocalJsonToSession<T>(
-  localKey: string,
-  sessionKey: string,
-): T | null {
-  try {
-    const sessionValue = parseJson<T>(window.sessionStorage.getItem(sessionKey));
-    if (sessionValue) {
-      return sessionValue;
-    }
-
-    const localValue = parseJson<T>(window.localStorage.getItem(localKey));
-    if (!localValue) {
-      return null;
-    }
-
-    window.sessionStorage.setItem(sessionKey, JSON.stringify(localValue));
-    window.localStorage.removeItem(localKey);
-    return localValue;
-  } catch {
-    return null;
-  }
-}

@@ -213,7 +213,6 @@ async function withOAuthRetry<T>(
 export function createInspectableServerConfig(server: MutableMcpServer): McpServerConfig {
   return {
     approvalMode: server.approvalMode ?? "never",
-    approvedToolNames: server.approvedToolNames ?? [],
     args: server.args,
     command: server.command,
     connectionStatus: server.connectionStatus ?? "pending",
@@ -263,12 +262,6 @@ export async function inspectMcpServer(server: McpServerConfig): Promise<McpInsp
     return {
       server: {
         ...resolvedServer,
-        approvedToolNames:
-          server.approvalMode === "selected"
-            ? server.approvedToolNames.filter((toolName) =>
-                tools.some((tool) => tool.name === toolName),
-              )
-            : [],
         connectionStatus: "connected",
         errorMessage: undefined,
         lastCheckedAt: String(Date.now()),
@@ -312,8 +305,4 @@ export async function executeMcpTool(
   });
 
   return { result, resolvedServer };
-}
-
-export function getRemoteMcpHeaders(server: McpServerConfig) {
-  return buildHeaders(server);
 }

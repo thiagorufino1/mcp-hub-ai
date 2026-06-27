@@ -14,6 +14,8 @@ export default auth((req) => {
     pathname.startsWith("/api/mcp/proxy") ||
     pathname.startsWith("/api/mcp/namespaces") ||
     pathname.startsWith("/api/oauth") ||
+    pathname.startsWith("/oauth/callback") ||
+    pathname.startsWith("/oauth/error") ||
     pathname.startsWith("/.well-known") ||
     pathname === "/login" ||
     pathname.startsWith("/_next") ||

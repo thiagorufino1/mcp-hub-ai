@@ -13,7 +13,7 @@ import {
   Zap,
 } from "@/components/ui/icons";
 import { ExecutionChart, type ExecDayData } from "@/components/admin/execution-chart";
-import { LlmUsageChart, type LlmDayData } from "@/components/admin/llm-usage-chart";
+import { LlmUsageChart } from "@/components/admin/llm-usage-chart";
 
 export const metadata = { title: "Admin Dashboard - MCP Hub" };
 
@@ -21,7 +21,7 @@ export default async function AdminDashboardPage() {
   await requireAdmin();
 
   const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
-  const fourteenDaysWindowAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+  const now = new Date();
 
   const [
     mcpTotal,
@@ -43,13 +43,20 @@ export default async function AdminDashboardPage() {
     prisma.mcpNamespace.count(),
     prisma.mcpNamespace.count({ where: { published: true } }),
     prisma.mcpToolRegistry.count({ where: { enabled: true } }),
-    prisma.userMcpConnection.count({ where: { status: "connected" } }),
+    prisma.userMcpConnection.count({
+      where: {
+        OR: [
+          { status: "connected", expiresAt: null },
+          { status: "connected", expiresAt: { gt: now } },
+        ],
+      },
+    }),
     prisma.llmConfig.count({ where: { enabled: true } }),
     prisma.entraGroup.count(),
     prisma.user.count(),
-    prisma.mcpToolExecution.count({ where: { createdAt: { gte: fourteenDaysWindowAgo } } }),
-    prisma.mcpToolExecution.count({ where: { createdAt: { gte: fourteenDaysWindowAgo }, status: "success" } }),
-    prisma.mcpToolExecution.count({ where: { createdAt: { gte: fourteenDaysWindowAgo }, status: { not: "success" } } }),
+    prisma.mcpToolExecution.count({ where: { createdAt: { gte: fourteenDaysAgo } } }),
+    prisma.mcpToolExecution.count({ where: { createdAt: { gte: fourteenDaysAgo }, status: "success" } }),
+    prisma.mcpToolExecution.count({ where: { createdAt: { gte: fourteenDaysAgo }, status: { not: "success" } } }),
     prisma.$queryRaw<Array<{ day: Date; status: string; count: bigint }>>`
       SELECT
         DATE_TRUNC('day', "createdAt") AS day,
@@ -62,7 +69,7 @@ export default async function AdminDashboardPage() {
     `,
     prisma.mcpToolExecution.groupBy({
       by: ["serverName"],
-      where: { createdAt: { gte: fourteenDaysWindowAgo } },
+      where: { createdAt: { gte: fourteenDaysAgo } },
       _count: { serverName: true },
       orderBy: { _count: { serverName: "desc" } },
       take: 5,

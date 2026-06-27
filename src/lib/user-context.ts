@@ -149,7 +149,6 @@ export function dbMcpToConfig(mcp: {
     tools: [],
     connectionStatus: "pending",
     approvalMode: "always",
-    approvedToolNames: [],
     enabled:
       mcp.enabled &&
       (mcp.authType !== "oauth_delegated" || Boolean(resolvedDelegatedAuthorization)),

@@ -2,7 +2,7 @@ export type McpTransport = "stdio" | "sse" | "streamable-http";
 
 export type McpConnectionStatus = "pending" | "connected" | "error";
 
-export type McpApprovalMode = "always" | "never" | "selected";
+export type McpApprovalMode = "always" | "never";
 
 export type McpAuthMode = "none" | "oauth";
 
@@ -53,7 +53,6 @@ export type McpServerConfig = {
   errorMessage?: string;
   lastCheckedAt?: string;
   approvalMode: McpApprovalMode;
-  approvedToolNames: string[];
   requiresUserAuthorization?: boolean;
   userAuthorizationStatus?: "connected" | "required";
 };

@@ -12,27 +12,3 @@ export function buildStableMcpToolName(serverId: string, toolName: string) {
 
   return `mcp_${encodeToken(serverId)}_${encodeToken(toolName)}_${signature}`;
 }
-
-function decodeToken(value: string) {
-  return Buffer.from(value, "hex").toString("utf8");
-}
-
-export function parseStableMcpToolName(functionName: string) {
-  if (!functionName.startsWith("mcp_")) {
-    return null;
-  }
-
-  const parts = functionName.split("_");
-  if (parts.length !== 4) {
-    return null;
-  }
-
-  try {
-    return {
-      serverId: decodeToken(parts[1]),
-      toolName: decodeToken(parts[2]),
-    };
-  } catch {
-    return null;
-  }
-}

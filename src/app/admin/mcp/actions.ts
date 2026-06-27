@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { logAudit } from "@/lib/audit";
@@ -237,6 +238,7 @@ export async function deleteMcp(id: string): Promise<void> {
   await prisma.mcpServer.delete({ where: { id } });
   logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "mcp.delete", resource: "McpServer", resourceId: id, metadata: { name: existing?.name } });
   revalidatePath("/admin/mcp");
+  redirect("/admin/mcp");
 }
 
 async function inspectMcpConfig(
