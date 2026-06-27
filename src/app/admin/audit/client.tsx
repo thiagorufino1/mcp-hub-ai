@@ -31,6 +31,7 @@ type ExecutionEntry = {
 };
 
 type Metrics = { total24h: number; failures24h: number; averageLatency: number };
+type Counts24h = { activity: number; executions: number; proxy: number; llm: number };
 
 const ADMIN_ACTIVITY_ACTIONS = new Set([
   "mcp.create","mcp.update","mcp.delete","mcp.enable","mcp.disable",
@@ -97,10 +98,12 @@ export function AuditClient({
   auditLogs,
   executions,
   metrics,
+  counts24h,
 }: {
   auditLogs: AuditLogEntry[];
   executions: ExecutionEntry[];
   metrics: Metrics;
+  counts24h: Counts24h;
 }) {
   const [tab, setTab] = useState<Tab>("activity");
   const [search, setSearch] = useState("");
@@ -122,11 +125,11 @@ export function AuditClient({
       (!q || (l.userEmail ?? "").toLowerCase().includes(q) || l.resource.toLowerCase().includes(q)),
   );
 
-  const tabs: { id: Tab; label: string; count: number }[] = [
-    { id: "activity",   label: "Admin Activity",   count: filteredLogs.length },
-    { id: "executions", label: "MCP Executions",   count: executions.length },
-    { id: "proxy",      label: "Proxy / Namespace", count: filteredProxy.length },
-    { id: "llm",        label: "LLM",              count: filteredLlm.length },
+  const tabs: { id: Tab; label: string; count: number; badge24h: number }[] = [
+    { id: "activity",   label: "Admin Activity",   count: filteredLogs.length,   badge24h: counts24h.activity },
+    { id: "executions", label: "MCP Executions",   count: executions.length,     badge24h: counts24h.executions },
+    { id: "proxy",      label: "Proxy / Namespace", count: filteredProxy.length, badge24h: counts24h.proxy },
+    { id: "llm",        label: "LLM",              count: filteredLlm.length,    badge24h: counts24h.llm },
   ];
 
   return (
@@ -198,6 +201,11 @@ export function AuditClient({
               )}>
                 {t.count}
               </span>
+              {t.badge24h > 0 && (
+                <span className="rounded-full bg-[var(--color-surface-muted)] px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-muted-foreground">
+                  {t.badge24h} 24h
+                </span>
+              )}
             </button>
           ))}
         </div>
