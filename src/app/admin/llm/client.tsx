@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { LlmForm } from "@/components/admin/llm-form";
@@ -80,11 +80,11 @@ export function LlmAdminClient({ llms }: Props) {
           </thead>
           <tbody>
             {filteredLlms.map((llm) => (
-              <LlmRow
-                key={llm.id}
-                llm={llm}
-                onEdit={() => setForm({ open: true, llm })}
-              />
+            <LlmRow
+              key={`${llm.id}-${llm.isDefault ? "default" : "regular"}`}
+              llm={llm}
+              onEdit={() => setForm({ open: true, llm })}
+            />
             ))}
             {filteredLlms.length === 0 ? (
               <tr>
@@ -118,10 +118,6 @@ function LlmRow({ llm, onEdit }: { llm: LlmConfigRow; onEdit: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const model = llm.allowedModels[0] || "No model";
-
-  useEffect(() => {
-    setIsDefault(llm.isDefault);
-  }, [llm.isDefault]);
 
   function retest() {
     setError(null);

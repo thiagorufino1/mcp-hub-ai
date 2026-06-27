@@ -152,7 +152,15 @@ export default async function ConnectionsPage() {
 
   return (
     <PortalShell isAdmin={user.isAdmin} section="My Connections" showUserNavigation userName={user.name}>
-      <ConnectionsClient items={items} namespaces={namespaces} proxyUrl={proxyUrl} />
+      <ConnectionsClient
+        key={[
+          items.map((item) => `${item.id}:${item.userEnabled}:${item.connection?.status ?? "none"}`).join("|"),
+          namespaces.map((ns) => `${ns.id}:${ns.mcpCount}`).join("|"),
+        ].join("::")}
+        items={items}
+        namespaces={namespaces}
+        proxyUrl={proxyUrl}
+      />
     </PortalShell>
   );
 }

@@ -30,6 +30,7 @@ export async function getUserContext(
           OR: [
             ...(userId ? [{ users: { some: { id: userId } } }] : []),
             ...(entraGroups.length > 0 ? [{ groups: { some: { entraGroupId: { in: entraGroups } } } }] : []),
+            { AND: [{ groups: { none: {} } }, { users: { none: {} } }] },
           ],
         },
         include: {

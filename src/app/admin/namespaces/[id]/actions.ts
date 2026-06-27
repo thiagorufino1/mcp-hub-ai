@@ -33,7 +33,6 @@ export async function setNamespaceMcpEnabled(
   await syncNamespaceToolsForNamespace(namespaceId);
   revalidatePath(`/admin/namespaces/${namespaceId}`);
   revalidatePath("/admin/namespaces");
-  revalidatePath("/admin/workspaces");
 }
 
 export async function addNamespaceMcpServer(
@@ -84,7 +83,6 @@ export async function addNamespaceMcpServer(
   });
   revalidatePath(`/admin/namespaces/${namespaceId}`);
   revalidatePath("/admin/namespaces");
-  revalidatePath("/admin/workspaces");
 }
 
 export async function deleteNamespaceMcpServer(
@@ -111,7 +109,6 @@ export async function deleteNamespaceMcpServer(
   });
   revalidatePath(`/admin/namespaces/${namespaceId}`);
   revalidatePath("/admin/namespaces");
-  revalidatePath("/admin/workspaces");
 }
 
 export async function addNamespaceGroup(
@@ -155,7 +152,6 @@ export async function addNamespaceGroup(
   });
   revalidatePath(`/admin/namespaces/${namespaceId}`);
   revalidatePath("/admin/namespaces");
-  revalidatePath("/admin/workspaces");
 }
 
 export async function deleteNamespaceGroup(
@@ -195,7 +191,6 @@ export async function deleteNamespaceGroup(
   });
   revalidatePath(`/admin/namespaces/${namespaceId}`);
   revalidatePath("/admin/namespaces");
-  revalidatePath("/admin/workspaces");
 }
 
 export async function setNamespaceAllUsers(
@@ -226,7 +221,6 @@ export async function setNamespaceAllUsers(
   });
   revalidatePath(`/admin/namespaces/${namespaceId}`);
   revalidatePath("/admin/namespaces");
-  revalidatePath("/admin/workspaces");
 }
 
 export async function setNamespaceToolEnabled(
@@ -260,5 +254,4 @@ export async function setNamespaceToolEnabled(
   });
   revalidatePath(`/admin/namespaces/${namespaceId}`);
   revalidatePath("/admin/namespaces");
-  revalidatePath("/admin/workspaces");
 }

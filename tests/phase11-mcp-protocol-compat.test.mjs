@@ -41,6 +41,7 @@ test("remote MCP client supports Streamable HTTP with legacy SSE fallback", () =
 });
 
 test("delegated MCP connections expose a link action to the user", () => {
-  assert.match(connections, /Vincular/);
-  assert.match(connections, /Desvincular/);
+  assert.match(connections, /Connect/);
+  assert.match(connections, /Disconnect/);
+  assert.match(connections, /Reconnect/);
 });

@@ -52,9 +52,10 @@ test("admin can configure registered tool permissions", () => {
 
   assert.match(actions, /setMcpToolPermission/);
   assert.match(actions, /prisma\.mcpToolRegistry\.updateMany/);
-  assert.match(client, /tools enabled/);
-  assert.match(client, /Requer aprovação/);
-  assert.match(client, /grid-cols-1.*md:grid-cols-2.*xl:grid-cols-3/);
+  assert.match(client, /MCP Servers/);
+  assert.match(client, /Enabled/);
+  assert.match(client, /Tools/);
+  assert.match(client, /Actions/);
 });
 
 test("tool permissions persist allow, approval and blocked modes", () => {

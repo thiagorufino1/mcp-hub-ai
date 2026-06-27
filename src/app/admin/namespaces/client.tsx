@@ -222,6 +222,7 @@ export function NamespacesAdminClient({
       </div>
 
       <NamespaceForm
+        key={`${form?.id ?? "new"}-${form === undefined ? "closed" : "open"}`}
         open={form !== undefined}
         namespace={form ?? undefined}
         groups={groups}

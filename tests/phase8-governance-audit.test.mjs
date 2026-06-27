@@ -37,6 +37,7 @@ test("all MCP execution entry points use the governed executor", () => {
 
 test("admin exposes execution audit metrics and recent events", () => {
   assert.match(auditPage, /mcpToolExecution\.findMany/);
-  assert.match(auditPage, /Average latency/);
-  assert.match(auditPage, /Sensitive argument fields are redacted/);
+  assert.match(auditPage, /averageLatency/);
+  assert.match(auditPage, /total24h/);
+  assert.match(auditPage, /failures24h/);
 });

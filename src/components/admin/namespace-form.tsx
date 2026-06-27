@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { saveNamespace, type NamespaceRow } from "@/app/admin/namespaces/actions";
@@ -57,19 +57,6 @@ export function NamespaceForm({
   const [draftMcpIds, setDraftMcpIds] = useState<string[]>(namespace?.mcpServerIds ?? []);
   const [draftGroupIds, setDraftGroupIds] = useState<string[]>(namespace?.groups.map((g) => g.id) ?? []);
   const router = useRouter();
-
-  useEffect(() => {
-    setAllUsers(namespace?.allUsers ?? false);
-    setEnabled(namespace?.enabled ?? true);
-    setPublished(namespace?.published ?? false);
-    setSelectedMcpIds(namespace?.mcpServerIds ?? []);
-    setDraftMcpIds(namespace?.mcpServerIds ?? []);
-    setAddMcpOpen(false);
-    setSelectedGroupIds(namespace?.groups.map((g) => g.id) ?? []);
-    setDraftGroupIds(namespace?.groups.map((g) => g.id) ?? []);
-    setAddGroupOpen(false);
-    setError(null);
-  }, [namespace, open]);
 
   const selectedGroups = new Set(selectedGroupIds);
   const selectedMcps = new Set(selectedMcpIds);

@@ -122,45 +122,47 @@ export async function updateMcp(id: string, formData: FormData): Promise<void> {
   await prisma.$transaction([
     prisma.mcpToolRegistry.deleteMany({ where: { mcpServerId: id } }),
     prisma.mcpServer.update({
-    where: { id },
-    data: {
-      name: formData.get("name") as string,
-      description: (formData.get("description") as string | null) || null,
-      transport,
-      command: transport === "stdio" ? (formData.get("command") as string) : null,
-      args: argsRaw ? argsRaw.split("\n").map((a) => a.trim()).filter(Boolean) : [],
-      url: transport !== "stdio" ? (formData.get("url") as string) : null,
-      env: encryptSecretJson(JSON.parse(envRaw) as Record<string, string>),
-      headers: encryptSecretJson(headers),
-      authType,
-      sharedSecret: null,
-      oauthClientId:
-        authType === "oauth_delegated"
-          ? (formData.get("oauthClientId") as string | null) || null
-          : null,
-      oauthClientSecret:
-        authType === "oauth_delegated"
-          ? optionalEncryptedValue(
-              formData,
-              "oauthClientSecret",
-              decryptSecret(existing?.oauthClientSecret),
-            )
-          : null,
-      oauthScopes:
-        authType === "oauth_delegated"
-          ? (formData.get("oauthScopes") as string | null) || null
-          : null,
-      enabled: formData.get("enabled") === "true",
-      healthStatus: "unknown",
-      lastHealthCheckAt: null,
-      lastLatencyMs: null,
-      consecutiveFailures: 0,
-      circuitState: "closed",
-      circuitOpenedAt: null,
-      ...runtimePolicyFromForm(formData),
-    },
+      where: { id },
+      data: {
+        name: formData.get("name") as string,
+        description: (formData.get("description") as string | null) || null,
+        transport,
+        command: transport === "stdio" ? (formData.get("command") as string) : null,
+        args: argsRaw ? argsRaw.split("\n").map((a) => a.trim()).filter(Boolean) : [],
+        url: transport !== "stdio" ? (formData.get("url") as string) : null,
+        env: encryptSecretJson(JSON.parse(envRaw) as Record<string, string>),
+        headers: encryptSecretJson(headers),
+        authType,
+        sharedSecret: null,
+        oauthClientId:
+          authType === "oauth_delegated"
+            ? (formData.get("oauthClientId") as string | null) || null
+            : null,
+        oauthClientSecret:
+          authType === "oauth_delegated"
+            ? optionalEncryptedValue(
+                formData,
+                "oauthClientSecret",
+                decryptSecret(existing?.oauthClientSecret),
+              )
+            : null,
+        oauthScopes:
+          authType === "oauth_delegated"
+            ? (formData.get("oauthScopes") as string | null) || null
+            : null,
+        enabled: formData.get("enabled") === "true",
+        healthStatus: "unknown",
+        lastHealthCheckAt: null,
+        lastLatencyMs: null,
+        consecutiveFailures: 0,
+        circuitState: "closed",
+        circuitOpenedAt: null,
+        ...runtimePolicyFromForm(formData),
+      },
     }),
   ]);
+
+  await inspectMcpConfig(id, false);
 
   logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "mcp.update", resource: "McpServer", resourceId: id, metadata: { name: formData.get("name") as string } });
   revalidatePath("/admin/mcp");

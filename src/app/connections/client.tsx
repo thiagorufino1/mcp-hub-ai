@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { setMcpEnabled } from "./actions";
@@ -89,21 +89,6 @@ export function ConnectionsClient({ items, namespaces, proxyUrl }: { items: Conn
     ),
   );
 
-  // Sync state when items prop updates (e.g. after router.refresh())
-  useEffect(() => {
-    setEnabledMap(Object.fromEntries(items.map((i) => [i.id, i.userEnabled])));
-    setStatuses(Object.fromEntries(items.map((item) => [
-      item.id,
-      item.authType !== "oauth_delegated"
-        ? "connected"
-        : item.connection?.status === "connected"
-          ? "connected"
-          : item.connection?.status === "expired"
-            ? "expired"
-            : "disconnected",
-    ])));
-  }, [items]);
-
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   function copyEndpoint(id: string, path: string) {
@@ -169,7 +154,7 @@ export function ConnectionsClient({ items, namespaces, proxyUrl }: { items: Conn
     } catch {
       setStatuses((s) => ({ ...s, [mcpId]: "error" }));
     }
-  }, []);
+  }, [router]);
 
   const disconnect = useCallback(async (mcpId: string) => {
     setStatuses((s) => ({ ...s, [mcpId]: "pending" }));
