@@ -38,6 +38,9 @@ export default async function AdminDashboardPage() {
     execByDay,
     topServers,
     llmByDay,
+    topTools,
+    avgLatency,
+    bySource,
   ] = await Promise.all([
     prisma.mcpServer.count(),
     prisma.mcpNamespace.count(),
@@ -84,6 +87,25 @@ export default async function AdminDashboardPage() {
       GROUP BY DATE_TRUNC('day', "createdAt"), COALESCE(metadata->>'model', 'unknown')
       ORDER BY day ASC
     `,
+    prisma.mcpToolExecution.groupBy({
+      by: ["toolName"],
+      _count: { id: true },
+      where: { createdAt: { gte: fourteenDaysAgo } },
+      orderBy: { _count: { id: "desc" } },
+      take: 5,
+    }),
+    prisma.mcpToolExecution.groupBy({
+      by: ["serverName"],
+      _avg: { latencyMs: true },
+      where: { createdAt: { gte: fourteenDaysAgo } },
+      orderBy: { _avg: { latencyMs: "desc" } },
+      take: 5,
+    }),
+    prisma.mcpToolExecution.groupBy({
+      by: ["source"],
+      _count: { id: true },
+      where: { createdAt: { gte: fourteenDaysAgo } },
+    }),
   ]);
 
   const execMap = new Map<string, number>();
@@ -193,6 +215,48 @@ export default async function AdminDashboardPage() {
           </div>
         )}
       </section>
+
+      {topTools.length > 0 && (
+        <section className="rounded-2xl border bg-[var(--color-surface)] p-5">
+          <h2 className="mb-4 text-sm font-semibold">Top Tools (14d)</h2>
+          <div className="space-y-2">
+            {topTools.map((t) => (
+              <div key={t.toolName} className="flex items-center justify-between text-sm">
+                <span className="truncate text-muted-foreground font-mono text-xs">{t.toolName}</span>
+                <span className="font-semibold">{t._count.id}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {avgLatency.length > 0 && (
+        <section className="rounded-2xl border bg-[var(--color-surface)] p-5">
+          <h2 className="mb-4 text-sm font-semibold">Latência Média (14d)</h2>
+          <div className="space-y-2">
+            {avgLatency.map((s) => (
+              <div key={s.serverName} className="flex items-center justify-between text-sm">
+                <span className="truncate text-muted-foreground">{s.serverName}</span>
+                <span className="font-semibold">{Math.round(s._avg.latencyMs ?? 0)}ms</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {bySource.length > 0 && (
+        <section className="rounded-2xl border bg-[var(--color-surface)] p-5">
+          <h2 className="mb-4 text-sm font-semibold">Execuções por Origem (14d)</h2>
+          <div className="space-y-2">
+            {bySource.map((s) => (
+              <div key={s.source} className="flex items-center justify-between text-sm">
+                <span className="capitalize text-muted-foreground">{s.source}</span>
+                <span className="font-semibold">{s._count.id}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_8px_24px_rgba(17,63,124,0.04)]">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
