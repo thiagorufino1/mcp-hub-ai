@@ -46,11 +46,11 @@ function StatusBadge({ authType, status }: { authType: string; status: OAuthStat
   }
 
   const map: Record<OAuthStatus, { label: string; cls: string; Icon: typeof CheckCircle2 }> = {
-    connected: { label: "Connected", cls: "border-[var(--color-success)] bg-[var(--color-success-soft)] text-[var(--color-success)]", Icon: CheckCircle2 },
-    disconnected: { label: "Not connected", cls: "border-[var(--color-border)] bg-[var(--color-surface-muted)] text-muted-foreground", Icon: XCircle },
-    expired: { label: "Expired", cls: "border-[var(--color-warning)] bg-[var(--color-warning-soft)] text-[var(--color-warning)]", Icon: XCircle },
-    pending: { label: "Connecting…", cls: "border-[var(--color-border)] bg-[var(--color-surface-muted)] text-muted-foreground", Icon: LoaderCircle },
-    error: { label: "Error", cls: "border-[var(--color-error)] bg-[var(--color-error-soft)] text-[var(--color-error)]", Icon: XCircle },
+    connected: { label: "Conectado", cls: "border-[var(--color-success)] bg-[var(--color-success-soft)] text-[var(--color-success)]", Icon: CheckCircle2 },
+    disconnected: { label: "Não conectado", cls: "border-[var(--color-border)] bg-[var(--color-surface-muted)] text-muted-foreground", Icon: XCircle },
+    expired: { label: "Expirado", cls: "border-[var(--color-warning)] bg-[var(--color-warning-soft)] text-[var(--color-warning)]", Icon: XCircle },
+    pending: { label: "Conectando…", cls: "border-[var(--color-border)] bg-[var(--color-surface-muted)] text-muted-foreground", Icon: LoaderCircle },
+    error: { label: "Erro", cls: "border-[var(--color-error)] bg-[var(--color-error-soft)] text-[var(--color-error)]", Icon: XCircle },
   };
 
   const { label, cls, Icon } = map[status];
@@ -228,18 +228,18 @@ export function ConnectionsClient({ items, namespaces, proxyUrl }: { items: Conn
                         checked={enabledMap[item.id] ?? true}
                         onCheckedChange={(v) => handleToggle(item.id, v)}
                         disabled={isPendingToggle || (item.authType === "oauth_delegated" && statuses[item.id] !== "connected")}
-                        aria-label={`${enabledMap[item.id] ? "Disable" : "Enable"} ${item.name}`}
+                        aria-label={`${enabledMap[item.id] ? "Desabilitar" : "Habilitar"} ${item.name}`}
                       />
                     </td>
                     <td className="px-4 py-4 text-center">
                       {isOAuth && (
                         status === "connected" ? (
                           <Button size="sm" variant="ghost" className="bg-[var(--color-error-soft)] text-[var(--color-error)] hover:bg-[var(--color-error-soft)] hover:text-[var(--color-error)]" onClick={() => void disconnect(item.id)}>
-                            Disconnect
+                            Desvincular
                           </Button>
                         ) : (
                           <Button size="sm" disabled={status === "pending"} onClick={() => void connect(item.id)}>
-                            {status === "expired" ? "Reconnect" : "Connect"}
+                            {status === "expired" ? "Reconectar" : "Conectar"}
                           </Button>
                         )
                       )}
