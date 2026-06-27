@@ -247,6 +247,55 @@ See [SECURITY.md](./SECURITY.md) for the full security model.
 
 ---
 
+## Executar com Docker
+
+### Pré-requisitos
+
+- Docker e Docker Compose instalados
+- Credenciais Azure AD/Entra ID configuradas
+
+### Configuração
+
+```bash
+cp .env.example .env
+# Edite .env com suas variáveis reais
+```
+
+Gere os valores obrigatórios:
+
+```bash
+# NEXTAUTH_SECRET
+openssl rand -base64 32
+
+# MCP_HUB_ENCRYPTION_KEY
+openssl rand -hex 32
+```
+
+### Subir o ambiente
+
+```bash
+docker compose up --build
+```
+
+O app estará disponível em http://localhost:3000.
+
+As migrações do banco de dados são aplicadas automaticamente na inicialização.
+
+### Parar
+
+```bash
+docker compose down
+```
+
+### Resetar banco de dados
+
+```bash
+docker compose down -v
+docker compose up --build
+```
+
+---
+
 ## Links
 
 - GitHub: https://github.com/thiagorufino1/mcp-hub
