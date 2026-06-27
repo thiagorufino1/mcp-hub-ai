@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { logAudit } from "@/lib/audit";
@@ -75,34 +76,42 @@ export async function createMcp(formData: FormData): Promise<void> {
     authType,
   );
 
-  const mcp = await prisma.mcpServer.create({
-    data: {
-      name: formData.get("name") as string,
-      description: (formData.get("description") as string | null) || null,
-      transport,
-      command: transport === "stdio" ? (formData.get("command") as string) : null,
-      args: argsRaw ? argsRaw.split("\n").map((a) => a.trim()).filter(Boolean) : [],
-      url: transport !== "stdio" ? (formData.get("url") as string) : null,
-      env: encryptSecretJson(JSON.parse(envRaw) as Record<string, string>),
-      headers: encryptSecretJson(headers),
-      authType,
-      sharedSecret: null,
-      oauthClientId:
-        authType === "oauth_delegated"
-          ? (formData.get("oauthClientId") as string | null) || null
-          : null,
-      oauthClientSecret:
-        authType === "oauth_delegated"
-          ? optionalEncryptedValue(formData, "oauthClientSecret")
-          : null,
-      oauthScopes:
-        authType === "oauth_delegated"
-          ? (formData.get("oauthScopes") as string | null) || null
-          : null,
-      enabled: formData.get("enabled") === "true",
-      ...runtimePolicyFromForm(formData),
-    },
-  });
+  let mcp: Awaited<ReturnType<typeof prisma.mcpServer.create>>;
+  try {
+    mcp = await prisma.mcpServer.create({
+      data: {
+        name: formData.get("name") as string,
+        description: (formData.get("description") as string | null) || null,
+        transport,
+        command: transport === "stdio" ? (formData.get("command") as string) : null,
+        args: argsRaw ? argsRaw.split("\n").map((a) => a.trim()).filter(Boolean) : [],
+        url: transport !== "stdio" ? (formData.get("url") as string) : null,
+        env: encryptSecretJson(JSON.parse(envRaw) as Record<string, string>),
+        headers: encryptSecretJson(headers),
+        authType,
+        sharedSecret: null,
+        oauthClientId:
+          authType === "oauth_delegated"
+            ? (formData.get("oauthClientId") as string | null) || null
+            : null,
+        oauthClientSecret:
+          authType === "oauth_delegated"
+            ? optionalEncryptedValue(formData, "oauthClientSecret")
+            : null,
+        oauthScopes:
+          authType === "oauth_delegated"
+            ? (formData.get("oauthScopes") as string | null) || null
+            : null,
+        enabled: formData.get("enabled") === "true",
+        ...runtimePolicyFromForm(formData),
+      },
+    });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      throw new Error("Já existe um MCP Server cadastrado com este nome.");
+    }
+    throw e;
+  }
 
   await inspectMcpConfig(mcp.id, false);
   logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "mcp.create", resource: "McpServer", resourceId: mcp.id, metadata: { name: mcp.name } });
@@ -135,48 +144,55 @@ export async function updateMcp(id: string, formData: FormData): Promise<void> {
     authType,
   );
 
-  await prisma.$transaction([
-    prisma.mcpToolRegistry.deleteMany({ where: { mcpServerId: id } }),
-    prisma.mcpServer.update({
-      where: { id },
-      data: {
-        name: formData.get("name") as string,
-        description: (formData.get("description") as string | null) || null,
-        transport,
-        command: transport === "stdio" ? (formData.get("command") as string) : null,
-        args: argsRaw ? argsRaw.split("\n").map((a) => a.trim()).filter(Boolean) : [],
-        url: transport !== "stdio" ? (formData.get("url") as string) : null,
-        env: encryptSecretJson(JSON.parse(envRaw) as Record<string, string>),
-        headers: encryptSecretJson(headers),
-        authType,
-        sharedSecret: null,
-        oauthClientId:
-          authType === "oauth_delegated"
-            ? (formData.get("oauthClientId") as string | null) || null
-            : null,
-        oauthClientSecret:
-          authType === "oauth_delegated"
-            ? optionalEncryptedValue(
-                formData,
-                "oauthClientSecret",
-                decryptSecret(existing?.oauthClientSecret),
-              )
-            : null,
-        oauthScopes:
-          authType === "oauth_delegated"
-            ? (formData.get("oauthScopes") as string | null) || null
-            : null,
-        enabled: formData.get("enabled") === "true",
-        healthStatus: "unknown",
-        lastHealthCheckAt: null,
-        lastLatencyMs: null,
-        consecutiveFailures: 0,
-        circuitState: "closed",
-        circuitOpenedAt: null,
-        ...runtimePolicyFromForm(formData),
-      },
-    }),
-  ]);
+  try {
+    await prisma.$transaction([
+      prisma.mcpToolRegistry.deleteMany({ where: { mcpServerId: id } }),
+      prisma.mcpServer.update({
+        where: { id },
+        data: {
+          name: formData.get("name") as string,
+          description: (formData.get("description") as string | null) || null,
+          transport,
+          command: transport === "stdio" ? (formData.get("command") as string) : null,
+          args: argsRaw ? argsRaw.split("\n").map((a) => a.trim()).filter(Boolean) : [],
+          url: transport !== "stdio" ? (formData.get("url") as string) : null,
+          env: encryptSecretJson(JSON.parse(envRaw) as Record<string, string>),
+          headers: encryptSecretJson(headers),
+          authType,
+          sharedSecret: null,
+          oauthClientId:
+            authType === "oauth_delegated"
+              ? (formData.get("oauthClientId") as string | null) || null
+              : null,
+          oauthClientSecret:
+            authType === "oauth_delegated"
+              ? optionalEncryptedValue(
+                  formData,
+                  "oauthClientSecret",
+                  decryptSecret(existing?.oauthClientSecret),
+                )
+              : null,
+          oauthScopes:
+            authType === "oauth_delegated"
+              ? (formData.get("oauthScopes") as string | null) || null
+              : null,
+          enabled: formData.get("enabled") === "true",
+          healthStatus: "unknown",
+          lastHealthCheckAt: null,
+          lastLatencyMs: null,
+          consecutiveFailures: 0,
+          circuitState: "closed",
+          circuitOpenedAt: null,
+          ...runtimePolicyFromForm(formData),
+        },
+      }),
+    ]);
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      throw new Error("Já existe um MCP Server cadastrado com este nome.");
+    }
+    throw e;
+  }
 
   await inspectMcpConfig(id, false);
 
@@ -342,14 +358,17 @@ export async function importMcpServers(
     throw new Error("Estrutura JSON inválida. Esperado campo 'mcpServers'.");
   }
 
-  const mcpServers = (
-    parsed as { mcpServers: Record<string, ImportMcpEntry> }
-  ).mcpServers;
+  const rawMcpServers = (parsed as { mcpServers: unknown }).mcpServers;
+  if (typeof rawMcpServers !== "object" || rawMcpServers === null || Array.isArray(rawMcpServers)) {
+    throw new Error("Campo 'mcpServers' deve ser um objeto.");
+  }
+  const mcpServers = rawMcpServers as Record<string, unknown>;
   const imported: string[] = [];
   const skipped: string[] = [];
   const errors: string[] = [];
 
-  for (const [name, entry] of Object.entries(mcpServers)) {
+  for (const [name, entryRaw] of Object.entries(mcpServers)) {
+    const entry = (typeof entryRaw === "object" && entryRaw !== null ? entryRaw : {}) as ImportMcpEntry;
     try {
       const existing = await prisma.mcpServer.findUnique({
         where: { name },
@@ -377,7 +396,7 @@ export async function importMcpServers(
         continue;
       }
 
-      await prisma.mcpServer.create({
+      const created = await prisma.mcpServer.create({
         data: {
           name,
           description: entry.description ?? null,
@@ -397,6 +416,7 @@ export async function importMcpServers(
         userEmail: user.email ?? undefined,
         action: "mcp.create",
         resource: "McpServer",
+        resourceId: created.id,
         metadata: { name, source: "import" },
       });
 

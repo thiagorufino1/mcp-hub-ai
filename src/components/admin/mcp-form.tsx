@@ -127,7 +127,7 @@ export function McpForm({ open, onClose, mcp }: Props) {
         onClose();
       } catch (submitError) {
         const msg = submitError instanceof Error ? submitError.message : "Failed to save MCP server.";
-        if (msg.includes("nome")) {
+        if (msg === "Já existe um MCP Server cadastrado com este nome.") {
           setNameError(msg);
         } else {
           setError(msg);
