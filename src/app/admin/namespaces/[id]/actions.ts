@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { requireAdmin } from "@/lib/auth-helpers";
 import { logAudit } from "@/lib/audit";
@@ -221,6 +222,30 @@ export async function setNamespaceAllUsers(
   });
   revalidatePath(`/admin/namespaces/${namespaceId}`);
   revalidatePath("/admin/namespaces");
+}
+
+export async function deleteNamespace(namespaceId: string): Promise<void> {
+  const user = await requireAdmin();
+
+  const namespace = await prisma.mcpNamespace.findUnique({
+    where: { id: namespaceId },
+    select: { name: true },
+  });
+  if (!namespace) throw new Error("Namespace não encontrado.");
+
+  await prisma.mcpNamespace.delete({ where: { id: namespaceId } });
+
+  logAudit({
+    userId: user.id,
+    userEmail: user.email ?? undefined,
+    action: "namespace.delete",
+    resource: "McpNamespace",
+    resourceId: namespaceId,
+    metadata: { name: namespace.name },
+  });
+
+  revalidatePath("/admin/namespaces");
+  redirect("/admin/namespaces");
 }
 
 export async function setNamespaceToolEnabled(

@@ -8,7 +8,7 @@ import { useMemo, useState, useTransition } from "react";
 import { NamespaceForm } from "@/components/admin/namespace-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
   ArrowRight,
@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 import {
   addNamespaceGroup,
   addNamespaceMcpServer,
+  deleteNamespace,
   deleteNamespaceGroup,
   deleteNamespaceMcpServer,
   setNamespaceAllUsers,
@@ -97,6 +98,8 @@ export function NamespaceDetailClient({
   users: Array<{ id: string; name: string | null; email: string | null }>;
 }) {
   const [isPending, startTransition] = useTransition();
+  const [isDeleting, startDeleteTransition] = useTransition();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [serverSearch, setServerSearch] = useState("");
@@ -136,6 +139,12 @@ export function NamespaceDetailClient({
         window.setTimeout(() => setCopied(false), 2000);
       })
       .catch(() => setError("Could not copy the endpoint URL."));
+  }
+
+  function handleDelete() {
+    startDeleteTransition(async () => {
+      await deleteNamespace(namespace.id);
+    });
   }
 
   function toggleMcp(mcpServerId: string, enabled: boolean) {
@@ -281,6 +290,15 @@ export function NamespaceDetailClient({
             aria-label="Edit namespace settings"
           >
             <PencilLine aria-hidden="true" />
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="size-9 rounded-full px-0 text-[var(--color-error)] hover:bg-[var(--color-error-soft)]"
+            onClick={() => setDeleteDialogOpen(true)}
+            aria-label="Delete namespace"
+          >
+            <Trash2 className="size-4" aria-hidden="true" />
           </Button>
         </div>
       </div>
@@ -683,6 +701,31 @@ export function NamespaceDetailClient({
         onSaved={() => router.refresh()}
         setError={setError}
       />
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir namespace</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir o namespace <strong>{namespace.name}</strong>?
+              Esta ação não poderá ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          {namespace.toolsCount > 0 && (
+            <div className="rounded-lg border border-[var(--color-warning)] bg-[var(--color-warning-soft)] p-3 text-sm text-[var(--color-warning)]">
+              ⚠ Este namespace possui {namespace.toolsCount} tool(s) vinculada(s).
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={isDeleting}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+              {isDeleting ? "Excluindo..." : "Excluir namespace"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
