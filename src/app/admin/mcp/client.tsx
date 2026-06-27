@@ -120,29 +120,15 @@ export function McpAdminClient({ mcps, stats }: Props) {
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4 shadow-[0_2px_8px_rgba(17,63,124,0.04)]">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Servidores</p>
-          <p className="mt-1 text-3xl font-bold tabular-nums">{stats.total}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {stats.total - stats.disabled} ativos · {stats.disabled > 0 ? <span className="text-[var(--color-error)] font-medium">{stats.disabled} desabilitados</span> : "nenhum desabilitado"}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4 shadow-[0_2px_8px_rgba(17,63,124,0.04)]">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Tools</p>
-          <p className="mt-1 text-3xl font-bold tabular-nums">{stats.toolsTotal}</p>
-          <p className="mt-1 text-xs text-muted-foreground">habilitadas no registry</p>
-        </div>
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4 shadow-[0_2px_8px_rgba(17,63,124,0.04)]">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Autenticação</p>
-          <p className="mt-1 text-3xl font-bold tabular-nums">{stats.withAuth}</p>
-          <p className="mt-1 text-xs text-muted-foreground">servidores com auth</p>
-        </div>
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4 shadow-[0_2px_8px_rgba(17,63,124,0.04)]">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Transport</p>
+        <McpKpiCard label="Servidores" value={String(stats.total)} sub={`${stats.total - stats.disabled} ativos`} tone={stats.disabled > 0 ? "error" : "neutral"} />
+        <McpKpiCard label="Tools" value={String(stats.toolsTotal)} sub="habilitadas no registry" tone="info" />
+        <McpKpiCard label="Autenticação" value={String(stats.withAuth)} sub="com auth" tone="neutral" />
+        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-[0_8px_24px_rgba(17,63,124,0.04)]">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Transport</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {Object.entries(stats.byTransport).map(([t, count]) => (
               <span key={t} className="inline-flex items-center gap-1 rounded-full bg-[var(--color-surface-muted)] px-2.5 py-1 text-[11px] font-medium">
-                <span className="font-bold text-foreground">{count}</span>
+                <span className="text-[var(--color-primary)] font-bold">{count}</span>
                 <span className="text-muted-foreground">{t === "streamable-http" ? "HTTP" : t.toUpperCase()}</span>
               </span>
             ))}
@@ -399,6 +385,29 @@ function McpRow({ mcp }: { mcp: McpServerRow }) {
 function transportLabel(transport: string) {
   if (transport === "streamable-http") return "HTTP";
   return transport.toUpperCase();
+}
+
+function McpKpiCard({ label, value, sub, tone }: {
+  label: string;
+  value: string;
+  sub?: string;
+  tone: "info" | "success" | "neutral" | "error";
+}) {
+  const valueClass = tone === "success"
+    ? "text-[var(--color-success)]"
+    : tone === "info"
+      ? "text-[var(--color-primary)]"
+      : tone === "error"
+        ? "text-[var(--color-error)]"
+        : "text-[var(--color-text-secondary)]";
+
+  return (
+    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-[0_8px_24px_rgba(17,63,124,0.04)]">
+      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{label}</p>
+      <p className={`mt-1 text-3xl font-semibold ${valueClass}`}>{value}</p>
+      {sub && <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>}
+    </div>
+  );
 }
 
 function getHealthStatusMeta(healthStatus: string) {
