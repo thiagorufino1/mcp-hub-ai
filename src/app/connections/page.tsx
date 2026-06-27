@@ -15,33 +15,12 @@ export default async function ConnectionsPage() {
   // 1. All MCPs the user has access to via namespaces, ignoring user preferences
   //    getUserContext removes disabled servers — My Connections must show them all so user can re-enable.
   const context = await getUserContext(user.groups ?? [], undefined, user.id);
-  const [accessibleNamespaces2] = await Promise.all([
-    prisma.mcpNamespace.findMany({
-      where: {
-        enabled: true,
-        OR: [
-          ...(user.groups && user.groups.length > 0 ? [{ groups: { some: { entraGroupId: { in: user.groups } } } }] : []),
-          { users: { some: { id: user.id } } },
-          { AND: [{ groups: { none: {} } }, { users: { none: {} } }] },
-        ],
-      },
-      include: {
-        servers: { where: { enabled: true, mcpServer: { enabled: true } }, select: { mcpServerId: true } },
-      },
-    }),
-  ]);
-  const allMcpIdSet = new Set<string>();
-  for (const ns of accessibleNamespaces2) ns.servers.forEach((s) => allMcpIdSet.add(s.mcpServerId));
-  const allMcpIds = [...allMcpIdSet];
 
-  // 2. Accessible namespaces (for endpoint display)
   const accessibleNamespaces = await prisma.mcpNamespace.findMany({
     where: {
       enabled: true,
       OR: [
-        ...(user.groups && user.groups.length > 0
-          ? [{ groups: { some: { entraGroupId: { in: user.groups } } } }]
-          : []),
+        ...(user.groups && user.groups.length > 0 ? [{ groups: { some: { entraGroupId: { in: user.groups } } } }] : []),
         { users: { some: { id: user.id } } },
         { AND: [{ groups: { none: {} } }, { users: { none: {} } }] },
       ],
@@ -51,10 +30,15 @@ export default async function ConnectionsPage() {
       alias: true,
       name: true,
       description: true,
+      servers: { where: { enabled: true, mcpServer: { enabled: true } }, select: { mcpServerId: true } },
       _count: { select: { servers: { where: { enabled: true, mcpServer: { enabled: true } } } } },
     },
     orderBy: { name: "asc" },
   });
+
+  const allMcpIdSet = new Set<string>();
+  for (const ns of accessibleNamespaces) ns.servers.forEach((s) => allMcpIdSet.add(s.mcpServerId));
+  const allMcpIds = [...allMcpIdSet];
 
   // 3. Full MCP records with tool count + OAuth status
   const allMcps = await prisma.mcpServer.findMany({
