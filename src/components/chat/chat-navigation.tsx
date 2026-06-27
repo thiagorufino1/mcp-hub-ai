@@ -31,21 +31,21 @@ export type ChatSession = {
 
 type Props = {
   isAdmin: boolean;
-  devMode: boolean;
-  onDevModeToggle: (value: boolean) => void;
+  devMode?: boolean;
+  onDevModeToggle?: (value: boolean) => void;
   sessions: ChatSession[];
   activeSessionId: string;
   onNewConversation: () => void;
   onSessionSwitch: (id: string) => void;
   onSessionDelete: (id: string) => void;
-  servers: McpServerConfig[];
-  retestingServerIds: string[];
-  togglingServerIds: string[];
-  onAddServer: () => void;
-  onEditServer: (id: string) => void;
-  onRemoveServer: (id: string) => void;
-  onRetestServer: (id: string) => void;
-  onToggleServerEnabled: (id: string) => void;
+  servers?: McpServerConfig[];
+  retestingServerIds?: string[];
+  togglingServerIds?: string[];
+  onAddServer?: () => void;
+  onEditServer?: (id: string) => void;
+  onRemoveServer?: (id: string) => void;
+  onRetestServer?: (id: string) => void;
+  onToggleServerEnabled?: (id: string) => void;
 };
 
 function getTransportIcon(transport: string) {
@@ -109,7 +109,7 @@ function McpStatusBadge({
 // This component is used inside the same mx-auto flex max-w-[1500px] gap-5 px-4 py-5 container as admin.
 export function ChatNavigation({
   activeSessionId,
-  devMode,
+  devMode = false,
   isAdmin,
   onAddServer,
   onDevModeToggle,
@@ -120,10 +120,10 @@ export function ChatNavigation({
   onSessionDelete,
   onSessionSwitch,
   onToggleServerEnabled,
-  retestingServerIds,
-  servers,
+  retestingServerIds = [],
+  servers = [],
   sessions,
-  togglingServerIds,
+  togglingServerIds = [],
 }: Props) {
   return (
     <aside className="portal-sidebar">
@@ -183,8 +183,8 @@ export function ChatNavigation({
             className="portal-nav-item cursor-pointer justify-between"
             role="button"
             tabIndex={0}
-            onClick={() => onDevModeToggle(!devMode)}
-            onKeyDown={(e) => e.key === "Enter" && onDevModeToggle(!devMode)}
+            onClick={() => onDevModeToggle?.(!devMode)}
+            onKeyDown={(e) => e.key === "Enter" && onDevModeToggle?.(!devMode)}
           >
             <div className="flex items-center gap-3">
               <Zap className="size-4" />
@@ -221,15 +221,15 @@ export function ChatNavigation({
                         <div className="flex shrink-0 items-center gap-0.5">
                           <Button variant="ghost" size="icon" className="size-6 rounded-full text-muted-foreground/40 hover:text-foreground"
                             disabled={isRetesting || isToggling || !server.enabled}
-                            onClick={() => onRetestServer(server.id)} aria-label={`Retest ${server.name}`}>
+                            onClick={() => onRetestServer?.(server.id)} aria-label={`Retest ${server.name}`}>
                             {isRetesting ? <LoaderCircle className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}
                           </Button>
                           <Button variant="ghost" size="icon" className="size-6 rounded-full text-muted-foreground/40 hover:text-foreground"
-                            onClick={() => onEditServer(server.id)} aria-label={`Edit ${server.name}`}>
+                            onClick={() => onEditServer?.(server.id)} aria-label={`Edit ${server.name}`}>
                             <PencilLine className="size-3" />
                           </Button>
                           <Button variant="ghost" size="icon" className="size-6 rounded-full text-[var(--color-error)] hover:bg-[var(--color-error-soft)]"
-                            onClick={() => onRemoveServer(server.id)} aria-label={`Remove ${server.name}`}>
+                            onClick={() => onRemoveServer?.(server.id)} aria-label={`Remove ${server.name}`}>
                             <Trash2 className="size-3" />
                           </Button>
                         </div>

@@ -1,39 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ChatNavigation, type ChatSession } from "@/components/chat/chat-navigation";
 import { ChatThread } from "@/components/chat/chat-thread";
 import { useAppPreferences } from "@/components/providers/app-preferences-provider";
-import { McpServerDialog } from "@/components/chat/mcp-server-dialog";
 import { MessageComposer } from "@/components/chat/message-composer";
 import { SidebarDrawer } from "@/components/chat/sidebar-drawer";
-import { SidebarTools } from "@/components/chat/sidebar-tools";
 import type { SystemPrompt } from "@/components/chat/system-prompt-section";
 import { PortalHeader } from "@/components/layout/portal-header";
 import {
-  migrateLocalJsonToSession,
   SESSION_LLM_CONFIG_KEY,
-  SESSION_MCP_SERVER_KEY,
-  writeSessionJson,
+  readSessionJson,
 } from "@/lib/client-storage";
-import { cn } from "@/lib/utils";
 import { parseStreamChunks } from "@/lib/chat-stream";
-import {
-  clearPendingMcpOAuth,
-  readPendingMcpOAuth,
-  savePendingMcpOAuth,
-  waitForMcpOAuthCallback,
-} from "@/lib/mcp-oauth-browser";
-import type { PendingMcpOAuth } from "@/lib/mcp-oauth-browser";
 import type { ChatStreamEvent, Message, ToolEvent } from "@/types/chat";
-import type { McpInspectResponse, McpServerConfig } from "@/types/mcp";
 import type { LLMConfig } from "@/types/llm-config";
-import { LEGACY_LLM_CONFIG_STORAGE_KEY } from "@/types/llm-config";
 
 const MESSAGE_STORAGE_KEY = "ai-chat-messages";
 const TOOL_EVENT_STORAGE_KEY = "ai-chat-tool-events";
-const LEGACY_MCP_STORAGE_KEY = "ai-chat-mcp-servers";
 const CUSTOM_PROMPT_KEY = "ai-chat-custom-prompt";
 const STORAGE_VERSION_KEY = "ai-chat-ui-version";
 const STORAGE_BACKUP_PREFIX = "ai-chat-storage-backup";
@@ -41,11 +26,6 @@ const STORAGE_VERSION = "2026-03-30-ui-refresh-5";
 const SESSIONS_INDEX_KEY = "ai-chat-sessions-v1";
 const ACTIVE_SESSION_ID_KEY = "ai-chat-active-session-id";
 const SESSION_DATA_PREFIX = "ai-chat-session-data-";
-const DEV_MODE_KEY = "ai-chat-dev-mode";
-const MCP_REVALIDATION_INTERVAL_MS = 20000;
-const MCP_REVALIDATION_FOCUS_DEBOUNCE_MS = 1500;
-const MCP_REVALIDATION_ERROR_BACKOFF_MS = 45000;
-const MCP_CHAT_SERVER_CACHE_TTL_MS = 12000;
 
 type ThreadItem =
   | { id: string; type: "message"; value: Message }
@@ -65,45 +45,6 @@ function buildInitialAssistantMessage(content: string): Message {
     content,
     createdAt: new Date().toISOString(),
     status: "complete",
-  };
-}
-
-function isDeprecatedLocalTestServer(server: Partial<McpServerConfig>) {
-  const normalizedUrl = server.url?.trim().toLowerCase();
-  const normalizedName = server.name?.trim().toLowerCase();
-
-  return (
-    normalizedUrl === "http://localhost:3001/mcp" ||
-    normalizedUrl === "http://localhost:3002/mcp" ||
-    normalizedName === "server 3001" ||
-    normalizedName === "server 3002"
-  );
-}
-
-function normalizeStoredServer(server: Partial<McpServerConfig>): McpServerConfig | null {
-  if (!server.id || !server.name || !server.transport) {
-    return null;
-  }
-
-  return {
-    authMode: server.authMode ?? "none",
-    approvalMode: server.approvalMode ?? "never",
-    approvedToolNames: Array.isArray(server.approvedToolNames) ? server.approvedToolNames : [],
-    args: Array.isArray(server.args) ? server.args : [],
-    command: server.command,
-    connectionStatus: server.connectionStatus ?? "pending",
-    enabled: server.enabled ?? true,
-    description: server.description,
-    env: server.env ?? {},
-    errorMessage: server.errorMessage,
-    headers: server.headers ?? {},
-    id: server.id,
-    lastCheckedAt: server.lastCheckedAt,
-    name: server.name,
-    oauth: server.oauth,
-    tools: Array.isArray(server.tools) ? server.tools : [],
-    transport: server.transport,
-    url: server.url,
   };
 }
 
@@ -155,7 +96,6 @@ export function ChatShell({
 }) {
   const { locale, t } = useAppPreferences();
   const [toolEvents, setToolEvents] = useState<ToolEvent[]>([]);
-  const [mcpServers, setMcpServers] = useState<McpServerConfig[]>([]);
   const initialAssistantMessage = useMemo(
     () => buildInitialAssistantMessage(t("chat.welcome")),
     [t],
@@ -163,10 +103,6 @@ export function ChatShell({
   const [messages, setMessages] = useState<Message[]>(() => [buildInitialAssistantMessage(t("chat.welcome"))]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isMcpDialogOpen, setIsMcpDialogOpen] = useState(false);
-  const [editingServerId, setEditingServerId] = useState<string | null>(null);
-  const [retestingServerIds, setRetestingServerIds] = useState<string[]>([]);
-  const [togglingServerIds, setTogglingServerIds] = useState<string[]>([]);
   const [systemPrompts, setSystemPrompts] = useState<SystemPrompt[]>([]);
   const [activePromptId, setActivePromptId] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
@@ -179,14 +115,9 @@ export function ChatShell({
   const [scrollRequest, setScrollRequest] = useState(0);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string>("");
-  const [devMode, setDevMode] = useState(false);
   const currentAssistantIdRef = useRef<string | null>(null);
   const currentRequestIdRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const hasRevalidatedStoredServersRef = useRef(false);
-  const isRevalidatingServersRef = useRef(false);
-  const nextAllowedRevalidationAtRef = useRef<Record<string, number>>({});
-  const focusRevalidationTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     try {
@@ -236,23 +167,6 @@ export function ChatShell({
       }
 
       try {
-        const parsed = migrateLocalJsonToSession<Array<Partial<McpServerConfig>>>(
-          LEGACY_MCP_STORAGE_KEY,
-          SESSION_MCP_SERVER_KEY,
-        );
-        if (Array.isArray(parsed)) {
-          setMcpServers(
-            parsed
-              .filter((server) => !isDeprecatedLocalTestServer(server))
-              .map(normalizeStoredServer)
-              .filter(Boolean) as McpServerConfig[],
-          );
-        }
-      } catch {
-        // Ignore corrupted server config.
-      }
-
-      try {
         const storedPrompts = localStorage.getItem(CUSTOM_PROMPT_KEY);
         if (storedPrompts) {
           const parsed = JSON.parse(storedPrompts) as { prompts: SystemPrompt[]; activeId: string | null };
@@ -266,10 +180,8 @@ export function ChatShell({
       // Ignore corrupted local state.
     }
 
-    // Sessions + dev mode init
+    // Sessions init
     try {
-      setDevMode(localStorage.getItem(DEV_MODE_KEY) === "true");
-
       const existingActiveId = localStorage.getItem(ACTIVE_SESSION_ID_KEY);
       if (existingActiveId) {
         const sessionsJson = localStorage.getItem(SESSIONS_INDEX_KEY);
@@ -307,10 +219,7 @@ export function ChatShell({
 
   useEffect(() => {
     try {
-      const stored = migrateLocalJsonToSession<LLMConfig>(
-        LEGACY_LLM_CONFIG_STORAGE_KEY,
-        SESSION_LLM_CONFIG_KEY,
-      );
+      const stored = readSessionJson<LLMConfig>(SESSION_LLM_CONFIG_KEY);
       if (stored) {
         setLlmConfig(stored);
       }
@@ -388,15 +297,6 @@ export function ChatShell({
     }
   }, [isHydrated, toolEvents]);
 
-  useEffect(() => {
-    if (!isHydrated) return;
-    try {
-      writeSessionJson(SESSION_MCP_SERVER_KEY, mcpServers);
-    } catch {
-      // Quota exceeded — skip persistence silently.
-    }
-  }, [isHydrated, mcpServers]);
-
   const items = useMemo<ThreadItem[]>(() => {
     const renderedToolIds = new Set<string>();
     const grouped: ThreadItem[] = [];
@@ -447,15 +347,6 @@ export function ChatShell({
       setSessions(updated);
     } catch {
       // quota exceeded — ignore
-    }
-  }
-
-  function handleDevModeToggle(value: boolean) {
-    setDevMode(value);
-    try {
-      localStorage.setItem(DEV_MODE_KEY, String(value));
-    } catch {
-      // ignore
     }
   }
 
@@ -566,382 +457,11 @@ export function ChatShell({
     }
   }
 
-  const inspectServer = useCallback(async (server: McpServerConfig) => {
-    const response = await fetch("/api/mcp/inspect", {
-      body: JSON.stringify({ server }),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
-    });
-
-    const payload = (await response.json()) as McpInspectResponse | { error?: string };
-
-    if (!("server" in payload)) {
-      const errorMessage = "error" in payload ? payload.error : undefined;
-      throw new Error(errorMessage ?? t("chat.mcpValidateFailed"));
-    }
-
-    return {
-      ok: response.ok && payload.server.connectionStatus === "connected",
-      server: payload.server,
-    };
-  }, [t]);
-
-  const revalidateServers = useCallback(async (
-    servers: McpServerConfig[],
-    options?: { silent?: boolean },
-  ) => {
-    const enabledServers = servers.filter((server) => server.enabled);
-
-    if (enabledServers.length === 0 || isRevalidatingServersRef.current) {
-      return servers;
-    }
-
-    isRevalidatingServersRef.current = true;
-    const serverIds = enabledServers.map((server) => server.id);
-    if (!options?.silent) {
-      setRetestingServerIds((current) => [...new Set([...current, ...serverIds])]);
-    }
-
-    try {
-      const results = await Promise.all(
-        enabledServers.map(async (server) => {
-          try {
-            return await inspectServer(server);
-          } catch {
-            return { ok: false, server: { ...server, connectionStatus: "error" as const, tools: [] } };
-          }
-        }),
-      );
-
-      const inspectedServers = results.map((result) => result.server);
-      const byId = new Map(inspectedServers.map((server) => [server.id, server]));
-
-      setMcpServers((current) =>
-        current.map((server) => byId.get(server.id) ?? server),
-      );
-
-      const nextAllowed = { ...nextAllowedRevalidationAtRef.current };
-      const now = Date.now();
-      for (const server of inspectedServers) {
-        nextAllowed[server.id] =
-          server.connectionStatus === "connected"
-            ? 0
-            : now + MCP_REVALIDATION_ERROR_BACKOFF_MS;
-      }
-      nextAllowedRevalidationAtRef.current = nextAllowed;
-
-      return inspectedServers;
-    } finally {
-      isRevalidatingServersRef.current = false;
-      if (!options?.silent) {
-        setRetestingServerIds((current) => current.filter((id) => !serverIds.includes(id)));
-      }
-    }
-  }, [inspectServer]);
-
-  async function handleToggleServerEnabled(serverId: string) {
-    if (togglingServerIds.includes(serverId) || retestingServerIds.includes(serverId)) {
-      return;
-    }
-
-    const target = mcpServers.find((server) => server.id === serverId);
-    if (!target) {
-      return;
-    }
-
-    setTogglingServerIds((current) => [...new Set([...current, serverId])]);
-
-    if (target.enabled) {
-      setMcpServers((current) =>
-        current.map((server) =>
-          server.id === serverId
-            ? {
-              ...server,
-              enabled: false,
-            }
-            : server,
-        ),
-      );
-      setRetestingServerIds((current) => current.filter((id) => id !== serverId));
-      nextAllowedRevalidationAtRef.current = {
-        ...nextAllowedRevalidationAtRef.current,
-        [serverId]: 0,
-      };
-      setTogglingServerIds((current) => current.filter((id) => id !== serverId));
-      return;
-    }
-
-    const enabledServer = {
-      ...target,
-      connectionStatus: "pending" as const,
-      enabled: true,
-      errorMessage: undefined,
-      tools: [],
-    };
-
-    setMcpServers((current) =>
-      current.map((server) => (server.id === serverId ? enabledServer : server)),
-    );
-    setRetestingServerIds((current) => [...new Set([...current, serverId])]);
-
-    try {
-      const result = await inspectServer(enabledServer);
-      setMcpServers((current) =>
-        current.map((server) => (server.id === serverId ? result.server : server)),
-      );
-      nextAllowedRevalidationAtRef.current = {
-        ...nextAllowedRevalidationAtRef.current,
-        [serverId]:
-          result.server.connectionStatus === "connected"
-            ? 0
-            : Date.now() + MCP_REVALIDATION_ERROR_BACKOFF_MS,
-      };
-    } catch {
-      setMcpServers((current) =>
-        current.map((server) =>
-          server.id === serverId
-            ? {
-              ...enabledServer,
-              connectionStatus: "error",
-              errorMessage: t("chat.mcpValidateFailed"),
-            }
-            : server,
-        ),
-      );
-      nextAllowedRevalidationAtRef.current = {
-        ...nextAllowedRevalidationAtRef.current,
-        [serverId]: Date.now() + MCP_REVALIDATION_ERROR_BACKOFF_MS,
-      };
-    } finally {
-      setRetestingServerIds((current) => current.filter((id) => id !== serverId));
-      setTogglingServerIds((current) => current.filter((id) => id !== serverId));
-    }
-  }
-
-  async function handleSaveServer(server: McpServerConfig) {
-    const preparedServer =
-      server.authMode === "oauth" && !server.oauth?.accessToken
-        ? await completeMcpOAuth(server)
-        : server;
-
-    const result = await inspectServer(preparedServer);
-    if (!result.ok) {
-      throw new Error(result.server.errorMessage ?? t("chat.mcpConnectFailed"));
-    }
-    const inspectedServer = result.server;
-
-    setMcpServers((current) => {
-      const existingIndex = current.findIndex((item) => item.id === inspectedServer.id);
-      if (existingIndex === -1) {
-        return [...current, inspectedServer];
-      }
-
-      return current.map((item) => (item.id === inspectedServer.id ? inspectedServer : item));
-    });
-
-    setEditingServerId(null);
-  }
-
-  async function completeMcpOAuth(server: McpServerConfig) {
-    if (server.transport === "stdio") {
-      return server;
-    }
-
-    const redirectUri = new URL("/oauth/callback", window.location.origin).toString();
-    const response = await fetch("/api/mcp/oauth/start", {
-      body: JSON.stringify({
-        clientName: server.oauth?.clientName?.trim() || "MCP Hub",
-        clientId: server.oauth?.clientId?.trim() || undefined,
-        clientUri: window.location.origin,
-        redirectUri,
-        resourceUrl: server.url ?? "",
-        scope: server.oauth?.scope?.trim() || undefined,
-      }),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
-    });
-
-    const payload = (await response.json()) as
-      | {
-          authorizationServerUrl: string;
-          authorizationUrl: string;
-          clientId: string;
-          clientSecret?: string;
-          codeVerifier: string;
-          redirectUri: string;
-          resourceUrl: string;
-          scope?: string;
-          state: string;
-          tokenEndpoint: string;
-        }
-      | { error?: string };
-
-    if (!response.ok || !("authorizationUrl" in payload)) {
-      throw new Error("error" in payload ? payload.error ?? t("chat.mcpConnectFailed") : t("chat.mcpConnectFailed"));
-    }
-
-    const pending: PendingMcpOAuth = {
-      authorizationServerUrl: payload.authorizationServerUrl,
-      clientId: payload.clientId,
-      clientName: server.oauth?.clientName?.trim() || "MCP Hub",
-      clientSecret: payload.clientSecret,
-      codeVerifier: payload.codeVerifier,
-      redirectUri: payload.redirectUri,
-      resourceUrl: payload.resourceUrl,
-      scope: payload.scope,
-      state: payload.state,
-      tokenEndpoint: payload.tokenEndpoint,
-    };
-
-    savePendingMcpOAuth(pending);
-
-    try {
-      const callback = await waitForMcpOAuthCallback(payload.state, payload.authorizationUrl);
-
-      if (callback.error) {
-        throw new Error(callback.errorDescription || callback.error);
-      }
-
-      if (!callback.code) {
-        throw new Error("OAuth callback missing authorization code.");
-      }
-
-      const stored = readPendingMcpOAuth(payload.state);
-      if (!stored) {
-        throw new Error("OAuth session expired.");
-      }
-
-      const exchangeResponse = await fetch("/api/mcp/oauth/exchange", {
-        body: JSON.stringify({
-          clientId: stored.clientId,
-          clientSecret: stored.clientSecret,
-          code: callback.code,
-          codeVerifier: stored.codeVerifier,
-          redirectUri: stored.redirectUri,
-          resourceUrl: stored.resourceUrl,
-          state: stored.state,
-          tokenEndpoint: stored.tokenEndpoint,
-        }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
-
-      const exchangePayload = (await exchangeResponse.json()) as
-        | {
-            oauth: {
-              accessToken: string;
-              clientId: string;
-              clientSecret?: string;
-              expiresAt?: string;
-              redirectUri: string;
-              refreshToken?: string;
-              scope?: string;
-              tokenEndpoint: string;
-              tokenType?: string;
-            };
-          }
-        | { error?: string };
-
-      if (!exchangeResponse.ok || !("oauth" in exchangePayload)) {
-        throw new Error(
-          "error" in exchangePayload ? exchangePayload.error ?? t("chat.mcpConnectFailed") : t("chat.mcpConnectFailed"),
-        );
-      }
-
-      return {
-        ...server,
-        oauth: {
-          ...server.oauth,
-          ...exchangePayload.oauth,
-        },
-      };
-    } finally {
-      clearPendingMcpOAuth(payload.state);
-    }
-  }
-
-  async function handleRetestServer(serverId: string) {
-    const target = mcpServers.find((server) => server.id === serverId);
-    if (!target) return;
-
-    await revalidateServers([target]);
-  }
-
-  useEffect(() => {
-    const enabledServers = mcpServers.filter((server) => server.enabled);
-    if (!isHydrated || hasRevalidatedStoredServersRef.current || enabledServers.length === 0) {
-      return;
-    }
-
-    hasRevalidatedStoredServersRef.current = true;
-    void revalidateServers(enabledServers);
-  }, [isHydrated, mcpServers, revalidateServers]);
-
-  useEffect(() => {
-    if (!isHydrated || mcpServers.length === 0) {
-      return;
-    }
-
-    const intervalId = window.setInterval(() => {
-      const now = Date.now();
-      const dueServers = mcpServers.filter(
-        (server) => server.enabled && now >= (nextAllowedRevalidationAtRef.current[server.id] ?? 0),
-      );
-      if (dueServers.length === 0) {
-        return;
-      }
-      void revalidateServers(dueServers);
-    }, MCP_REVALIDATION_INTERVAL_MS);
-
-    const handleFocus = () => {
-      if (document.visibilityState === "hidden") {
-        return;
-      }
-
-      if (focusRevalidationTimeoutRef.current) {
-        window.clearTimeout(focusRevalidationTimeoutRef.current);
-      }
-
-      focusRevalidationTimeoutRef.current = window.setTimeout(() => {
-        const now = Date.now();
-        const dueServers = mcpServers.filter(
-          (server) => server.enabled && now >= (nextAllowedRevalidationAtRef.current[server.id] ?? 0),
-        );
-        if (dueServers.length === 0) {
-          return;
-        }
-
-        void revalidateServers(dueServers);
-      }, MCP_REVALIDATION_FOCUS_DEBOUNCE_MS);
-    };
-
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleFocus);
-
-    return () => {
-      window.clearInterval(intervalId);
-      if (focusRevalidationTimeoutRef.current) {
-        window.clearTimeout(focusRevalidationTimeoutRef.current);
-      }
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleFocus);
-    };
-  }, [isHydrated, mcpServers, revalidateServers]);
-
-  function handleRemoveServer(serverId: string) {
-    setMcpServers((current) => current.filter((server) => server.id !== serverId));
-  }
-
   async function handleSubmit(content: string) {
     if (abortControllerRef.current || isStreaming) {
       return false;
     }
 
-    const enabledServers = mcpServers.filter((server) => server.enabled);
-    const resolvedServers =
-      enabledServers.length > 0
-        ? await revalidateServers(enabledServers, { silent: true })
-        : [];
     const requestId = `request-${crypto.randomUUID()}`;
     currentRequestIdRef.current = requestId;
 
@@ -963,16 +483,12 @@ export function ChatShell({
     abortControllerRef.current = controller;
 
     try {
-      const now = Date.now();
       const response = await fetch("/api/chat", {
         body: JSON.stringify({
           customPrompt: systemPrompts.find((p) => p.id === activePromptId)?.content || undefined,
           llmConfig: llmConfig ?? undefined,
           locale,
-          mcpServers: resolvedServers.map((server) => ({
-            ...server,
-            lastCheckedAt: now.toString(),
-          })),
+          mcpServers: [],
           message: content,
           messages: nextMessages.map((message) => ({
             content: message.content,
@@ -1244,11 +760,6 @@ export function ChatShell({
     return id;
   }
 
-  const editingServer =
-    editingServerId === null
-      ? null
-      : mcpServers.find((server) => server.id === editingServerId) ?? null;
-
   function savePrompts(prompts: SystemPrompt[], activeId: string | null) {
     localStorage.setItem(CUSTOM_PROMPT_KEY, JSON.stringify({ prompts, activeId }));
   }
@@ -1346,21 +857,11 @@ export function ChatShell({
         <div className="hidden lg:block">
           <ChatNavigation
             activeSessionId={activeSessionId}
-            devMode={devMode}
             isAdmin={isAdmin}
-            onAddServer={() => { setEditingServerId(null); setIsMcpDialogOpen(true); }}
-            onDevModeToggle={handleDevModeToggle}
-            onEditServer={(serverId) => { setEditingServerId(serverId); setIsMcpDialogOpen(true); }}
             onNewConversation={handleNewConversation}
-            onRemoveServer={handleRemoveServer}
-            onRetestServer={handleRetestServer}
             onSessionDelete={handleSessionDelete}
             onSessionSwitch={handleSessionSwitch}
-            onToggleServerEnabled={handleToggleServerEnabled}
-            retestingServerIds={retestingServerIds}
-            servers={mcpServers}
             sessions={sessions}
-            togglingServerIds={togglingServerIds}
           />
         </div>
 
@@ -1370,23 +871,7 @@ export function ChatShell({
           {...promptProps}
           {...llmProps}
           {...corporateProps}
-          onAddServer={() => { setEditingServerId(null); setIsSidebarOpen(false); setIsMcpDialogOpen(true); }}
           onClose={() => setIsSidebarOpen(false)}
-          onEditServer={(serverId) => { setEditingServerId(serverId); setIsSidebarOpen(false); setIsMcpDialogOpen(true); }}
-          onRemoveServer={handleRemoveServer}
-          onRetestServer={handleRetestServer}
-          onToggleServerEnabled={handleToggleServerEnabled}
-          retestingServerIds={retestingServerIds}
-          togglingServerIds={togglingServerIds}
-          servers={mcpServers}
-        />
-
-        <McpServerDialog
-          key={`${editingServer?.id ?? "new"}-${isMcpDialogOpen ? "open" : "closed"}`}
-          initialServer={editingServer}
-          isOpen={isMcpDialogOpen}
-          onClose={() => { setIsMcpDialogOpen(false); setEditingServerId(null); }}
-          onSave={handleSaveServer}
         />
 
         {/* Chat content — flex-1 fills remaining height after header */}

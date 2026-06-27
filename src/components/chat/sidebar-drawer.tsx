@@ -19,14 +19,14 @@ type Props = {
   onEditPrompt: (prompt: SystemPrompt) => void;
   onDeletePrompt: (id: string) => void;
   onSelectPrompt: (id: string | null) => void;
-  onAddServer: () => void;
-  onEditServer: (serverId: string) => void;
-  onRemoveServer: (serverId: string) => void;
-  onRetestServer: (serverId: string) => void;
-  onToggleServerEnabled: (serverId: string) => void;
-  retestingServerIds: string[];
-  togglingServerIds: string[];
-  servers: McpServerConfig[];
+  onAddServer?: () => void;
+  onEditServer?: (serverId: string) => void;
+  onRemoveServer?: (serverId: string) => void;
+  onRetestServer?: (serverId: string) => void;
+  onToggleServerEnabled?: (serverId: string) => void;
+  retestingServerIds?: string[];
+  togglingServerIds?: string[];
+  servers?: McpServerConfig[];
   llmConfig: LLMConfig | null;
   onChangeLlmConfig: (config: LLMConfig | null) => void;
   usageTotals: TokenUsage;
@@ -46,14 +46,14 @@ export function SidebarDrawer({
   onEditPrompt,
   onDeletePrompt,
   onSelectPrompt,
-  onAddServer,
-  onEditServer,
-  onRemoveServer,
-  onRetestServer,
-  onToggleServerEnabled,
-  retestingServerIds,
-  togglingServerIds,
-  servers,
+  onAddServer = () => {},
+  onEditServer = () => {},
+  onRemoveServer = () => {},
+  onRetestServer = () => {},
+  onToggleServerEnabled = () => {},
+  retestingServerIds = [],
+  togglingServerIds = [],
+  servers = [],
   llmConfig,
   onChangeLlmConfig,
   usageTotals,
