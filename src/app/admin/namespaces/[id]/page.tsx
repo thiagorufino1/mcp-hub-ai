@@ -187,8 +187,8 @@ export default async function NamespaceDetailPage({
 
 function normalizePermissionMode(
   permissionMode: string,
-): "allow" | "approval" | "blocked" {
-  if (permissionMode === "approval" || permissionMode === "blocked") {
+): "allow" | "blocked" {
+  if (permissionMode === "blocked") {
     return permissionMode;
   }
   return "allow";

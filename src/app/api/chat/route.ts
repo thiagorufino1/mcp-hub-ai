@@ -51,7 +51,7 @@ type ExecutableTool = {
     properties?: Record<string, object>;
     required?: string[];
   };
-  permissionMode: "allow" | "approval" | "blocked";
+  permissionMode: "allow" | "blocked";
 };
 
 export async function POST(request: Request) {
@@ -359,7 +359,6 @@ function buildAiSdkTools(
         inputSchema: jsonSchema(
           executableTool.inputSchema as Parameters<typeof jsonSchema>[0],
         ),
-        needsApproval: executableTool.permissionMode === "approval",
         execute: async (input) => {
           const toolEventId = `tool-${crypto.randomUUID()}`;
           const args =

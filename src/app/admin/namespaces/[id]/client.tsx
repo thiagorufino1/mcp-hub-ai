@@ -60,7 +60,7 @@ type ToolEntry = {
   sourceName: string;
   displayName: string | null;
   description: string | null;
-  sourcePermissionMode: "allow" | "approval" | "blocked";
+  sourcePermissionMode: "allow" | "blocked";
   enabled: boolean;
   readOnly: boolean;
   destructive: boolean;
@@ -472,7 +472,7 @@ export function NamespaceDetailClient({
           <div>
             <h2 className="text-base font-semibold">Tools Management</h2>
             <p className="text-sm text-muted-foreground">
-              Visibility here is local to this namespace. Global allow/approval/blocked stays on the MCP Server page.
+              Visibility here is local to this namespace. Global allow/blocked stays on the MCP Server page.
             </p>
             <p className="text-sm text-muted-foreground">
               This toggle only affects this namespace.
@@ -535,9 +535,7 @@ export function NamespaceDetailClient({
                       {tool.mcpServerName}
                     </td>
                     <td className="px-4 py-4">
-                      <Badge
-                        variant={tool.sourcePermissionMode === "approval" ? "warning" : "success"}
-                      >
+                      <Badge variant={tool.sourcePermissionMode === "blocked" ? "destructive" : "success"}>
                         {tool.sourcePermissionMode}
                       </Badge>
                     </td>

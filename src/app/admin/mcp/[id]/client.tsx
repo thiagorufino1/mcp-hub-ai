@@ -18,7 +18,6 @@ import {
   PencilLine,
   RefreshCw,
   Search,
-  Shield,
   Wrench,
   Trash2,
   XCircle,
@@ -454,21 +453,20 @@ function ToolRow({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [permission, setPermission] = useState<"allow" | "approval" | "blocked">(
+  const [permission, setPermission] = useState<"allow" | "blocked">(
     normalizeToolPermission(tool.permissionMode, tool.enabled),
   );
 
   const options: Array<{
     label: string;
-    value: "allow" | "approval" | "blocked";
+    value: "allow" | "blocked";
     icon: typeof CheckCircle2;
   }> = [
     { label: "Allow", value: "allow", icon: CheckCircle2 },
-    { label: "Approval", value: "approval", icon: Shield },
     { label: "Blocked", value: "blocked", icon: XCircle },
   ];
 
-  function changePermission(nextPermission: "allow" | "approval" | "blocked") {
+  function changePermission(nextPermission: "allow" | "blocked") {
     if (nextPermission === permission) return;
     startTransition(async () => {
       await setMcpToolPermission(mcpServerId, tool.id, nextPermission);
@@ -515,8 +513,6 @@ function ToolRow({
                     "inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition whitespace-nowrap",
                     selected && option.value === "allow" &&
                       "bg-[var(--color-success-soft)] text-[var(--color-success)] shadow-sm",
-                    selected && option.value === "approval" &&
-                      "bg-[var(--color-warning-soft)] text-[var(--color-warning)] shadow-sm",
                     selected && option.value === "blocked" &&
                       "bg-[var(--color-error-soft)] text-[var(--color-error)] shadow-sm",
                     !selected && "text-muted-foreground hover:bg-[var(--color-surface)] hover:text-[var(--color-text-secondary)]",
@@ -566,8 +562,8 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
-function normalizeToolPermission(permissionMode: string, enabled: boolean): "allow" | "approval" | "blocked" {
+function normalizeToolPermission(permissionMode: string, enabled: boolean): "allow" | "blocked" {
   if (!enabled || permissionMode === "blocked") return "blocked";
-  return permissionMode === "approval" ? "approval" : "allow";
+  return "allow";
 }
 

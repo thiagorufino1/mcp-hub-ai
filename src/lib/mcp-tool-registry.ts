@@ -168,7 +168,7 @@ export async function getRegisteredToolPermission(
     select: { enabled: true, permissionMode: true },
   });
   if (!record?.enabled || record.permissionMode === "blocked") return "blocked";
-  return record.permissionMode === "approval" ? "approval" : "allow";
+  return "allow";
 }
 
 async function persistToolSnapshot(
@@ -246,12 +246,7 @@ function registryToolToDiscoveredTool(tool: {
     inputSchema: normalizeInputSchema(tool.inputSchema),
     isDestructive: tool.destructive,
     name: tool.name,
-    permissionMode:
-      tool.permissionMode === "approval"
-        ? "approval"
-        : tool.permissionMode === "blocked"
-          ? "blocked"
-          : "allow",
+    permissionMode: tool.permissionMode === "blocked" ? "blocked" : "allow",
     readOnly: tool.readOnly,
   };
 }

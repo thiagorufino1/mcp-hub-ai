@@ -178,13 +178,6 @@ async function handleProxyRequest(request: Request): Promise<Response> {
         isError: true,
       };
     }
-    if ((await getRegisteredToolPermission(mcpServer.id, parsed.toolName)) === "approval") {
-      return {
-        content: [{ type: "text", text: `Tool requires interactive user approval: ${name}` }],
-        isError: true,
-      };
-    }
-
     // Build server config with approvalMode always to allow execution
     const execServer: McpServerConfig = {
       ...mcpServer,

@@ -189,7 +189,7 @@ export async function setMcpToolEnabled(
 export async function setMcpToolPermission(
   mcpServerId: string,
   toolId: string,
-  permissionMode: "allow" | "approval" | "blocked",
+  permissionMode: "allow" | "blocked",
 ): Promise<void> {
   const user = await requireAdmin();
   await prisma.mcpToolRegistry.updateMany({

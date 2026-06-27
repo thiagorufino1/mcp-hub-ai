@@ -27,7 +27,7 @@ export type McpDiscoveredTool = {
   description?: string;
   readOnly?: boolean;
   isDestructive?: boolean;
-  permissionMode?: "allow" | "approval" | "blocked";
+  permissionMode?: "allow" | "blocked";
   inputSchema?: {
     type: "object";
     properties?: Record<string, object>;
