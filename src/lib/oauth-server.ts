@@ -1,5 +1,16 @@
 import { createHash, randomBytes } from "crypto";
+import type { UserMcpConnection } from "@prisma/client";
 import { prisma } from "@/lib/db";
+
+export function isOAuthConnectionActive(
+  connection: Pick<UserMcpConnection, "status" | "expiresAt"> | null | undefined,
+  now = new Date(),
+) {
+  if (!connection || connection.status !== "connected") {
+    return false;
+  }
+  return connection.expiresAt === null || connection.expiresAt > now;
+}
 
 export const ACCESS_TOKEN_TTL_MS = 15 * 60 * 1000; // 15 min
 export const REFRESH_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 h

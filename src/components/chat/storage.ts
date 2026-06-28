@@ -2,21 +2,11 @@
 
 export const SESSION_LLM_CONFIG_KEY = "mcp-hub-session-llm-config";
 
-function parseJson<T>(value: string | null): T | null {
-  if (!value) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return null;
-  }
-}
-
 export function readSessionJson<T>(key: string): T | null {
   try {
-    return parseJson<T>(window.sessionStorage.getItem(key));
+    const value = window.sessionStorage.getItem(key);
+    if (!value) return null;
+    return JSON.parse(value) as T;
   } catch {
     return null;
   }
@@ -25,15 +15,11 @@ export function readSessionJson<T>(key: string): T | null {
 export function writeSessionJson(key: string, value: unknown) {
   try {
     window.sessionStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // Ignore storage failures.
-  }
+  } catch {}
 }
 
 export function removeSessionValue(key: string) {
   try {
     window.sessionStorage.removeItem(key);
-  } catch {
-    // Ignore storage failures.
-  }
+  } catch {}
 }

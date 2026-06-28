@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { getUserContext, dbMcpToConfig } from "@/lib/user-context";
 import { resolveMcpServerTools } from "@/lib/mcp-tool-registry";
 import { resolveDelegatedAuthorizationHeaders } from "@/lib/delegated-oauth";
-import { isOAuthConnectionActive } from "@/lib/oauth-connection";
+import { isOAuthConnectionActive } from "@/lib/oauth-server";
 import { ConnectionsClient } from "./client";
 import { PortalShell } from "@/components/layout/portal-shell";
 

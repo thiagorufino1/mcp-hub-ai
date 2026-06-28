@@ -1,10 +1,5 @@
-import { createHash } from "crypto";
 import { prisma } from "@/lib/db";
-import { resolveOAuthAccessToken } from "@/lib/oauth-server";
-
-export function hashToken(raw: string): string {
-  return createHash("sha256").update(raw).digest("hex");
-}
+import { hashToken, resolveOAuthAccessToken } from "@/lib/oauth-server";
 
 export async function resolveTokenUser(
   bearerToken: string,

@@ -9,10 +9,7 @@ import { MessageComposer } from "@/components/chat/message-composer";
 import { SidebarDrawer } from "@/components/chat/sidebar-drawer";
 import type { SystemPrompt } from "@/components/chat/system-prompt-section";
 import { PortalHeader } from "@/components/layout/portal-header";
-import {
-  SESSION_LLM_CONFIG_KEY,
-  readSessionJson,
-} from "@/lib/client-storage";
+import { SESSION_LLM_CONFIG_KEY, readSessionJson } from "./storage";
 import { parseStreamChunks } from "@/lib/chat-stream";
 import type { ChatStreamEvent, Message, ToolEvent } from "@/types/chat";
 import type { LLMConfig } from "@/types/llm-config";

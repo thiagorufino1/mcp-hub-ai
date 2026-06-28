@@ -6,7 +6,6 @@ import {
 } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
-import { isToolExecutionAllowed } from "@/lib/mcp-authorization";
 import { isOAuthTokenExpired, refreshMcpOAuthToken } from "@/lib/mcp-oauth";
 import type {
   McpDiscoveredTool,
@@ -287,7 +286,7 @@ export async function executeMcpTool(
   toolName: string,
   args: Record<string, unknown>,
 ): Promise<{ result: unknown; resolvedServer: McpServerConfig }> {
-  if (!isToolExecutionAllowed(server, toolName)) {
+  if (server.approvalMode !== "always") {
     throw new Error(`Tool "${toolName}" is not approved for execution on server "${server.name}".`);
   }
 

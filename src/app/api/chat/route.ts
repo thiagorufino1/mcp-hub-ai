@@ -6,10 +6,9 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { getUserContext } from "@/lib/user-context";
 import { getModel } from "@/lib/ai-provider";
-import { getApprovedTools } from "@/lib/mcp-authorization";
 import { executeGovernedMcpTool } from "@/lib/mcp-governance";
 import { resolveMcpServerTools } from "@/lib/mcp-tool-registry";
-import { buildStableMcpToolName } from "@/lib/mcp-tool-name";
+import { createHash } from "crypto";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import type { ChatStreamEvent, Message, TokenUsage } from "@/types/chat";
@@ -520,7 +519,7 @@ function streamSingleEvent(event: ChatStreamEvent, status = 200) {
 
 function buildExecutableTools(mcpServers: McpServerConfig[]): ExecutableTool[] {
   return mcpServers.flatMap((server) =>
-    getApprovedTools(server).map((toolDefinition) => ({
+    (server.approvalMode === "always" ? server.tools : []).map((toolDefinition) => ({
       displayName: toolDefinition.name,
       functionName: buildToolFunctionName(server.id, toolDefinition.name),
       inputSchema:
@@ -537,7 +536,9 @@ function buildExecutableTools(mcpServers: McpServerConfig[]): ExecutableTool[] {
 }
 
 function buildToolFunctionName(serverId: string, toolName: string) {
-  return buildStableMcpToolName(serverId, toolName);
+  const enc = (v: string) => Buffer.from(v, "utf8").toString("hex");
+  const sig = createHash("sha256").update(`${serverId}\0${toolName}`).digest("hex").slice(0, 12);
+  return `mcp_${enc(serverId)}_${enc(toolName)}_${sig}`;
 }
 
 function buildMcpContext(mcpServers: McpServerConfig[]) {
@@ -545,7 +546,7 @@ function buildMcpContext(mcpServers: McpServerConfig[]) {
 
   const serialized = mcpServers
     .map((server, index) => {
-      const approvedTools = getApprovedTools(server);
+      const approvedTools = (server.approvalMode === "always" ? server.tools : []);
       const tools = approvedTools
         .map((toolDefinition) => sanitizePromptValue(toolDefinition.name, 80))
         .filter(Boolean)

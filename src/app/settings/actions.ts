@@ -3,7 +3,7 @@
 import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth-helpers";
-import { hashToken } from "@/lib/token-auth";
+import { hashToken } from "@/lib/oauth-server";
 import { prisma } from "@/lib/db";
 
 export type TokenRow = {
