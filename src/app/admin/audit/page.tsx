@@ -28,6 +28,11 @@ export default async function AdminAuditPage() {
       select: {
         id: true,
         actorUserId: true,
+        actorUser: {
+          select: {
+            email: true,
+          },
+        },
         createdAt: true,
         errorMessage: true,
         latencyMs: true,
@@ -88,7 +93,8 @@ export default async function AdminAuditPage() {
         createdAt: l.createdAt.toISOString(),
       }))}
       executions={executions.map((e) => ({
-        ...e,
+      ...e,
+        actorUserEmail: e.actorUser?.email ?? null,
         createdAt: e.createdAt.toISOString(),
       }))}
       metrics={{

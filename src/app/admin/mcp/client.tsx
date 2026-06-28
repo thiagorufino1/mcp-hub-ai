@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import type React from "react";
 import Link from "next/link";
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { McpForm } from "@/components/admin/mcp-form";
@@ -10,56 +10,44 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
+  Activity,
   Cable,
   Download,
   Upload,
   LoaderCircle,
   Plus,
-  RadioTower,
   RefreshCw,
   Search,
-  Shield,
   Trash2,
   Wrench,
 } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   deleteMcp,
   exportMcpServers,
-  importMcpServers,
   refreshMcpConfig,
   setMcpEnabled,
   type McpServerRow,
 } from "./actions";
+import { McpImportDialog } from "./import/import-client";
 
 type Stats = {
   total: number;
-  toolsTotal: number;
-  byTransport: Record<string, number>;
-  withAuth: number;
-  disabled: number;
+  enabledServers: number;
+  totalTools: number;
+  activeTools: number;
+  execTotal: number;
+  execP95Ms: number;
 };
 
 type Props = { mcps: McpServerRow[]; stats: Stats };
 
 export function McpAdminClient({ mcps, stats }: Props) {
+  const router = useRouter();
   const [form, setForm] = useState<{ open: boolean; mcp?: McpServerRow }>({ open: false });
+  const [importOpen, setImportOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [isPending, startTransition] = useTransition();
-  const [importResult, setImportResult] = useState<{
-    imported: string[];
-    skipped: string[];
-    errors: string[];
-  } | null>(null);
-  const [importError, setImportError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function handleExport() {
     startTransition(async () => {
@@ -72,22 +60,6 @@ export function McpAdminClient({ mcps, stats }: Props) {
       a.click();
       URL.revokeObjectURL(url);
     });
-  }
-
-  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImportError(null);
-    const text = await file.text();
-    startTransition(async () => {
-      try {
-        const result = await importMcpServers(text);
-        setImportResult(result);
-      } catch (err) {
-        setImportError(err instanceof Error ? err.message : "Erro ao importar.");
-      }
-    });
-    e.target.value = "";
   }
 
   const filteredMcps = useMemo(() => {
@@ -108,83 +80,36 @@ export function McpAdminClient({ mcps, stats }: Props) {
         <p className="text-sm text-muted-foreground">Connections, registry health and runtime governance.</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">
-        <McpKpiCard icon={Cable} label="Servidores" value={String(stats.total)} sub={`${stats.total - stats.disabled} ativos`} tone={stats.disabled > 0 ? "error" : "neutral"} />
-        <McpKpiCard icon={Wrench} label="Tools" value={String(stats.toolsTotal)} sub="habilitadas no registry" tone="info" />
-        <McpKpiCard icon={Shield} label="Autenticação" value={String(stats.withAuth)} sub="servidores com auth" tone="neutral" />
-        <div className="group flex flex-col gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_8px_24px_rgba(17,63,124,0.04)] transition-all">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Transport</p>
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)]">
-              <RadioTower className="size-4" />
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {Object.entries(stats.byTransport).map(([t, count]) => (
-              <span key={t} className="inline-flex items-center gap-1 rounded-full bg-[var(--color-surface-muted)] px-2.5 py-1 text-[11px] font-medium">
-                <span className="font-bold text-[var(--color-primary)]">{count}</span>
-                <span className="text-muted-foreground">{t === "streamable-http" ? "HTTP" : t.toUpperCase()}</span>
-              </span>
-            ))}
-            {Object.keys(stats.byTransport).length === 0 && (
-              <span className="text-xs text-muted-foreground">-</span>
-            )}
-          </div>
-        </div>
+      <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <McpKpiCard
+          icon={Cable}
+          label="Servidores"
+          value={`${stats.enabledServers}/${stats.total}`}
+          sub="enabled servers"
+          tone={stats.enabledServers < stats.total ? "neutral" : "success"}
+        />
+        <McpKpiCard
+          icon={Wrench}
+          label="Tools"
+          value={String(stats.activeTools)}
+          sub={`${stats.totalTools} configured`}
+          tone="info"
+        />
+        <McpKpiCard
+          icon={RefreshCw}
+          label="Execuções de tools (14d)"
+          value={String(stats.execTotal)}
+          sub="tool executions"
+          tone={stats.execTotal > 0 ? "success" : "neutral"}
+        />
+        <McpKpiCard
+          icon={Activity}
+          label="Latência P95 (14d)"
+          value={`${stats.execP95Ms} ms`}
+          sub="tool executions"
+          tone="neutral"
+        />
       </div>
-
-      {importResult && (
-        <Dialog open onOpenChange={() => setImportResult(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Resultado da Importação</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3 text-sm">
-              {importResult.imported.length > 0 && (
-                <div>
-                  <p className="font-medium text-[var(--color-success)]">
-                    ✓ {importResult.imported.length} importado(s)
-                  </p>
-                  <ul className="mt-1 list-disc pl-4">
-                    {importResult.imported.map((n) => <li key={n}>{n}</li>)}
-                  </ul>
-                </div>
-              )}
-              {importResult.skipped.length > 0 && (
-                <div>
-                  <p className="font-medium text-[var(--color-warning)]">
-                    ⚠ {importResult.skipped.length} ignorado(s) por conflito de nome
-                  </p>
-                  <ul className="mt-1 list-disc pl-4">
-                    {importResult.skipped.map((n) => <li key={n}>{n}</li>)}
-                  </ul>
-                </div>
-              )}
-              {importResult.errors.length > 0 && (
-                <div>
-                  <p className="font-medium text-[var(--color-error)]">
-                    ✗ {importResult.errors.length} com erro
-                  </p>
-                  <ul className="mt-1 list-disc pl-4">
-                    {importResult.errors.map((e, i) => <li key={i}>{e}</li>)}
-                  </ul>
-                </div>
-              )}
-              {importResult.imported.length === 0 &&
-                importResult.skipped.length === 0 &&
-                importResult.errors.length === 0 && (
-                  <p>Nenhum servidor encontrado no arquivo.</p>
-                )}
-            </div>
-            <DialogFooter>
-              <Button onClick={() => setImportResult(null)}>Fechar</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-      {importError && (
-        <p className="text-sm text-[var(--color-error)]">{importError}</p>
-      )}
 
       <div className="flex items-center justify-between gap-3">
         <div className="relative w-64">
@@ -206,17 +131,10 @@ export function McpAdminClient({ mcps, stats }: Props) {
             <Download className="size-4" />
             Exportar
           </Button>
-          <Button variant="outline" className="h-9 gap-1.5" onClick={() => fileInputRef.current?.click()} disabled={isPending}>
-            <Upload className="size-4" />
-            Importar
+          <Button variant="outline" className="h-9 gap-1.5" onClick={() => setImportOpen(true)}>
+              <Upload className="size-4" />
+              Importar
           </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json,application/json"
-            className="hidden"
-            onChange={handleImportFile}
-          />
           <Button className="h-9 gap-1.5" onClick={() => setForm({ open: true })}>
             <Plus className="size-4" />
             Add
@@ -273,6 +191,13 @@ export function McpAdminClient({ mcps, stats }: Props) {
         open={form.open}
         mcp={form.mcp}
         onClose={() => setForm({ open: false })}
+      />
+      <McpImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImported={() => {
+          router.refresh();
+        }}
       />
     </div>
   );
@@ -421,21 +346,20 @@ function McpKpiCard({ icon: Icon, label, value, sub, tone }: {
         : "bg-[var(--color-primary-soft)]";
 
   return (
-    <div className="group flex flex-col gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_8px_24px_rgba(17,63,124,0.04)] transition-all">
+    <div className="group flex flex-col gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-[0_8px_24px_rgba(17,63,124,0.04)] transition-all">
       <div className="flex items-center justify-between gap-2">
         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
-        <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${bg} ${color}`}>
+        <span className={`flex size-7 shrink-0 items-center justify-center rounded-lg ${bg} ${color}`}>
           <Icon className="size-4" />
         </span>
       </div>
       <div>
-        <p className={`text-2xl font-bold ${color}`}>{value}</p>
-        {sub && <p className="mt-0.5 text-[11px] text-muted-foreground">{sub}</p>}
+        <p className={`text-[1.65rem] font-bold leading-none ${color}`}>{value}</p>
+        {sub && <p className="mt-1 text-[11px] text-muted-foreground">{sub}</p>}
       </div>
     </div>
   );
 }
-
 function getHealthStatusMeta(healthStatus: string) {
   switch (healthStatus) {
     case "connected":
@@ -450,3 +374,6 @@ function getHealthStatusMeta(healthStatus: string) {
       return { label: healthStatus || "Unknown", variant: "secondary" as const };
   }
 }
+
+
+

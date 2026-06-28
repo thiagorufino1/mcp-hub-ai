@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { requireAdmin } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/db";
+import { decryptSecretJson } from "@/lib/secret-crypto";
 
 import { McpServerDetailClient } from "./client";
 
@@ -66,6 +67,7 @@ export default async function McpServerDetailPage({
         command: mcp.command,
         args: mcp.args,
         url: mcp.url,
+        headers: decryptSecretJson(mcp.headers),
         enabled: mcp.enabled,
         authType: mcp.authType,
         healthStatus: mcp.healthStatus,

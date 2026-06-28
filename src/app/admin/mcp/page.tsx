@@ -10,7 +10,9 @@ export const metadata = { title: "MCP Servers - Admin" };
 
 export default async function AdminMcpPage() {
   await requireAdmin();
-  const [mcps, toolsTotal, transportCounts, withAuthCount, disabledCount] = await Promise.all([
+  const fourteenDaysAgo = new Date();
+  fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+  const [mcps, execTotal, execP95] = await Promise.all([
     prisma.mcpServer.findMany({
       orderBy: { createdAt: "asc" },
       include: {
@@ -28,22 +30,30 @@ export default async function AdminMcpPage() {
         },
       },
     }),
-    prisma.mcpToolRegistry.count({ where: { enabled: true } }),
-    prisma.mcpServer.groupBy({ by: ["transport"], _count: { id: true } }),
-    prisma.mcpServer.count({ where: { authType: { not: "none" } } }),
-    prisma.mcpServer.count({ where: { enabled: false } }),
+    prisma.mcpToolExecution.count({ where: { createdAt: { gte: fourteenDaysAgo } } }),
+    prisma.$queryRaw<Array<{ p95: number | null }>>`
+      SELECT COALESCE(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY "latencyMs"), 0) AS p95
+      FROM "McpToolExecution"
+      WHERE "createdAt" >= ${fourteenDaysAgo}
+    `,
   ]);
 
-  const byTransport = Object.fromEntries(
-    transportCounts.map((r) => [r.transport, r._count.id]),
+  const totalTools = mcps.reduce((sum, mcp) => sum + mcp.registryTools.length, 0);
+  const activeTools = mcps.reduce(
+    (sum, mcp) =>
+      sum +
+      (mcp.enabled ? mcp.registryTools.filter((tool) => tool.enabled).length : 0),
+    0,
   );
+  const enabledServers = mcps.filter((mcp) => mcp.enabled).length;
 
   const stats = {
     total: mcps.length,
-    toolsTotal,
-    byTransport,
-    withAuth: withAuthCount,
-    disabled: disabledCount,
+    enabledServers,
+    totalTools,
+    activeTools,
+    execTotal,
+    execP95Ms: Math.round(Number(execP95[0]?.p95 ?? 0)),
   };
 
   return (

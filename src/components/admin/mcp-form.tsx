@@ -175,14 +175,13 @@ export function McpForm({ open, onClose, mcp }: Props) {
 
           <div className="space-y-1.5">
             <Label htmlFor="admin-mcp-description" className={labelClass}>
-              Descrição <span className="text-muted-foreground font-normal">(opcional)</span>
+              Descrição
             </Label>
             <Input
               id="admin-mcp-description"
               name="description"
               defaultValue={mcp?.description ?? ""}
               className={fieldClass}
-              placeholder="Breve descrição deste servidor MCP"
             />
           </div>
 

@@ -19,6 +19,7 @@ type AuditLogEntry = {
 type ExecutionEntry = {
   id: string;
   actorUserId: string | null;
+  actorUserEmail: string | null;
   createdAt: string;
   errorMessage: string | null;
   latencyMs: number;
@@ -125,11 +126,11 @@ export function AuditClient({
       (!q || (l.userEmail ?? "").toLowerCase().includes(q) || l.resource.toLowerCase().includes(q)),
   );
 
-  const tabs: { id: Tab; label: string; count: number; badge24h: number }[] = [
-    { id: "activity",   label: "Admin Activity",   count: filteredLogs.length,   badge24h: counts24h.activity },
-    { id: "executions", label: "MCP Executions",   count: executions.length,     badge24h: counts24h.executions },
-    { id: "proxy",      label: "Proxy / Namespace", count: filteredProxy.length, badge24h: counts24h.proxy },
-    { id: "llm",        label: "LLM",              count: filteredLlm.length,    badge24h: counts24h.llm },
+  const tabs: { id: Tab; label: string; count: number }[] = [
+    { id: "activity",   label: "Admin Activity",   count: filteredLogs.length },
+    { id: "executions", label: "MCP Executions",   count: executions.length },
+    { id: "proxy",      label: "Proxy / Namespace", count: filteredProxy.length },
+    { id: "llm",        label: "LLM",              count: filteredLlm.length },
   ];
 
   return (
@@ -201,11 +202,6 @@ export function AuditClient({
               )}>
                 {t.count}
               </span>
-              {t.badge24h > 0 && (
-                <span className="rounded-full bg-[var(--color-surface-muted)] px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-muted-foreground">
-                  {t.badge24h} 24h
-                </span>
-              )}
             </button>
           ))}
         </div>
@@ -269,7 +265,8 @@ export function AuditClient({
                 <TH>Fonte</TH>
                 <TH>Status</TH>
                 <TH right>Latência</TH>
-                <TH>Ator / Trace</TH>
+                <TH>Ator</TH>
+                <TH>Trace</TH>
               </tr>
             </thead>
             <tbody>
@@ -288,12 +285,14 @@ export function AuditClient({
                   </td>
                   <td className="px-4 py-3 text-right text-xs font-mono text-muted-foreground">{exec.latencyMs} ms</td>
                   <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                    <p className="truncate max-w-[140px]">{exec.actorUserId ?? "unknown"}</p>
-                    <p className="truncate max-w-[140px] text-[10px]">{exec.traceId ?? "-"}</p>
+                    <p className="truncate max-w-[160px]">{exec.actorUserEmail ?? exec.actorUserId ?? "unknown"}</p>
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                    <p className="truncate max-w-[160px]">{exec.traceId ?? "-"}</p>
                   </td>
                 </tr>
               ))}
-              {filteredExecs.length === 0 && <EmptyRow cols={6} message="Nenhuma execução MCP registrada." />}
+              {filteredExecs.length === 0 && <EmptyRow cols={7} message="Nenhuma execução MCP registrada." />}
             </tbody>
           </table>
         </div>

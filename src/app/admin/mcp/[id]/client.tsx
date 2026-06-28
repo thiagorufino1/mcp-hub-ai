@@ -18,7 +18,6 @@ import {
   PencilLine,
   RefreshCw,
   Search,
-  Shield,
   Wrench,
   Trash2,
   XCircle,
@@ -41,6 +40,7 @@ type McpDetail = {
   command: string | null;
   args: string[];
   url: string | null;
+  headers: Record<string, string>;
   enabled: boolean;
   authType: string;
   healthStatus: string;
@@ -142,7 +142,7 @@ export function McpServerDetailClient({ mcp }: { mcp: McpDetail }) {
     args: mcp.args,
     url: mcp.url,
     env: {},
-    headers: {},
+    headers: mcp.headers,
     authType: mcp.authType,
     sharedSecret: null,
     oauthClientId: null,
@@ -215,12 +215,6 @@ export function McpServerDetailClient({ mcp }: { mcp: McpDetail }) {
           <Badge variant={health.variant}>{health.label}</Badge>
           <Badge variant={enabled ? "success" : "secondary"}>{enabled ? "Enabled" : "Disabled"}</Badge>
           <Badge variant="info">{transportLabel(mcp.transport)}</Badge>
-          {mcp.authType !== "none" && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-warning-soft)] px-2 py-0.5 text-xs font-medium text-[var(--color-warning)]">
-              <Shield className="size-3" />
-              Autenticação requerida
-            </span>
-          )}
         </div>
       </div>
 
@@ -587,4 +581,3 @@ function normalizeToolPermission(permissionMode: string, enabled: boolean): "all
   if (!enabled || permissionMode === "blocked") return "blocked";
   return "allow";
 }
-

@@ -769,9 +769,9 @@ function KpiCard({
         : "text-[var(--color-text-secondary)]";
 
   return (
-    <div className="flex min-h-24 flex-col justify-between rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-muted)]/35 p-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
-      <div className={cn("text-3xl font-semibold leading-none", accent)}>{value}</div>
+    <div className="group flex flex-col gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-[0_8px_24px_rgba(17,63,124,0.04)] transition-all">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+      <div className={cn("text-[1.65rem] font-bold leading-none", accent)}>{value}</div>
     </div>
   );
 }
@@ -1235,14 +1235,14 @@ function NamespaceSettingsSection({
   const [published, setPublished] = useState(namespace.published);
   const [isPending, startTransition] = useTransition();
 
-  function submit() {
+  function submit(nextEnabled = enabled, nextPublished = published) {
     const formData = new FormData();
     formData.set("id", namespace.id);
     formData.set("name", namespace.name);
     formData.set("alias", namespace.alias);
     formData.set("description", namespace.description ?? "");
-    formData.set("enabled", String(enabled));
-    formData.set("published", String(published));
+    formData.set("enabled", String(nextEnabled));
+    formData.set("published", String(nextPublished));
     formData.set("allUsers", String(allUsers));
     namespace.mcpServerIds.forEach((mcpServerId) => formData.append("mcpServerIds", mcpServerId));
     namespace.groups.forEach((group) => formData.append("groupIds", group.id));
@@ -1263,6 +1263,7 @@ function NamespaceSettingsSection({
     if (!nextEnabled) {
       setPublished(false);
     }
+    submit(nextEnabled, nextEnabled ? published : false);
   }
 
   return (
@@ -1292,18 +1293,15 @@ function NamespaceSettingsSection({
             <Switch
               checked={published}
               disabled={!enabled}
-              onCheckedChange={setPublished}
+              onCheckedChange={(nextPublished) => {
+                setPublished(nextPublished);
+                submit(enabled, nextPublished);
+              }}
               aria-label="Published endpoint"
             />
           </label>
         </div>
       </section>
-
-      <div className="flex justify-end">
-        <Button type="button" disabled={isPending} onClick={submit}>
-          {isPending ? "Saving..." : "Save settings"}
-        </Button>
-      </div>
     </div>
   );
 }

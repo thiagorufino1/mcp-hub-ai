@@ -185,6 +185,45 @@ For a specific published namespace:
 
 No token required. The OAuth flow runs once per client, then renews silently.
 
+### Import example
+
+Use this JSON in the Admin import dialog to seed common stdio, HTTP, Bearer token, OAuth, and SSE servers:
+
+```json
+{
+  "mcpServers": {
+    "Everything MCP Server": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-everything"
+      ]
+    },
+    "Microsoft Learn": {
+      "url": "https://learn.microsoft.com/api/mcp",
+      "type": "http"
+    },
+    "http-example-token": {
+      "url": "https://localhost:8000/mcp",
+      "type": "http",
+      "headers": {
+        "Authorization": "Bearer your-token"
+      }
+    },
+    "http-example-oauth": {
+      "url": "https://localhost:8000/mcp",
+      "type": "http",
+      "authType": "oauth_delegated"
+    },
+    "http-example-sse": {
+      "url": "https://localhost:8000/mcp",
+      "type": "sse"
+    }
+  }
+}
+```
+
 ### Personal Access Tokens (legacy)
 
 Tokens created in the UI still work as Bearer tokens and will continue to do so during a deprecation window. Pass them via `Authorization: Bearer <token>` or configure them directly in the MCP client.

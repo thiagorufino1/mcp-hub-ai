@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { useSearchParams } from "next/navigation";
 
 function postRelayMessage(payload: { code?: string; error?: string; state?: string }) {
   if (typeof window === "undefined") {
@@ -21,20 +20,26 @@ function postRelayMessage(payload: { code?: string; error?: string; state?: stri
   }
 }
 
-export function OAuthPopupRelay({ title, description }: { title: string; description: string }) {
-  const searchParams = useSearchParams();
-  const code = searchParams.get("code") ?? undefined;
-  const error = searchParams.get("error") ?? undefined;
-  const state = searchParams.get("state") ?? undefined;
-
+export function OAuthPopupRelay({
+  description,
+  title,
+}: {
+  description: string;
+  title: string;
+}) {
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code") ?? undefined;
+    const error = params.get("error") ?? undefined;
+    const state = params.get("state") ?? undefined;
+
     postRelayMessage({ code, error, state });
     const timer = window.setTimeout(() => {
       window.close();
     }, 250);
 
     return () => window.clearTimeout(timer);
-  }, [code, error, state]);
+  }, []);
 
   return (
     <main style={{ maxWidth: 520, margin: "72px auto", padding: "0 20px", fontFamily: "system-ui, sans-serif" }}>

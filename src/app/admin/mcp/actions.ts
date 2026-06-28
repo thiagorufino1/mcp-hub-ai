@@ -15,6 +15,11 @@ import { resolveMcpServerTools } from "@/lib/mcp-tool-registry";
 import { syncNamespaceToolsForMcpServer } from "@/lib/namespace-tool-sync";
 import { discoverMcpOAuth } from "@/lib/mcp-oauth";
 import { dbMcpToConfig } from "@/lib/user-context";
+import {
+  parseMcpImportJson,
+  resolveMcpImportTransport,
+  validateMcpImportEntry,
+} from "@/lib/mcp-import";
 
 export type McpServerRow = {
   id: string;
@@ -61,7 +66,7 @@ export async function createMcp(formData: FormData): Promise<void> {
   const user = await requireAdmin();
 
   const nameValue = formData.get("name") as string;
-  const existing = await prisma.mcpServer.findUnique({ where: { name: nameValue }, select: { id: true } });
+  const existing = await prisma.mcpServer.findFirst({ where: { name: nameValue }, select: { id: true } });
   if (existing) {
     throw new Error("Já existe um MCP Server cadastrado com este nome.");
   }
@@ -317,11 +322,10 @@ export async function exportMcpServers(): Promise<string> {
       command: server.command ?? undefined,
       args: server.args,
       url: server.url ?? undefined,
-      transport: server.transport,
+      type: exportTransportType(server.transport),
       env: redactedEnv,
       headers: redactedHeaders,
       description: server.description ?? undefined,
-      enabled: server.enabled,
       authType: server.authType,
     };
   }
@@ -329,10 +333,17 @@ export async function exportMcpServers(): Promise<string> {
   return JSON.stringify({ mcpServers: result }, null, 2);
 }
 
+function exportTransportType(transport: string) {
+  if (transport === "streamable-http") return "http";
+  return transport;
+}
+
 type ImportMcpEntry = {
   command?: string;
   args?: string[];
   url?: string;
+  headers?: Record<string, string>;
+  type?: string;
   transport?: string;
   env?: Record<string, string>;
   description?: string;
@@ -344,35 +355,18 @@ export async function importMcpServers(
   json: string,
 ): Promise<{ imported: string[]; skipped: string[]; errors: string[] }> {
   const user = await requireAdmin();
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(json);
-  } catch {
-    throw new Error("Arquivo JSON inválido.");
+  const parsed = parseMcpImportJson(json);
+  if (!parsed.ok) {
+    throw new Error(parsed.error);
   }
 
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    !("mcpServers" in parsed)
-  ) {
-    throw new Error("Estrutura JSON inválida. Esperado campo 'mcpServers'.");
-  }
-
-  const rawMcpServers = (parsed as { mcpServers: unknown }).mcpServers;
-  if (typeof rawMcpServers !== "object" || rawMcpServers === null || Array.isArray(rawMcpServers)) {
-    throw new Error("Campo 'mcpServers' deve ser um objeto.");
-  }
-  const mcpServers = rawMcpServers as Record<string, unknown>;
   const imported: string[] = [];
   const skipped: string[] = [];
   const errors: string[] = [];
 
-  for (const [name, entryRaw] of Object.entries(mcpServers)) {
-    const entry = (typeof entryRaw === "object" && entryRaw !== null ? entryRaw : {}) as ImportMcpEntry;
+  for (const [name, entry] of Object.entries(parsed.data.mcpServers)) {
     try {
-      const existing = await prisma.mcpServer.findUnique({
+      const existing = await prisma.mcpServer.findFirst({
         where: { name },
         select: { id: true },
       });
@@ -381,22 +375,13 @@ export async function importMcpServers(
         continue;
       }
 
-      const transport = (
-        entry.transport ?? (entry.command ? "stdio" : "streamable-http")
-      ) as string;
+      const validationError = validateMcpImportEntry(name, entry);
+      if (validationError) {
+        errors.push(validationError);
+        continue;
+      }
 
-      if (transport === "stdio" && !entry.command) {
-        errors.push(
-          `${name}: campo 'command' obrigatório para transport stdio.`,
-        );
-        continue;
-      }
-      if (transport !== "stdio" && !entry.url) {
-        errors.push(
-          `${name}: campo 'url' obrigatório para transport ${transport}.`,
-        );
-        continue;
-      }
+      const transport = resolveMcpImportTransport(entry);
 
       const created = await prisma.mcpServer.create({
         data: {
@@ -407,7 +392,9 @@ export async function importMcpServers(
           args: entry.args ?? [],
           url: entry.url ?? null,
           env: entry.env ?? {},
-          headers: {},
+          headers: encryptSecretJson(
+            sanitizeMcpHeaders(entry.headers ?? {}, entry.authType ?? "none"),
+          ),
           authType: entry.authType ?? "none",
           enabled: entry.enabled ?? true,
         },
@@ -422,6 +409,7 @@ export async function importMcpServers(
         metadata: { name, source: "import" },
       });
 
+      await inspectMcpConfig(created.id, false);
       imported.push(name);
     } catch (err) {
       errors.push(

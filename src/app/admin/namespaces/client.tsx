@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import type { ComponentType } from "react";
+import { useMemo, useState, useTransition } from "react";
 
 import {
   deleteNamespace,
@@ -11,7 +13,19 @@ import {
 } from "@/app/admin/namespaces/actions";
 import { NamespaceForm } from "@/components/admin/namespace-form";
 import { Button } from "@/components/ui/button";
-import { Check, Copy, Layers3, PencilLine, Search, Trash2 } from "@/components/ui/icons";
+import {
+  Cable,
+  Check,
+  CheckCircle2,
+  Copy,
+  Globe,
+  Layers3,
+  PencilLine,
+  Plus,
+  Search,
+  Trash2,
+  Wrench,
+} from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
@@ -46,6 +60,8 @@ export function NamespacesAdminClient({
   const [search, setSearch] = useState("");
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const router = useRouter();
+  const [isDeleting, startDeleteTransition] = useTransition();
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -58,64 +74,83 @@ export function NamespacesAdminClient({
 
   return (
     <div className="portal-page">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 mb-4">
-        {[
-          { label: "Total", value: stats.total },
-          { label: "Habilitados", value: stats.enabled },
-          { label: "Publicados", value: stats.published },
-          { label: "Servidores vinculados", value: stats.mcpLinks },
-          { label: "Tools disponíveis", value: stats.toolLinks },
-          { label: "Desabilitados", value: stats.disabled, error: stats.disabled > 0 },
-          { label: "Não publicados", value: stats.unpublished },
-        ].map(({ label, value, error }) => (
-          <div key={label} className="rounded-xl border bg-[var(--color-surface)] px-4 py-3">
-            <p className="text-xs text-muted-foreground">{label}</p>
-            <p className={`text-2xl font-bold ${error ? "text-[var(--color-error)]" : ""}`}>{value}</p>
-          </div>
-        ))}
+      <div className="portal-page-heading">
+        <h1 className="text-2xl font-bold">Namespaces</h1>
+        <p className="text-sm text-muted-foreground">Curated MCP server collections exposed as a single endpoint.</p>
       </div>
 
-      <div className="portal-page-heading flex-row items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Namespaces</h1>
-          <p className="text-sm text-muted-foreground">
-            Curated MCP server collections exposed as a single endpoint.
-          </p>
-        </div>
-        <Button onClick={() => setForm(null)}>+ Add namespace</Button>
-      </div>
-
-      <div className="relative max-w-sm">
-        <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search namespaces..."
-          className="pl-9 text-[var(--color-text-secondary)]"
+      <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <NamespaceKpiCard
+          icon={Layers3}
+          label="Namespaces"
+          value={`${stats.enabled}/${stats.total}`}
+          sub="enabled namespaces"
+          tone="success"
+        />
+        <NamespaceKpiCard
+          icon={Globe}
+          label="Publicados"
+          value={String(stats.published)}
+          sub={`${stats.unpublished} privados`}
+          tone={stats.published > 0 ? "info" : "neutral"}
+        />
+        <NamespaceKpiCard
+          icon={Cable}
+          label="Servidores vinculados"
+          value={String(stats.mcpLinks)}
+          sub="MCP servers linked"
+          tone={stats.mcpLinks > 0 ? "info" : "neutral"}
+        />
+        <NamespaceKpiCard
+          icon={Wrench}
+          label="Tools disponíveis"
+          value={String(stats.toolLinks)}
+          sub="namespace tools"
+          tone={stats.toolLinks > 0 ? "success" : "neutral"}
         />
       </div>
 
+      <div className="flex items-center justify-between gap-3">
+        <div className="relative w-64">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+          />
+          <Input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search namespaces..."
+            aria-label="Search namespaces"
+            className="h-9 pl-9 text-[var(--color-text-secondary)]"
+          />
+        </div>
+        <Button className="h-9 gap-1.5" onClick={() => setForm(null)}>
+          <Plus className="size-4" />
+          Add
+        </Button>
+      </div>
+
       <div className="portal-table-shell overflow-x-auto">
-        <table className="w-full min-w-[1080px] table-fixed text-left text-sm text-[var(--color-text-secondary)]">
+        <table className="w-full min-w-[1240px] table-fixed text-left text-sm text-[var(--color-text-secondary)]">
           <colgroup>
-            <col className="w-[24%]" />
-            <col className="w-[14%]" />
+            <col className="w-[28%]" />
+            <col className="w-[12%]" />
             <col className="w-[10%]" />
             <col className="w-[10%]" />
             <col className="w-[10%]" />
-            <col className="w-[25%]" />
-            <col className="w-[7%]" />
+            <col className="w-[22%]" />
+            <col className="w-[8%]" />
           </colgroup>
           <thead>
             <tr>
-              <th className="px-4 py-3">Namespace</th>
-              <th className="px-4 py-3 text-center">MCP Servers</th>
-              <th className="px-4 py-3 text-center">Tools</th>
-              <th className="px-4 py-3 text-center">Enabled</th>
-              <th className="px-4 py-3 text-center">Publish</th>
-              <th className="px-4 py-3 text-center">Endpoint</th>
-              <th className="px-4 py-3 text-center">Actions</th>
+              <th className="px-4 py-3 font-medium">Namespace</th>
+              <th className="px-4 py-3 text-center font-medium">MCP Servers</th>
+              <th className="px-4 py-3 text-center font-medium">Tools</th>
+              <th className="px-4 py-3 text-center font-medium">Enabled</th>
+              <th className="px-4 py-3 text-center font-medium">Publish</th>
+              <th className="px-4 py-3 text-center font-medium">Endpoint</th>
+              <th className="px-4 py-3 text-center font-medium">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -136,19 +171,15 @@ export function NamespacesAdminClient({
                       >
                         {ns.name}
                       </Link>
-                      <p className="font-mono text-xs text-muted-foreground">Alias: /{ns.alias}</p>
+                      <p className="font-mono text-xs text-muted-foreground">/{ns.alias}</p>
                     </div>
                   </div>
                 </td>
                 <td className="px-4 py-4 text-center text-xs text-muted-foreground">
-                  <div>
-                    {ns.mcpServerIds.length} server{ns.mcpServerIds.length !== 1 ? "s" : ""}
-                  </div>
+                  <span className="font-medium text-[var(--color-text-secondary)]">{ns.mcpServerIds.length}</span>
                 </td>
                 <td className="px-4 py-4 text-center">
-                  <div className="text-xs text-muted-foreground">
-                    {ns.toolsCount} tool{ns.toolsCount !== 1 ? "s" : ""}
-                  </div>
+                  <span className="font-medium text-[var(--color-text-secondary)]">{ns.toolsCount}</span>
                 </td>
                 <td className="px-4 py-4">
                   <div className="flex justify-center">
@@ -159,6 +190,7 @@ export function NamespacesAdminClient({
                         setPendingId(ns.id);
                         try {
                           await setNamespaceEnabled(ns.id, enabled);
+                          router.refresh();
                         } finally {
                           setPendingId(null);
                         }
@@ -176,6 +208,7 @@ export function NamespacesAdminClient({
                         setPendingId(ns.id);
                         try {
                           await setNamespacePublished(ns.id, published);
+                          router.refresh();
                         } finally {
                           setPendingId(null);
                         }
@@ -191,7 +224,7 @@ export function NamespacesAdminClient({
                     </p>
                     <button
                       type="button"
-                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 leading-none text-muted-foreground transition-[background-color,color] duration-150 hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)] focus-visible:bg-[var(--color-primary-soft)] focus-visible:text-[var(--color-primary)]"
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-0 leading-none text-muted-foreground transition-[background-color,color] duration-150 hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)] focus-visible:bg-[var(--color-primary-soft)] focus-visible:text-[var(--color-primary)]"
                       aria-label={`Copy endpoint for ${ns.name}`}
                       onClick={async () => {
                         await navigator.clipboard.writeText(
@@ -213,16 +246,24 @@ export function NamespacesAdminClient({
                   <div className="flex items-center justify-center gap-1">
                     <Link
                       href={`/admin/namespaces/${ns.id}`}
-                      className="inline-flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full border-0 bg-transparent p-0 leading-none text-muted-foreground transition-[background-color,color] duration-150 hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)] focus-visible:bg-[var(--color-primary-soft)] focus-visible:text-[var(--color-primary)]"
+                      className="inline-flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-0 leading-none text-muted-foreground transition-[background-color,color] duration-150 hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)] focus-visible:bg-[var(--color-primary-soft)] focus-visible:text-[var(--color-primary)]"
                       title="Edit"
                       aria-label={`Edit ${ns.name}`}
                     >
                       <PencilLine className="size-4" aria-hidden="true" />
                     </Link>
-                    <form action={async () => { await deleteNamespace(ns.id); }}>
+                    <form
+                      action={async () => {
+                        startDeleteTransition(async () => {
+                          await deleteNamespace(ns.id);
+                          router.refresh();
+                        });
+                      }}
+                    >
                       <button
                         type="submit"
-                        className="inline-flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full border-0 bg-transparent p-0 leading-none text-[var(--color-error)] transition-[background-color,color] duration-150 hover:bg-[var(--color-error-soft)] hover:text-[var(--color-error)] focus-visible:bg-[var(--color-error-soft)] focus-visible:text-[var(--color-error)]"
+                        disabled={isDeleting}
+                        className="inline-flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-0 leading-none text-[var(--color-error)] transition-[background-color,color] duration-150 hover:bg-[var(--color-error-soft)] hover:text-[var(--color-error)] focus-visible:bg-[var(--color-error-soft)] focus-visible:text-[var(--color-error)]"
                         title="Delete"
                       >
                         <Trash2 className="size-4" aria-hidden="true" />
@@ -258,6 +299,52 @@ export function NamespacesAdminClient({
         mcpServers={mcpServers}
         onClose={() => setForm(undefined)}
       />
+    </div>
+  );
+}
+
+function NamespaceKpiCard({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  tone,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  sub?: string;
+  tone: "info" | "success" | "neutral" | "error";
+}) {
+  const color =
+    tone === "success"
+      ? "text-[var(--color-success)]"
+      : tone === "error"
+        ? "text-[var(--color-error)]"
+        : tone === "neutral"
+          ? "text-[var(--color-text-secondary)]"
+          : "text-[var(--color-primary)]";
+  const bg =
+    tone === "success"
+      ? "bg-[var(--color-success-soft)]"
+      : tone === "error"
+        ? "bg-[var(--color-error-soft)]"
+        : tone === "neutral"
+          ? "bg-[var(--color-surface-muted)]"
+          : "bg-[var(--color-primary-soft)]";
+
+  return (
+    <div className="group flex flex-col gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-[0_8px_24px_rgba(17,63,124,0.04)] transition-all">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+        <span className={`flex size-7 shrink-0 items-center justify-center rounded-lg ${bg} ${color}`}>
+          <Icon className="size-4" />
+        </span>
+      </div>
+      <div>
+        <p className={`text-[1.65rem] font-bold leading-none ${color}`}>{value}</p>
+        {sub ? <p className="mt-1 text-[11px] text-muted-foreground">{sub}</p> : null}
+      </div>
     </div>
   );
 }
