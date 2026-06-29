@@ -293,8 +293,7 @@ export function NamespaceDetailClient({
           </Button>
           <Button
             size="sm"
-            variant="outline"
-            className="size-9 rounded-full px-0 text-[var(--color-error)] hover:bg-[var(--color-error-soft)]"
+            className="size-9 rounded-full border border-[var(--color-border)] bg-transparent px-0 text-[var(--color-error)] shadow-none hover:bg-[var(--color-error-soft)] hover:text-[var(--color-error)]"
             onClick={() => setDeleteDialogOpen(true)}
             aria-label="Delete namespace"
           >
@@ -449,9 +448,8 @@ export function NamespaceDetailClient({
                         <div className="flex justify-center">
                           <Button
                             type="button"
-                            variant="ghost"
                             size="icon"
-                            className="rounded-full text-[var(--color-error)] hover:bg-[var(--color-error-soft)] hover:text-[var(--color-error)]"
+                            className="rounded-full bg-transparent text-[var(--color-error)] shadow-none hover:bg-[var(--color-error-soft)] hover:text-[var(--color-error)]"
                             onClick={() => {
                               startTransition(async () => {
                                 try {

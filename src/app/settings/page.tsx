@@ -11,7 +11,7 @@ export default async function SettingsPage() {
   const tokens = await prisma.personalToken.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: "desc" },
-    select: { id: true, name: true, lastUsedAt: true, createdAt: true },
+    select: { id: true, name: true, lastUsedAt: true, expiresAt: true, createdAt: true },
   });
 
   return (

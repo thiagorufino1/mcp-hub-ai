@@ -61,11 +61,18 @@ async function handleProxyRequest(request: Request): Promise<Response> {
   const context = await getUserContext(tokenUser.entraGroups, undefined, tokenUser.userId);
   const proxyServers = context.mcpServers.filter((server) => server.enabled);
   const traceId = request.headers.get("x-request-id") ?? crypto.randomUUID();
+  const userAgent = request.headers.get("user-agent") ?? null;
+  let clientName: string = userAgent ?? "unknown";
 
   const server = new Server(
     { name: "mcp-hub-proxy", version: "1.0.0" },
     { capabilities: { tools: {} } },
   );
+
+  server.oninitialized = () => {
+    const info = server.getClientVersion();
+    if (info?.name) clientName = info.name;
+  };
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     logAudit({
@@ -78,6 +85,8 @@ async function handleProxyRequest(request: Request): Promise<Response> {
         method: request.method,
         proxyServerCount: proxyServers.length,
         event: "discovery_tools",
+        clientName,
+        userAgent,
       },
     });
 
@@ -95,9 +104,13 @@ async function handleProxyRequest(request: Request): Promise<Response> {
     for (const mcpServer of proxyServers) {
       try {
         const resolvedServer = await resolveMcpServerTools(mcpServer);
-        for (const tool of resolvedServer.tools) {
+        const tools = resolvedServer.tools;
+        const filtered = mcpServer.allowedToolNames
+          ? tools.filter((t) => mcpServer.allowedToolNames!.includes(t.name))
+          : tools;
+        for (const tool of filtered) {
           allTools.push({
-            name: tool.name,
+            name: `${mcpServer.name}.${tool.name}`,
             title: tool.displayName ?? tool.name,
             description: `[${mcpServer.name}] ${tool.description ?? ""}`.trim(),
             inputSchema: tool.inputSchema ?? { type: "object", properties: {} },
@@ -118,13 +131,23 @@ async function handleProxyRequest(request: Request): Promise<Response> {
   server.setRequestHandler(CallToolRequestSchema, async (toolRequest) => {
     const { name, arguments: args } = toolRequest.params;
 
+    // name format is "ServerName.toolName" — split on first dot only
+    const dotIndex = name.indexOf(".");
+    const requestedServerName = dotIndex !== -1 ? name.slice(0, dotIndex) : null;
+    const requestedToolName = dotIndex !== -1 ? name.slice(dotIndex + 1) : name;
+
     const toolIndex = new Map<string, { server: McpServerConfig; toolName: string }>();
     for (const serverCandidate of proxyServers) {
       try {
         const resolvedServer = await resolveMcpServerTools(serverCandidate);
-        for (const tool of resolvedServer.tools) {
-          if (!toolIndex.has(tool.name)) {
-            toolIndex.set(tool.name, { server: serverCandidate, toolName: tool.name });
+        const tools = resolvedServer.tools;
+        const filtered = serverCandidate.allowedToolNames
+          ? tools.filter((t) => serverCandidate.allowedToolNames!.includes(t.name))
+          : tools;
+        for (const tool of filtered) {
+          const indexKey = `${serverCandidate.name}.${tool.name}`;
+          if (!toolIndex.has(indexKey)) {
+            toolIndex.set(indexKey, { server: serverCandidate, toolName: tool.name });
           }
         }
       } catch {
@@ -132,7 +155,14 @@ async function handleProxyRequest(request: Request): Promise<Response> {
       }
     }
 
-    const toolEntry = toolIndex.get(name);
+    // Look up by prefixed key; fall back to unprefixed for backward compatibility
+    const lookupKey =
+      requestedServerName !== null ? name : requestedToolName;
+    const toolEntry =
+      toolIndex.get(lookupKey) ??
+      (requestedServerName === null
+        ? [...toolIndex.values()].find((e) => e.toolName === requestedToolName)
+        : undefined);
     const mcpServer = toolEntry?.server;
     const resolvedToolName = toolEntry?.toolName;
 
@@ -154,6 +184,8 @@ async function handleProxyRequest(request: Request): Promise<Response> {
         serverId: mcpServer.id,
         toolName: resolvedToolName,
         event: "tool_used",
+        clientName,
+        userAgent,
       },
     });
 

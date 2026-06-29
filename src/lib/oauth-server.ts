@@ -105,28 +105,32 @@ export async function consumeAuthCode(
 ): Promise<{ userId: string; scope: string } | null> {
   const codeHash = hashToken(rawCode);
 
-  // Atomic mark-as-used - prevents replay via concurrent requests
-  const updated = await prisma.oAuthAuthCode.updateMany({
-    where: {
-      codeHash,
-      usedAt: null,
-      expiresAt: { gt: new Date() },
-      clientId,
-      redirectUri,
-    },
-    data: { usedAt: new Date() },
+  return prisma.$transaction(async (tx) => {
+    // Step 1: Fetch the record without consuming it yet
+    const record = await tx.oAuthAuthCode.findUnique({ where: { codeHash } });
+    if (!record) return null;
+    if (record.usedAt !== null) return null;
+    if (record.expiresAt <= new Date()) return null;
+    if (record.clientId !== clientId) return null;
+    if (record.redirectUri !== redirectUri) return null;
+
+    // Step 2: Verify PKCE BEFORE marking as used — prevents burning a valid
+    // code when an attacker submits a wrong code_verifier
+    const computedChallenge = hashPkceVerifier(codeVerifier);
+    if (computedChallenge !== record.codeChallengeHash) return null;
+
+    // Step 3: Mark as used only after successful PKCE verification
+    const updated = await tx.oAuthAuthCode.updateMany({
+      where: {
+        codeHash,
+        usedAt: null, // guard against a race between the read and this write
+      },
+      data: { usedAt: new Date() },
+    });
+    if (updated.count === 0) return null; // lost race — treat as already used
+
+    return { userId: record.userId, scope: record.scope };
   });
-  if (updated.count === 0) return null;
-
-  // Now safe to read for userId/scope (record is marked used)
-  const record = await prisma.oAuthAuthCode.findUnique({ where: { codeHash } });
-  if (!record) return null;
-
-  // PKCE S256 verification
-  const computedChallenge = hashPkceVerifier(codeVerifier);
-  if (computedChallenge !== record.codeChallengeHash) return null;
-
-  return { userId: record.userId, scope: record.scope };
 }
 
 export async function createTokenPair(

@@ -1,26 +1,43 @@
 import { requireAdmin } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/db";
+import { ADMIN_ACTIVITY_ACTIONS } from "@/lib/audit";
 import { AuditClient } from "./client";
 
+export const dynamic = "force-dynamic";
 export const metadata = { title: "Audit Log - Admin" };
 
 export default async function AdminAuditPage() {
   await requireAdmin();
 
-  const [auditLogs, executions, metrics, adminLogs24h, executions24h, proxy24h, llm24h] = await Promise.all([
+  const auditLogSelect = {
+    id: true,
+    userId: true,
+    userEmail: true,
+    action: true,
+    resource: true,
+    resourceId: true,
+    metadata: true,
+    createdAt: true,
+  } as const;
+
+  const [activityLogs, proxyLogs, llmLogs, executions, metrics, adminLogs24h, executions24h, proxy24h, llm24h] = await Promise.all([
     prisma.auditLog.findMany({
       orderBy: { createdAt: "desc" },
-      take: 200,
-      select: {
-        id: true,
-        userId: true,
-        userEmail: true,
-        action: true,
-        resource: true,
-        resourceId: true,
-        metadata: true,
-        createdAt: true,
-      },
+      take: 100,
+      where: { action: { notIn: ["mcp.proxy", "mcp.namespace", "llm.chat", "llm.test"] } },
+      select: auditLogSelect,
+    }),
+    prisma.auditLog.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      where: { action: { in: ["mcp.proxy", "mcp.namespace"] } },
+      select: auditLogSelect,
+    }),
+    prisma.auditLog.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      where: { action: { in: ["llm.chat", "llm.test"] } },
+      select: auditLogSelect,
     }),
     prisma.mcpToolExecution.findMany({
       orderBy: { createdAt: "desc" },
@@ -54,19 +71,12 @@ export default async function AdminAuditPage() {
       FROM "McpToolExecution"
       WHERE "createdAt" >= CURRENT_TIMESTAMP - INTERVAL '24 hours'
     `,
-    prisma.$queryRaw<Array<{ count: bigint }>>`
-      SELECT COUNT(*) AS count FROM "AuditLog"
-      WHERE "createdAt" >= CURRENT_TIMESTAMP - INTERVAL '24 hours'
-        AND action IN (
-          'mcp.create','mcp.update','mcp.delete','mcp.enable','mcp.disable',
-          'mcp.tool.enable','mcp.tool.disable','mcp.tool.permission',
-          'namespace.mcp.add','namespace.mcp.remove','namespace.group.add',
-          'namespace.group.remove','namespace.access.update',
-          'namespace.tool.enable','namespace.tool.disable',
-          'llm.create','llm.update','llm.default','llm.delete',
-          'group.upsert','group.delete'
-        )
-    `.then((r) => Number(r[0]?.count ?? 0)),
+    prisma.auditLog.count({
+      where: {
+        createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+        action: { in: [...ADMIN_ACTIVITY_ACTIONS] },
+      },
+    }),
     prisma.$queryRaw<Array<{ count: bigint }>>`
       SELECT COUNT(*) AS count FROM "McpToolExecution"
       WHERE "createdAt" >= CURRENT_TIMESTAMP - INTERVAL '24 hours'
@@ -87,7 +97,7 @@ export default async function AdminAuditPage() {
 
   return (
     <AuditClient
-      auditLogs={auditLogs.map((l) => ({
+      auditLogs={[...activityLogs, ...proxyLogs, ...llmLogs].map((l) => ({
         ...l,
         metadata: l.metadata as Record<string, unknown>,
         createdAt: l.createdAt.toISOString(),

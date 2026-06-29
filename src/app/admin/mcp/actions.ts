@@ -31,6 +31,10 @@ export type McpServerRow = {
   url: string | null;
   env: Record<string, string>;
   headers: Record<string, string>;
+  /** Key names only — decrypted values are never sent to the client */
+  envKeys: string[];
+  /** Key names only — decrypted values are never sent to the client */
+  headerKeys: string[];
   authType: string;
   sharedSecret: string | null;
   oauthClientId: string | null;
@@ -119,7 +123,7 @@ export async function createMcp(formData: FormData): Promise<void> {
   }
 
   await inspectMcpConfig(mcp.id, false);
-  logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "mcp.create", resource: "McpServer", resourceId: mcp.id, metadata: { name: mcp.name } });
+  await logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "mcp.create", resource: "McpServer", resourceId: mcp.id, metadata: { name: mcp.name } });
   revalidatePath("/admin/mcp");
 }
 
@@ -141,13 +145,25 @@ export async function updateMcp(id: string, formData: FormData): Promise<void> {
   const argsRaw = (formData.get("args") as string | null) ?? "";
   const existing = await prisma.mcpServer.findUnique({
     where: { id },
-    select: { oauthClientSecret: true, sharedSecret: true },
+    select: { oauthClientSecret: true, sharedSecret: true, env: true, headers: true },
   });
   const authType = normalizeAuthType(transport, formData);
-  const headers = sanitizeMcpHeaders(
-    JSON.parse(headersRaw) as Record<string, string>,
-    authType,
-  );
+
+  // For env and headers the form sends {key: newValue} where newValue may be "" if the user
+  // did not re-enter the secret. In that case we fall back to the existing encrypted blob
+  // stored in the DB so secrets are never lost on edit.
+  const submittedEnv = JSON.parse(envRaw) as Record<string, string>;
+  const hasNewEnvValues = Object.values(submittedEnv).some((v) => v !== "");
+  const resolvedEnv = hasNewEnvValues
+    ? encryptSecretJson(submittedEnv)
+    : (existing?.env ?? encryptSecretJson({}));
+
+  const submittedHeaders = JSON.parse(headersRaw) as Record<string, string>;
+  const sanitizedSubmittedHeaders = sanitizeMcpHeaders(submittedHeaders, authType);
+  const hasNewHeaderValues = Object.values(sanitizedSubmittedHeaders).some((v) => v !== "");
+  const resolvedHeaders = hasNewHeaderValues
+    ? encryptSecretJson(sanitizedSubmittedHeaders)
+    : (existing?.headers ?? encryptSecretJson({}));
 
   try {
     await prisma.$transaction([
@@ -161,8 +177,8 @@ export async function updateMcp(id: string, formData: FormData): Promise<void> {
           command: transport === "stdio" ? (formData.get("command") as string) : null,
           args: argsRaw ? argsRaw.split("\n").map((a) => a.trim()).filter(Boolean) : [],
           url: transport !== "stdio" ? (formData.get("url") as string) : null,
-          env: encryptSecretJson(JSON.parse(envRaw) as Record<string, string>),
-          headers: encryptSecretJson(headers),
+          env: resolvedEnv,
+          headers: resolvedHeaders,
           authType,
           sharedSecret: null,
           oauthClientId:
@@ -201,7 +217,7 @@ export async function updateMcp(id: string, formData: FormData): Promise<void> {
 
   await inspectMcpConfig(id, false);
 
-  logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "mcp.update", resource: "McpServer", resourceId: id, metadata: { name: formData.get("name") as string } });
+  await logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "mcp.update", resource: "McpServer", resourceId: id, metadata: { name: formData.get("name") as string } });
   revalidatePath("/admin/mcp");
 }
 
@@ -272,7 +288,7 @@ export async function deleteMcp(id: string): Promise<void> {
   const user = await requireAdmin();
   const existing = await prisma.mcpServer.findUnique({ where: { id }, select: { name: true } });
   await prisma.mcpServer.delete({ where: { id } });
-  logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "mcp.delete", resource: "McpServer", resourceId: id, metadata: { name: existing?.name } });
+  await logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "mcp.delete", resource: "McpServer", resourceId: id, metadata: { name: existing?.name } });
   revalidatePath("/admin/mcp");
   redirect("/admin/mcp");
 }
@@ -391,7 +407,7 @@ export async function importMcpServers(
           command: entry.command ?? null,
           args: entry.args ?? [],
           url: entry.url ?? null,
-          env: entry.env ?? {},
+          env: encryptSecretJson(entry.env ?? {}),
           headers: encryptSecretJson(
             sanitizeMcpHeaders(entry.headers ?? {}, entry.authType ?? "none"),
           ),

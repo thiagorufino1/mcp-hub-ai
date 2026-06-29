@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Activity, AlertCircle, Search, Zap } from "@/components/ui/icons";
+import { Activity, AlertCircle, LoaderCircle, RefreshCw, Search, Zap } from "@/components/ui/icons";
 import { cn, formatTokenCount } from "@/lib/utils";
+import { ADMIN_ACTIVITY_ACTIONS } from "@/lib/audit";
 
 type AuditLogEntry = {
   id: string;
@@ -34,15 +36,7 @@ type ExecutionEntry = {
 type Metrics = { total24h: number; failures24h: number; averageLatency: number };
 type Counts24h = { activity: number; executions: number; proxy: number; llm: number };
 
-const ADMIN_ACTIVITY_ACTIONS = new Set([
-  "mcp.create","mcp.update","mcp.delete","mcp.enable","mcp.disable",
-  "mcp.tool.enable","mcp.tool.disable","mcp.tool.permission",
-  "namespace.mcp.add","namespace.mcp.remove","namespace.group.add",
-  "namespace.group.remove","namespace.access.update",
-  "namespace.tool.enable","namespace.tool.disable",
-  "llm.create","llm.update","llm.default","llm.delete",
-  "group.upsert","group.delete",
-]);
+const ADMIN_ACTIVITY_ACTIONS_SET = new Set<string>(ADMIN_ACTIVITY_ACTIONS);
 
 function actionVariant(action: string): string {
   if (/create|enable|connect|add|default/.test(action))
@@ -106,12 +100,13 @@ export function AuditClient({
   metrics: Metrics;
   counts24h: Counts24h;
 }) {
+  const [isPending, setIsPending] = useState(false);
   const [tab, setTab] = useState<Tab>("activity");
   const [search, setSearch] = useState("");
   const q = search.toLowerCase();
 
   const filteredLogs = auditLogs.filter(
-    (l) => ADMIN_ACTIVITY_ACTIONS.has(l.action) &&
+    (l) => ADMIN_ACTIVITY_ACTIONS_SET.has(l.action) &&
       (!q || l.action.toLowerCase().includes(q) || (l.userEmail ?? "").toLowerCase().includes(q) || l.resource.toLowerCase().includes(q)),
   );
   const filteredExecs = executions.filter(
@@ -126,11 +121,11 @@ export function AuditClient({
       (!q || (l.userEmail ?? "").toLowerCase().includes(q) || l.resource.toLowerCase().includes(q)),
   );
 
-  const tabs: { id: Tab; label: string; count: number }[] = [
-    { id: "activity",   label: "Admin Activity",   count: filteredLogs.length },
-    { id: "executions", label: "MCP Executions",   count: executions.length },
-    { id: "proxy",      label: "Proxy / Namespace", count: filteredProxy.length },
-    { id: "llm",        label: "LLM",              count: filteredLlm.length },
+  const tabs: { id: Tab; label: string }[] = [
+    { id: "activity",   label: "Admin Activity" },
+    { id: "executions", label: "MCP Executions" },
+    { id: "proxy",      label: "Proxy / Namespace" },
+    { id: "llm",        label: "LLM" },
   ];
 
   return (
@@ -194,27 +189,29 @@ export function AuditClient({
               )}
             >
               {t.label}
-              <span className={cn(
-                "min-w-[20px] rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums",
-                tab === t.id
-                  ? "bg-[var(--color-primary-soft)] text-[var(--color-primary)]"
-                  : "bg-[var(--color-border)] text-muted-foreground",
-              )}>
-                {t.count}
-              </span>
             </button>
           ))}
         </div>
 
-        <div className="relative w-64">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-          <Input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filtrar..."
-            className="w-full pl-9 text-[var(--color-text-secondary)]"
-          />
+        <div className="flex items-center gap-2">
+          <Button
+            size="icon"
+            variant="outline"
+            disabled={isPending}
+            onClick={() => { setIsPending(true); window.location.href = window.location.pathname + "?t=" + Date.now(); }}
+          >
+            {isPending ? <LoaderCircle className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+          </Button>
+          <div className="relative w-64">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Filtrar..."
+              className="w-full pl-9 text-[var(--color-text-secondary)]"
+            />
+          </div>
         </div>
       </div>
 
@@ -238,7 +235,6 @@ export function AuditClient({
                   <td className="px-4 py-3"><ActionBadge action={log.action} /></td>
                   <td className="px-4 py-3">
                     <p className="text-xs font-medium">{log.resource}</p>
-                    {log.resourceId && <p className="max-w-[120px] truncate font-mono text-[10px] text-muted-foreground">{log.resourceId}</p>}
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">{log.userEmail ?? "-"}</td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">
@@ -306,6 +302,7 @@ export function AuditClient({
               <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface-muted)]/50">
                 <TH>Data</TH>
                 <TH>Usuário</TH>
+                <TH>Cliente</TH>
                 <TH>Evento</TH>
                 <TH>Alvo</TH>
                 <TH>Tool</TH>
@@ -318,11 +315,13 @@ export function AuditClient({
                 const target = typeof meta.workspaceSlug === "string" ? meta.workspaceSlug : typeof meta.slug === "string" ? meta.slug : log.resourceId ?? "-";
                 const traceId = typeof meta.traceId === "string" && meta.traceId ? meta.traceId : null;
                 const toolName = typeof meta.toolName === "string" && meta.toolName ? meta.toolName : "-";
-                const event = meta.event === "tool_used" ? "tool utilizada" : meta.event === "discovery_tools" ? "discovery tools" : "mcp event";
+                const event = meta.event === "tool_used" ? "tool utilizada" : meta.event === "discovery_tools" ? "discovery tools" : meta.event === "client_connect" ? "conectado" : "mcp event";
+                const clientName = typeof meta.clientName === "string" && meta.clientName ? meta.clientName : "-";
                 return (
                   <tr key={log.id} className="border-t border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]/40">
                     <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">{fmtDate(log.createdAt)}</td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{log.userEmail ?? log.userId ?? "-"}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{clientName}</td>
                     <td className="px-4 py-3 text-xs">{event}</td>
                     <td className="px-4 py-3">
                       <p className="text-xs font-medium">{target}</p>
@@ -333,7 +332,7 @@ export function AuditClient({
                   </tr>
                 );
               })}
-              {filteredProxy.length === 0 && <EmptyRow cols={6} message="Nenhum evento de proxy registrado." />}
+              {filteredProxy.length === 0 && <EmptyRow cols={7} message="Nenhum evento de proxy registrado." />}
             </tbody>
           </table>
         </div>

@@ -20,6 +20,7 @@ export default async function ConnectionsPage() {
   const accessibleNamespaces = await prisma.mcpNamespace.findMany({
     where: {
       enabled: true,
+      published: true,
       OR: [
         ...(user.groups && user.groups.length > 0 ? [{ groups: { some: { entraGroupId: { in: user.groups } } } }] : []),
         { users: { some: { id: user.id } } },

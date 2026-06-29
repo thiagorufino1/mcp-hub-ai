@@ -103,7 +103,7 @@ export async function saveNamespace(formData: FormData): Promise<void> {
     throw cause;
   }
   await syncNamespaceToolsForNamespace(savedId);
-  logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: id ? "namespace.update" : "namespace.create", resource: "McpNamespace", resourceId: savedId, metadata: { name: formData.get("name") as string } });
+  await logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: id ? "namespace.update" : "namespace.create", resource: "McpNamespace", resourceId: savedId, metadata: { name: formData.get("name") as string } });
   revalidatePath(`/admin/namespaces/${savedId}`);
   revalidatePath("/admin/namespaces");
 }
@@ -182,7 +182,8 @@ export async function setNamespacePublished(id: string, published: boolean): Pro
 export async function deleteNamespace(id: string): Promise<void> {
   const user = await requireAdmin();
   await prisma.mcpNamespace.delete({ where: { id } });
-  logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "namespace.delete", resource: "McpNamespace", resourceId: id });
+  await logAudit({ userId: user.id, userEmail: user.email ?? undefined, action: "namespace.delete", resource: "McpNamespace", resourceId: id });
+  revalidatePath("/admin/namespaces");
 }
 
 function requiredString(formData: FormData, key: string) {

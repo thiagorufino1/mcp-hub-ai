@@ -12,6 +12,26 @@ type Props = {
   tokens: TokenRow[];
 };
 
+function tokenStatus(expiresAt: Date | null): {
+  label: string;
+  daysLeft: number | null;
+  color: "green" | "yellow" | "red";
+} {
+  if (!expiresAt) return { label: "Sem expiração", daysLeft: null, color: "green" };
+  const now = Date.now();
+  const msLeft = new Date(expiresAt).getTime() - now;
+  const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+  if (daysLeft <= 0) return { label: "Expirado", daysLeft: 0, color: "red" };
+  if (daysLeft <= 30) return { label: `Expira em ${daysLeft}d`, daysLeft, color: "yellow" };
+  return { label: `${daysLeft}d restantes`, daysLeft, color: "green" };
+}
+
+const statusStyles = {
+  green:  "border-[var(--color-success)] bg-[var(--color-success-soft)] text-[var(--color-success)]",
+  yellow: "border-[var(--color-warning)] bg-[var(--color-warning-soft)] text-[var(--color-warning)]",
+  red:    "border-[var(--color-error)] bg-[var(--color-error-soft)] text-[var(--color-error)]",
+};
+
 export function SettingsClient({ tokens }: Props) {
   const [isPending, startTransition] = useTransition();
   const [newToken, setNewToken] = useState<string | null>(null);
@@ -46,7 +66,6 @@ export function SettingsClient({ tokens }: Props) {
         <p className="text-sm text-muted-foreground">Gerencie seus tokens pessoais de acesso ao MCP proxy.</p>
       </div>
 
-      {/* Personal Tokens */}
       <section className="portal-section gap-0 p-0">
         <div className="border-b border-[var(--color-border)] px-4 py-3">
           <h2 className="font-semibold">Tokens Pessoais</h2>
@@ -56,32 +75,79 @@ export function SettingsClient({ tokens }: Props) {
         {tokens.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-muted-foreground">Nenhum token criado ainda.</p>
         ) : (
-          <div className="divide-y divide-[var(--color-border)]">
-            {tokens.map((token) => (
-              <div key={token.id} className="flex items-center justify-between px-4 py-3 hover:bg-[var(--color-surface-muted)]/50">
-                <div>
-                  <p className="text-sm font-medium text-foreground">{token.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Criado em {new Date(token.createdAt).toLocaleDateString("pt-BR")}
-                    {token.lastUsedAt && <> · Último uso {new Date(token.lastUsedAt).toLocaleDateString("pt-BR")}</>}
-                  </p>
-                </div>
-                <form action={async () => { await deleteToken(token.id); }}>
-                  <Button type="submit" variant="ghost" size="sm" className="bg-[var(--color-error-soft)] text-[var(--color-error)] hover:bg-[var(--color-error-soft)] hover:text-[var(--color-error)]">
-                    Revogar
-                  </Button>
-                </form>
-              </div>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-[var(--color-text-secondary)]">
+              <thead>
+                <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface-muted)]/50">
+                  <th className="px-4 py-3 text-left font-medium">Nome</th>
+                  <th className="px-4 py-3 text-left font-medium">Criado em</th>
+                  <th className="px-4 py-3 text-left font-medium">Expira em</th>
+                  <th className="px-4 py-3 text-left font-medium">Status</th>
+                  <th className="px-4 py-3 text-left font-medium">Último uso</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {tokens.map((token) => {
+                  const status = tokenStatus(token.expiresAt);
+                  return (
+                    <tr key={token.id} className="border-t border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]/50">
+                      <td className="px-4 py-3 font-medium text-foreground">{token.name}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {new Date(token.createdAt).toLocaleDateString("pt-BR")}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {token.expiresAt
+                          ? new Date(token.expiresAt).toLocaleDateString("pt-BR")
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${statusStyles[status.color]}`}>
+                          {status.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {token.lastUsedAt
+                          ? new Date(token.lastUsedAt).toLocaleDateString("pt-BR")
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <form action={async () => { await deleteToken(token.id); }}>
+                          <Button type="submit" size="sm" className="bg-[var(--color-error)] text-white hover:bg-[var(--color-error)]/90">
+                            Revogar
+                          </Button>
+                        </form>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
 
-        <div className="border-t border-[var(--color-border)] px-4 py-3">
-          <p className="mb-2.5 text-xs font-medium text-muted-foreground">Gerar novo token</p>
-          <form ref={formRef} action={handleCreate} className="flex gap-2">
-            <div className="flex-1">
+        <div className="border-t border-[var(--color-border)] px-4 py-4">
+          <p className="mb-3 text-xs font-medium text-muted-foreground">Gerar novo token</p>
+          <form ref={formRef} action={handleCreate} className="flex flex-wrap gap-2">
+            <div className="flex-1 min-w-40">
               <Label htmlFor="name" className="sr-only">Nome do token</Label>
               <Input id="name" name="name" placeholder="Ex.: VS Code pessoal" required />
+            </div>
+            <div>
+              <Label htmlFor="expiry" className="sr-only">Expiração</Label>
+              <select
+                id="expiry"
+                name="expiry"
+                required
+                defaultValue=""
+                className="h-9 rounded-xl border border-[var(--color-border)] bg-white dark:bg-[var(--color-surface-muted)] px-3 text-sm text-[var(--color-text-secondary)] shadow-[0_1px_4px_rgba(15,23,42,0.06)] focus-visible:border-[var(--color-primary)] focus-visible:outline-none"
+              >
+                <option value="" disabled>Expiração</option>
+                <option value="30d">30 dias</option>
+                <option value="90d">90 dias</option>
+                <option value="180d">180 dias</option>
+                <option value="365d">1 ano</option>
+              </select>
             </div>
             <Button type="submit" disabled={isPending}>
               {isPending ? "Gerando…" : "Gerar"}
@@ -91,7 +157,6 @@ export function SettingsClient({ tokens }: Props) {
         </div>
       </section>
 
-      {/* Token dialog */}
       <Dialog open={!!newToken} onOpenChange={(o) => { if (!o) setNewToken(null); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>

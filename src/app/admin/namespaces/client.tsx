@@ -134,13 +134,13 @@ export function NamespacesAdminClient({
       <div className="portal-table-shell overflow-x-auto">
         <table className="w-full min-w-[1240px] table-fixed text-left text-sm text-[var(--color-text-secondary)]">
           <colgroup>
-            <col className="w-[28%]" />
-            <col className="w-[12%]" />
-            <col className="w-[10%]" />
-            <col className="w-[10%]" />
-            <col className="w-[10%]" />
             <col className="w-[22%]" />
+            <col className="w-[10%]" />
             <col className="w-[8%]" />
+            <col className="w-[8%]" />
+            <col className="w-[8%]" />
+            <col className="w-[32%]" />
+            <col className="w-[12%]" />
           </colgroup>
           <thead>
             <tr>
@@ -224,7 +224,7 @@ export function NamespacesAdminClient({
                     </p>
                     <button
                       type="button"
-                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-0 leading-none text-muted-foreground transition-[background-color,color] duration-150 hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)] focus-visible:bg-[var(--color-primary-soft)] focus-visible:text-[var(--color-primary)]"
+                      className="shrink-0 rounded p-1 text-muted-foreground transition hover:bg-[var(--color-surface-muted)] hover:text-foreground"
                       aria-label={`Copy endpoint for ${ns.name}`}
                       onClick={async () => {
                         await navigator.clipboard.writeText(
@@ -235,9 +235,9 @@ export function NamespacesAdminClient({
                       }}
                     >
                       {copiedId === ns.id ? (
-                        <Check className="size-4" aria-hidden="true" />
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--color-success)]"><polyline points="20 6 9 17 4 12"/></svg>
                       ) : (
-                        <Copy className="size-4" aria-hidden="true" />
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
                       )}
                     </button>
                   </div>
@@ -246,7 +246,7 @@ export function NamespacesAdminClient({
                   <div className="flex items-center justify-center gap-1">
                     <Link
                       href={`/admin/namespaces/${ns.id}`}
-                      className="inline-flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-0 leading-none text-muted-foreground transition-[background-color,color] duration-150 hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)] focus-visible:bg-[var(--color-primary-soft)] focus-visible:text-[var(--color-primary)]"
+                      className="inline-flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full p-0 leading-none text-muted-foreground transition-[background-color,color] duration-150 hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)] focus-visible:bg-[var(--color-primary-soft)] focus-visible:text-[var(--color-primary)]"
                       title="Edit"
                       aria-label={`Edit ${ns.name}`}
                     >
@@ -263,7 +263,7 @@ export function NamespacesAdminClient({
                       <button
                         type="submit"
                         disabled={isDeleting}
-                        className="inline-flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-0 leading-none text-[var(--color-error)] transition-[background-color,color] duration-150 hover:bg-[var(--color-error-soft)] hover:text-[var(--color-error)] focus-visible:bg-[var(--color-error-soft)] focus-visible:text-[var(--color-error)]"
+                        className="inline-flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full p-0 leading-none text-[var(--color-error)] transition-[background-color,color] duration-150 hover:bg-[var(--color-error-soft)] hover:text-[var(--color-error)] focus-visible:bg-[var(--color-error-soft)] focus-visible:text-[var(--color-error)]"
                         title="Delete"
                       >
                         <Trash2 className="size-4" aria-hidden="true" />

@@ -93,10 +93,9 @@ export async function POST(request: Request) {
     session.user.id,
   );
 
-  // LLM config: corporate DB config takes precedence over client-provided.
+  // LLM config: only use corporate DB config. Client-provided llmConfig is ignored for security.
   // corporateContext.llmConfig is already a resolved LLMConfig (built by getUserContext with selectedModel applied).
-  const resolvedLlmConfig: LLMConfig | null =
-    corporateContext.llmConfig ?? (body.llmConfig as LLMConfig | undefined ?? null);
+  const resolvedLlmConfig: LLMConfig | null = corporateContext.llmConfig ?? null;
 
   const effectiveBody: EffectiveBody = {
     ...body,
@@ -366,6 +365,7 @@ function buildAiSdkTools(
               ? (input as Record<string, unknown>)
               : {};
           const argsText = JSON.stringify(args);
+          const redactedArgsText = JSON.stringify(redactSensitiveArgs(args));
 
           emitEvent({
             type: "tool_start",
@@ -373,8 +373,8 @@ function buildAiSdkTools(
             requestId,
             tool: executableTool.displayName,
             title: `Running ${executableTool.displayName}`,
-            argsText,
-            reason: `Server ${executableTool.server.name}. Args: ${truncate(argsText || "{}", 180)}`,
+            argsText: redactedArgsText,
+            reason: `Server ${executableTool.server.name}. Args: ${truncate(redactedArgsText || "{}", 180)}`,
           });
 
           try {
@@ -390,13 +390,19 @@ function buildAiSdkTools(
             );
             const resultText = extractToolResultText(mcpResult);
             const status = resultIndicatesError(mcpResult) ? "error" : "success";
+            // Redact sensitive patterns in the SSE summary shown to the UI.
+            // The actual mcpResult passed to buildToolConversationContent is unredacted
+            // so the LLM receives the full data it needs to function correctly.
+            const redactedSummary = typeof resultText === "string"
+              ? (redactToolResult(resultText) as string)
+              : resultText;
 
             emitEvent({
               type: "tool_end",
               id: toolEventId,
               requestId,
               status,
-              summary: truncate(resultText, 15000),
+              summary: truncate(redactedSummary, 15000),
             });
 
             return buildToolConversationContent(mcpResult);
@@ -518,8 +524,12 @@ function streamSingleEvent(event: ChatStreamEvent, status = 200) {
 }
 
 function buildExecutableTools(mcpServers: McpServerConfig[]): ExecutableTool[] {
-  return mcpServers.flatMap((server) =>
-    (server.approvalMode === "always" ? server.tools : []).map((toolDefinition) => ({
+  return mcpServers.flatMap((server) => {
+    const tools = server.approvalMode === "always" ? server.tools : [];
+    const filtered = server.allowedToolNames
+      ? tools.filter((t) => server.allowedToolNames!.includes(t.name))
+      : tools;
+    return filtered.map((toolDefinition) => ({
       displayName: toolDefinition.name,
       functionName: buildToolFunctionName(server.id, toolDefinition.name),
       inputSchema:
@@ -531,14 +541,12 @@ function buildExecutableTools(mcpServers: McpServerConfig[]): ExecutableTool[] {
       server,
       toolDescription: toolDefinition.description,
       permissionMode: toolDefinition.permissionMode ?? "allow",
-    })),
-  );
+    }));
+  });
 }
 
 function buildToolFunctionName(serverId: string, toolName: string) {
-  const enc = (v: string) => Buffer.from(v, "utf8").toString("hex");
-  const sig = createHash("sha256").update(`${serverId}\0${toolName}`).digest("hex").slice(0, 12);
-  return `mcp_${enc(serverId)}_${enc(toolName)}_${sig}`;
+  return "mcp_" + createHash("sha256").update(`${serverId}\0${toolName}`).digest("hex").slice(0, 60);
 }
 
 function buildMcpContext(mcpServers: McpServerConfig[]) {
@@ -631,9 +639,50 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function redactSensitiveArgs(args: Record<string, unknown>): Record<string, unknown> {
+  const sensitivePattern = /password|secret|token|key|auth|credential/i;
+  return Object.fromEntries(
+    Object.entries(args).map(([k, v]) => [k, sensitivePattern.test(k) ? "[REDACTED]" : v]),
+  );
+}
+
+const BEARER_PATTERN = /Bearer\s+[A-Za-z0-9\-._~+/]+=*/g;
+const API_KEY_PATTERN = /\bsk-[A-Za-z0-9]{8,}\b/g;
+const SENSITIVE_KEY_PATTERN = /password|secret|token|key|auth|credential|authorization/i;
+
+/** Redact bearer tokens and API keys from a string */
+function redactStringResult(value: string): string {
+  return value
+    .replace(BEARER_PATTERN, "Bearer [REDACTED]")
+    .replace(API_KEY_PATTERN, "[REDACTED]");
+}
+
+/** Recursively redact sensitive values from an object for display in SSE tool_end summary */
+function redactToolResult(result: unknown): unknown {
+  if (typeof result === "string") {
+    return redactStringResult(result);
+  }
+  if (Array.isArray(result)) {
+    return result.map(redactToolResult);
+  }
+  if (result !== null && typeof result === "object") {
+    return Object.fromEntries(
+      Object.entries(result as Record<string, unknown>).map(([k, v]) => [
+        k,
+        SENSITIVE_KEY_PATTERN.test(k) ? "[REDACTED]" : redactToolResult(v),
+      ]),
+    );
+  }
+  return result;
+}
+
 function sanitizePromptValue(value: unknown, limit: number) {
   if (typeof value !== "string") return "";
-  return value
+  // Normalize Unicode and remove zero-width/invisible characters before further sanitization
+  const normalized = value
+    .normalize("NFC")
+    .replace(/[​-‍﻿‎‏‪-‮⁠-⁤]/g, "");
+  return normalized
     .replace(/[\r\n\t]+/g, " ")
     .replace(/[<>{}[\]`]/g, "")
     .replace(/\s{2,}/g, " ")

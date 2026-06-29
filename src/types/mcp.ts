@@ -55,6 +55,8 @@ export type McpServerConfig = {
   approvalMode: McpApprovalMode;
   requiresUserAuthorization?: boolean;
   userAuthorizationStatus?: "connected" | "required";
+  /** null = all tools allowed; string[] = only these tool names (aliases) are enabled in this namespace */
+  allowedToolNames?: string[] | null;
 };
 
 export type McpInspectResponse = {

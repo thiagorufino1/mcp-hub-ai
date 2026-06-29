@@ -37,6 +37,24 @@ export async function POST(request: Request) {
     );
   }
 
+  const invalidUri = redirectUris.find((uri) => {
+    if (uri.includes("#")) return true; // RFC 6749 §3.1.2: no fragments
+    let parsed: URL;
+    try { parsed = new URL(uri); } catch { return true; }
+    if (parsed.protocol === "https:") return false;
+    if (parsed.protocol === "http:" &&
+        (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1" || parsed.hostname === "::1")) {
+      return false;
+    }
+    return true;
+  });
+  if (invalidUri) {
+    return Response.json(
+      { error: "invalid_redirect_uri", error_description: "redirect_uris must use https:// or http://localhost." },
+      { status: 400 },
+    );
+  }
+
   const grantTypes = Array.isArray(b.grant_types)
     ? (b.grant_types as unknown[]).filter((g): g is string => typeof g === "string")
     : ["authorization_code", "refresh_token"];

@@ -174,7 +174,7 @@ async function loadPolicy(serverId: string, toolName: string): Promise<RuntimePo
     circuitState: "closed",
     consecutiveFailures: 0,
     failureThreshold: 3,
-    maxConcurrentCalls: 5,
+    maxConcurrentCalls: 0,
     maxRetries: 0,
     rateLimitRequests: 60,
     rateLimitWindowMs: 60_000,

@@ -12,6 +12,12 @@ export async function POST(request: Request) {
       headers: { "Content-Type": "application/json" },
     });
   }
+  if (!session.user?.isAdmin) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   let body: unknown;
   try {

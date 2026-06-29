@@ -44,15 +44,25 @@ export type AuditAction =
   // Auth
   | "user.login";
 
-export function logAudit(params: {
+export const ADMIN_ACTIVITY_ACTIONS = [
+  "mcp.create", "mcp.update", "mcp.delete", "mcp.enable", "mcp.disable",
+  "mcp.refresh", "mcp.tool.enable", "mcp.tool.disable", "mcp.tool.permission",
+  "namespace.mcp.add", "namespace.mcp.remove", "namespace.group.add",
+  "namespace.group.remove", "namespace.access.update", "namespace.create",
+  "namespace.update", "namespace.delete", "namespace.tool.enable", "namespace.tool.disable",
+  "llm.create", "llm.update", "llm.default", "llm.delete",
+  "group.upsert", "group.delete",
+] as const satisfies AuditAction[];
+
+export async function logAudit(params: {
   userId?: string;
   userEmail?: string;
   action: AuditAction;
   resource: string;
   resourceId?: string;
   metadata?: InputJsonValue;
-}): void {
-  void prisma.auditLog
+}): Promise<void> {
+  await prisma.auditLog
     .create({
       data: {
         userId: params.userId ?? null,

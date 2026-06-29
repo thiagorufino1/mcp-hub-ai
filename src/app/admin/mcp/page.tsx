@@ -58,13 +58,19 @@ export default async function AdminMcpPage() {
 
   return (
     <McpAdminClient
-      mcps={mcps.map((mcp) => ({
-        ...mcp,
-        env: decryptSecretJson(mcp.env),
-        headers: decryptSecretJson(mcp.headers),
-        oauthClientSecret: null,
-        sharedSecret: null,
-      })) satisfies McpServerRow[]}
+      mcps={mcps.map((mcp) => {
+        const decryptedEnv = decryptSecretJson(mcp.env);
+        const decryptedHeaders = decryptSecretJson(mcp.headers);
+        return {
+          ...mcp,
+          env: {},
+          headers: {},
+          envKeys: Object.keys(decryptedEnv),
+          headerKeys: Object.keys(decryptedHeaders),
+          oauthClientSecret: null,
+          sharedSecret: null,
+        };
+      }) satisfies McpServerRow[]}
       stats={stats}
     />
   );

@@ -234,12 +234,12 @@ export function ConnectionsClient({ items, namespaces, proxyUrl }: { items: Conn
                     <td className="px-4 py-4 text-center">
                       {isOAuth && (
                         status === "connected" ? (
-                          <Button size="sm" variant="ghost" className="bg-[var(--color-error-soft)] text-[var(--color-error)] hover:bg-[var(--color-error-soft)] hover:text-[var(--color-error)]" onClick={() => void disconnect(item.id)}>
-                            Disconnect
+                          <Button size="sm" className="bg-[var(--color-error)] text-white hover:bg-[var(--color-error)]/90" onClick={() => void disconnect(item.id)}>
+                            Desvincular
                           </Button>
                         ) : (
                           <Button size="sm" disabled={status === "pending"} onClick={() => void connect(item.id)}>
-                            {status === "expired" ? "Reconnect" : "Connect"}
+                            {status === "expired" ? "Reconectar" : "Conectar"}
                           </Button>
                         )
                       )}
@@ -317,7 +317,6 @@ export function ConnectionsClient({ items, namespaces, proxyUrl }: { items: Conn
           <code className="flex-1 truncate text-xs text-muted-foreground">{proxyUrl}</code>
           <Button
             size="sm"
-            variant="outline"
             className="shrink-0 text-xs"
             onClick={() => void navigator.clipboard.writeText(proxyUrl)}
           >

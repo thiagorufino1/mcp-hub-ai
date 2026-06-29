@@ -18,3 +18,10 @@ export async function requireAdmin(): Promise<Session["user"]> {
   if (!user.isAdmin) redirect("/chat");
   return user;
 }
+
+export async function requireAdminApi(): Promise<Session["user"] | Response> {
+  const session = await auth();
+  if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session.user.isAdmin) return Response.json({ error: "Forbidden" }, { status: 403 });
+  return session.user;
+}

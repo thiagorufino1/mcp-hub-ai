@@ -192,6 +192,7 @@ model PersonalToken {
   name       String
   tokenHash  String    @unique
   lastUsedAt DateTime?
+  expiresAt  DateTime?
   createdAt  DateTime  @default(now())
 }
 

@@ -41,6 +41,7 @@ type McpDetail = {
   args: string[];
   url: string | null;
   headers: Record<string, string>;
+  headerKeys: string[];
   enabled: boolean;
   authType: string;
   healthStatus: string;
@@ -142,7 +143,9 @@ export function McpServerDetailClient({ mcp }: { mcp: McpDetail }) {
     args: mcp.args,
     url: mcp.url,
     env: {},
-    headers: mcp.headers,
+    headers: {},
+    envKeys: [],
+    headerKeys: mcp.headerKeys,
     authType: mcp.authType,
     sharedSecret: null,
     oauthClientId: null,

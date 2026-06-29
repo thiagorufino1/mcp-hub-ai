@@ -41,6 +41,7 @@ export default async function AdminDashboardPage() {
     topTools,
     avgLatency,
     bySource,
+    topClients,
   ] = await Promise.all([
     prisma.mcpServer.count(),
     prisma.mcpNamespace.count(),
@@ -108,6 +109,18 @@ export default async function AdminDashboardPage() {
       _count: { id: true },
       where: { createdAt: { gte: fourteenDaysAgo } },
     }),
+    prisma.$queryRaw<Array<{ clientName: string; count: number }>>`
+      SELECT
+        COALESCE(metadata->>'clientName', 'unknown') AS "clientName",
+        COUNT(*)::int AS count
+      FROM "AuditLog"
+      WHERE action = 'mcp.namespace'
+        AND metadata->>'event' = 'client_connect'
+        AND "createdAt" >= ${fourteenDaysAgo}
+      GROUP BY COALESCE(metadata->>'clientName', 'unknown')
+      ORDER BY count DESC
+      LIMIT 8
+    `,
   ]);
 
   const execMap = new Map<string, number>();
@@ -218,7 +231,7 @@ export default async function AdminDashboardPage() {
         )}
       </section>
 
-      {(topTools.length > 0 || avgLatency.length > 0 || bySource.length > 0) && (
+      {(topTools.length > 0 || avgLatency.length > 0 || bySource.length > 0 || topClients.length > 0) && (
         <div className="grid gap-4 md:grid-cols-3">
           {topTools.length > 0 && (
             <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_8px_24px_rgba(17,63,124,0.04)]">
@@ -254,6 +267,19 @@ export default async function AdminDashboardPage() {
                   <div key={s.source} className="flex items-center justify-between gap-2">
                     <span className="capitalize text-[12px] text-[var(--color-text-secondary)]">{s.source}</span>
                     <span className="shrink-0 text-[11px] font-semibold text-[var(--color-primary)]">{s._count.id}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+          {topClients.length > 0 && (
+            <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_8px_24px_rgba(17,63,124,0.04)]">
+              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Top Clientes MCP (14d)</p>
+              <div className="flex flex-col gap-2">
+                {topClients.map((c) => (
+                  <div key={c.clientName} className="flex items-center justify-between gap-2">
+                    <span className="truncate font-mono text-[12px] text-[var(--color-text-secondary)]">{c.clientName}</span>
+                    <span className="shrink-0 text-[11px] font-semibold text-[var(--color-primary)]">{c.count}</span>
                   </div>
                 ))}
               </div>

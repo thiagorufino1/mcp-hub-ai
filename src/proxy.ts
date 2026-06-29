@@ -24,6 +24,11 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
+  // Return 401 JSON for unauthenticated API requests
+  if (!isAuthenticated && pathname.startsWith("/api/")) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   // Redirect unauthenticated users to login
   if (!isAuthenticated) {
     const loginUrl = new URL("/login", nextUrl.origin);

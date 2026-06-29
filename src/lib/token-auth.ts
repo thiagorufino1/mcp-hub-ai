@@ -31,6 +31,7 @@ export async function resolveTokenUser(
   });
 
   if (!record) return null;
+  if (record.expiresAt && record.expiresAt < new Date()) return null;
 
   // Update lastUsedAt asynchronously - don't block the response
   void prisma.personalToken

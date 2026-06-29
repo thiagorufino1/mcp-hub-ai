@@ -82,10 +82,39 @@ async function handleNamespaceRequest(
 
   const traceId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const tools = new Map(namespace.tools.map((tool) => [tool.alias, tool]));
+  const userAgent = request.headers.get("user-agent") ?? undefined;
+
+  // clientName resolved in order: MCP initialize clientInfo → User-Agent → unknown
+  let clientName: string = userAgent ?? "unknown";
+  let clientVersion: string | undefined;
+
   const server = new Server(
     { name: `${alias}-mcp-server`, version: "1.0.0" },
     { capabilities: { tools: {} } },
   );
+
+  server.oninitialized = () => {
+    const info = server.getClientVersion();
+    if (info?.name) {
+      clientName = info.name;
+      clientVersion = info.version;
+    }
+    logAudit({
+      userId: tokenUser.userId,
+      userEmail: tokenUser.userEmail ?? undefined,
+      action: "mcp.namespace",
+      resource: "McpNamespace",
+      resourceId: namespace.id,
+      metadata: {
+        alias,
+        traceId,
+        event: "client_connect",
+        clientName,
+        clientVersion: clientVersion ?? null,
+        userAgent: userAgent ?? null,
+      },
+    });
+  };
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     logAudit({
@@ -99,7 +128,9 @@ async function handleNamespaceRequest(
           traceId,
           method: request.method,
           toolCount: namespace.tools.length,
-        event: "discovery_tools",
+          clientName,
+          clientVersion: clientVersion ?? null,
+          event: "discovery_tools",
       },
     });
 
@@ -139,6 +170,8 @@ async function handleNamespaceRequest(
           method: request.method,
           toolName: toolRequest.params.name,
           event: "tool_used",
+          clientName,
+          clientVersion: clientVersion ?? null,
         },
       });
 

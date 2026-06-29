@@ -33,7 +33,7 @@ type Props = {
 };
 
 type ArgItem = { id: string; value: string };
-type KeyValueItem = { id: string; key: string; value: string };
+type KeyValueItem = { id: string; key: string; value: string; isExisting?: boolean };
 
 function listItems(values: string[]): ArgItem[] {
   return values.map((value) => ({ id: crypto.randomUUID(), value }));
@@ -44,6 +44,16 @@ function keyValueItems(values: Record<string, string>): KeyValueItem[] {
     id: crypto.randomUUID(),
     key,
     value,
+  }));
+}
+
+/** Build key-value items from key names only, with empty value placeholders (for editing existing secrets) */
+function keyValueItemsFromKeys(keys: string[]): KeyValueItem[] {
+  return keys.map((key) => ({
+    id: crypto.randomUUID(),
+    key,
+    value: "",
+    isExisting: true,
   }));
 }
 
@@ -70,10 +80,14 @@ export function McpForm({ open, onClose, mcp }: Props) {
   );
   const [args, setArgs] = useState<ArgItem[]>(() => listItems(mcp?.args ?? []));
   const [envItems, setEnvItems] = useState<KeyValueItem[]>(() =>
-    keyValueItems(mcp?.env ?? {}),
+    mcp
+      ? keyValueItemsFromKeys(mcp.envKeys ?? Object.keys(mcp.env ?? {}))
+      : [],
   );
   const [headerItems, setHeaderItems] = useState<KeyValueItem[]>(() =>
-    keyValueItems(mcp?.headers ?? {}),
+    mcp
+      ? keyValueItemsFromKeys(mcp.headerKeys ?? Object.keys(mcp.headers ?? {}))
+      : [],
   );
   const [enabled, setEnabled] = useState(mcp?.enabled ?? true);
   const [isPending, startTransition] = useTransition();
@@ -475,20 +489,22 @@ function KeyValueRows({
           <Input
             aria-label="Key"
             value={item.key}
+            readOnly={item.isExisting}
             onChange={(event) =>
               onChange(items.map((entry) =>
                 entry.id === item.id ? { ...entry, key: event.target.value } : entry,
               ))
             }
-            className={cn(fieldClass, "font-mono text-[12px] sm:w-[190px]")}
+            className={cn(fieldClass, "font-mono text-[12px] sm:w-[190px]", item.isExisting && "opacity-70")}
           />
           <span className="hidden text-muted-foreground sm:inline">=</span>
           <Input
             aria-label="Value"
             value={item.value}
+            placeholder={item.isExisting ? "••••••  (leave blank to keep current)" : undefined}
             onChange={(event) =>
               onChange(items.map((entry) =>
-                entry.id === item.id ? { ...entry, value: event.target.value } : entry,
+                entry.id === item.id ? { ...entry, value: event.target.value, isExisting: false } : entry,
               ))
             }
             className={cn(fieldClass, "flex-1 font-mono text-[12px]")}

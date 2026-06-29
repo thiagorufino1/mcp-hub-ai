@@ -11,7 +11,7 @@ import type {
   McpServerConfig,
 } from "@/types/mcp";
 
-const DEFAULT_CACHE_TTL_MS = 5 * 60 * 1000;
+const DEFAULT_CACHE_TTL_MS = 2 * 60 * 1000;
 
 type ResolveOptions = {
   forceRefresh?: boolean;
@@ -154,9 +154,11 @@ export async function isRegisteredToolEnabled(
 ) {
   const record = await prisma.mcpToolRegistry.findUnique({
     where: { mcpServerId_name: { mcpServerId, name: toolName } },
-    select: { enabled: true },
+    select: { enabled: true, permissionMode: true },
   });
-  return record?.enabled ?? false;
+  if (!record) return false;
+  if (record.permissionMode === "blocked") return false;
+  return record.enabled;
 }
 
 async function persistToolSnapshot(

@@ -52,11 +52,46 @@ export async function getUserContext(
       command: string | null; args: string[]; url: string | null;
       env: unknown; headers: unknown; authType: string; sharedSecret: string | null; enabled: boolean;
     }>();
+    // Track allowed tool aliases per server (null = unrestricted, string[] = explicit allow-list).
+    // A server appearing in multiple namespaces has the union of each namespace's enabled tools.
+    // If any namespace grants it without namespace-level tool restrictions, all tools are allowed.
+    const serverAllowedTools = new Map<string, Set<string> | null>();
     const modelSet = new Set<string>();
 
     for (const ns of accessibleNamespaces) {
+      // Fetch enabled NamespaceTool entries for this namespace, with registryTool.mcpServerId
+      const namespaceTools = await prisma.namespaceTool.findMany({
+        where: { namespaceId: ns.id, enabled: true },
+        select: { alias: true, registryTool: { select: { mcpServerId: true } } },
+      });
+
+      // Build a map of mcpServerId -> set of enabled aliases for this namespace
+      const nsToolsByServer = new Map<string, Set<string>>();
+      for (const nt of namespaceTools) {
+        const sid = nt.registryTool.mcpServerId;
+        if (!nsToolsByServer.has(sid)) nsToolsByServer.set(sid, new Set());
+        nsToolsByServer.get(sid)!.add(nt.alias);
+      }
+
       for (const entry of ns.servers) {
-        mcpMap.set(entry.mcpServer.id, entry.mcpServer);
+        const sid = entry.mcpServer.id;
+        mcpMap.set(sid, entry.mcpServer);
+
+        const nsAllowed = nsToolsByServer.get(sid);
+        if (nsAllowed === undefined) {
+          // This namespace has no NamespaceTool rows for this server — no restriction from here
+          serverAllowedTools.set(sid, null);
+        } else if (serverAllowedTools.get(sid) === null) {
+          // Already unrestricted from a prior namespace — keep null
+        } else {
+          // Merge: union of all enabled tool aliases across namespaces
+          const existing = serverAllowedTools.get(sid);
+          if (existing === undefined) {
+            serverAllowedTools.set(sid, new Set(nsAllowed));
+          } else if (existing !== null) {
+            for (const alias of nsAllowed) existing.add(alias);
+          }
+        }
       }
     }
 
@@ -88,9 +123,13 @@ export async function getUserContext(
         : undefined;
 
     return {
-      mcpServers: [...mcpMap.values()].map((mcp) =>
-        dbMcpToConfig(mcp, delegatedHeaders.get(mcp.id)),
-      ),
+      mcpServers: [...mcpMap.values()].map((mcp) => {
+        const allowed = serverAllowedTools.get(mcp.id);
+        const allowedToolNames = allowed === null || allowed === undefined
+          ? null
+          : [...allowed];
+        return { ...dbMcpToConfig(mcp, delegatedHeaders.get(mcp.id)), allowedToolNames };
+      }),
       allowedModels: [...modelSet],
       llmConfig: resolvedLlm ? buildLlmConfig(resolvedLlm, validatedModel) : null,
       llmConfigId: resolvedLlm?.id ?? null,
