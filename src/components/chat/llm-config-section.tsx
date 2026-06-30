@@ -8,7 +8,7 @@ import { LlmConfigDialog } from "./llm-config-dialog";
 import { ProviderLogo } from "@/components/setup/provider-logo";
 import { getProviderMeta } from "@/components/setup/provider-selector";
 import { Button } from "@/components/ui/button";
-import { removeSessionValue, SESSION_LLM_CONFIG_KEY, writeSessionJson } from "./storage";
+import { removeSessionValue, SESSION_LLM_CONFIG_KEY, writeLLMConfig } from "./storage";
 import { formatTokenCount } from "@/lib/utils";
 import { LLM_CONFIGURED_COOKIE } from "@/types/llm-config";
 import type { LLMConfig } from "@/types/llm-config";
@@ -39,7 +39,7 @@ export function LlmConfigSection({ value, onChange, usageTotals, usageState }: P
   async function handleSave(config: LLMConfig) {
     setIsSaving(true);
     try {
-      writeSessionJson(SESSION_LLM_CONFIG_KEY, config);
+      writeLLMConfig(config);
       document.cookie = `${LLM_CONFIGURED_COOKIE}=1; path=/; max-age=31536000`;
       onChange(config);
     } finally {

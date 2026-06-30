@@ -8,7 +8,7 @@ import { useAppPreferences } from "@/components/providers/app-preferences-provid
 import { MessageComposer } from "@/components/chat/message-composer";
 import { SidebarDrawer } from "@/components/chat/sidebar-drawer";
 import { PortalHeader } from "@/components/layout/portal-header";
-import { SESSION_LLM_CONFIG_KEY, readSessionJson } from "./storage";
+import { SESSION_LLM_CONFIG_KEY, readSessionJson, isCompleteLLMConfig } from "./storage";
 import { parseStreamChunks } from "@/lib/chat-stream";
 import type { ChatStreamEvent, Message, ToolEvent } from "@/types/chat";
 import type { LLMConfig } from "@/types/llm-config";
@@ -205,8 +205,8 @@ export function ChatShell({
 
   useEffect(() => {
     try {
-      const stored = readSessionJson<LLMConfig>(SESSION_LLM_CONFIG_KEY);
-      if (stored) {
+      const stored = readSessionJson<unknown>(SESSION_LLM_CONFIG_KEY);
+      if (isCompleteLLMConfig(stored)) {
         setLlmConfig(stored);
       }
     } catch {

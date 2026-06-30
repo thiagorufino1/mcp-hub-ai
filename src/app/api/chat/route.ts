@@ -323,7 +323,13 @@ function buildConversation(
   let filePrompt: string | undefined;
   try {
     const raw = readFileSync(join(process.cwd(), "config/system-prompt.md"), "utf-8");
-    const stripped = raw.replace(/<!--[\s\S]*?-->/g, "").trim();
+    let stripped = raw;
+    let prev: string;
+    do {
+      prev = stripped;
+      stripped = stripped.replace(/<!--[\s\S]*?-->/g, "");
+    } while (stripped !== prev);
+    stripped = stripped.trim();
     if (stripped) filePrompt = stripped;
   } catch {}
 
