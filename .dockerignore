@@ -57,8 +57,10 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 
-# Docs and scratch
+# Docs, tests and scratch
 docs/
+tests/
+scripts/
 RELEASE_AGENT_GUIDE.md
 jira.md
 tmp/
