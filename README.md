@@ -1,4 +1,4 @@
-# 🧠 MCP Hub
+# MCP Hub
 
 Interface web para gerenciar servidores MCP e testar provedores de LLM. Conecte modelos a ferramentas, inspecione tráfego, publique namespaces e exponha um proxy MCP protegido por OAuth para outros clientes.
 
