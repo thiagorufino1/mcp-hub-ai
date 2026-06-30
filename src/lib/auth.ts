@@ -12,6 +12,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       issuer: process.env.AZURE_AD_TENANT_ID
         ? `https://login.microsoftonline.com/${process.env.AZURE_AD_TENANT_ID}/v2.0`
         : undefined,
+      allowDangerousEmailAccountLinking: true,
       authorization: {
         params: {
           scope: "openid profile email User.Read",
