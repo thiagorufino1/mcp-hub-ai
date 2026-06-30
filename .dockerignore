@@ -1,6 +1,68 @@
+# Dependencies
+node_modules/
+
+# Next.js build output
+.next/
+out/
+next-env.d.ts
+
+# Environment files
 .env
-.env.local
-.env.*.local
-*.env
-node_modules
-.git
+.env.*
+.envrc
+!.env.example
+
+# Version control
+.git/
+.gitignore
+
+# Package artifacts
+*.tgz
+.npm-package/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Tooling caches
+.turbo/
+.vercel/
+.cache/
+.eslintcache
+npm-cache/
+.npm/
+
+# IDEs and local tooling
+.idea/
+.vscode/
+.claude/
+.playwright-mcp/
+.playwright-cli/
+.superpowers/
+
+# Test and browser artifacts
+playwright-report/
+test-results/
+lighthouse-*.json
+playwright-*.png
+*.trace
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Docs and scratch
+docs/
+RELEASE_AGENT_GUIDE.md
+jira.md
+tmp/
+temp/
+
+# Prisma generated client
+src/generated/prisma

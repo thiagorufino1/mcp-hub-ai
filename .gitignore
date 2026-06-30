@@ -69,3 +69,7 @@ docs/superpowers/
 # MCP connector local configs (user-specific, not for version control)
 *.mcp.config.usrlocal.*
 mcpServer.mcp.config.usrlocal.*
+
+# Local config overrides (user-specific overrides, not for version control)
+config/*.local.md
+config/*.local.json
