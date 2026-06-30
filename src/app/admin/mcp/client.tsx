@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { McpForm } from "@/components/admin/mcp-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import {
   Activity,
@@ -15,6 +16,7 @@ import {
   Download,
   Upload,
   LoaderCircle,
+  PencilLine,
   Plus,
   RefreshCw,
   Search,
@@ -77,7 +79,7 @@ export function McpAdminClient({ mcps, stats }: Props) {
     <div className="portal-page">
       <div className="portal-page-heading">
         <h1 className="text-2xl font-bold">MCP Servers</h1>
-        <p className="text-sm text-muted-foreground">Connections, registry health and runtime governance.</p>
+        <p className="text-sm text-muted-foreground">Gerencie os MCP Servers publicados no ambiente.</p>
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
@@ -85,28 +87,28 @@ export function McpAdminClient({ mcps, stats }: Props) {
           icon={Cable}
           label="Servidores"
           value={`${stats.enabledServers}/${stats.total}`}
-          sub="enabled servers"
+          sub="servidores ativos"
           tone={stats.enabledServers < stats.total ? "neutral" : "success"}
         />
         <McpKpiCard
           icon={Wrench}
           label="Tools"
           value={String(stats.activeTools)}
-          sub={`${stats.totalTools} configured`}
+          sub={`${stats.totalTools} configuradas`}
           tone="info"
         />
         <McpKpiCard
           icon={RefreshCw}
           label="Execuções de tools (14d)"
           value={String(stats.execTotal)}
-          sub="tool executions"
+          sub="execuções de tools"
           tone={stats.execTotal > 0 ? "success" : "neutral"}
         />
         <McpKpiCard
           icon={Activity}
           label="Latência P95 (14d)"
           value={`${stats.execP95Ms} ms`}
-          sub="tool executions"
+          sub="execuções de tools"
           tone="neutral"
         />
       </div>
@@ -121,8 +123,8 @@ export function McpAdminClient({ mcps, stats }: Props) {
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search MCP servers..."
-            aria-label="Search MCP servers"
+            placeholder="Buscar servidores MCP..."
+            aria-label="Buscar servidores MCP"
             className="h-9 pl-9 text-[var(--color-text-secondary)]"
           />
         </div>
@@ -137,7 +139,7 @@ export function McpAdminClient({ mcps, stats }: Props) {
           </Button>
           <Button className="h-9 gap-1.5" onClick={() => setForm({ open: true })}>
             <Plus className="size-4" />
-            Add
+            Adicionar
           </Button>
         </div>
       </div>
@@ -155,13 +157,13 @@ export function McpAdminClient({ mcps, stats }: Props) {
           </colgroup>
           <thead>
             <tr>
-              <th className="px-4 py-3 font-medium">Server</th>
+              <th className="px-4 py-3 font-medium">Servidor</th>
               <th className="px-4 py-3 text-center font-medium">Status</th>
-              <th className="px-4 py-3 text-center font-medium">Transport</th>
-              <th className="px-4 py-3 text-center font-medium">Latency</th>
+              <th className="px-4 py-3 text-center font-medium">Transporte</th>
+              <th className="px-4 py-3 text-center font-medium">Latência</th>
               <th className="px-4 py-3 text-center font-medium">Tools</th>
-              <th className="px-4 py-3 text-center font-medium">Enabled</th>
-              <th className="px-4 py-3 text-center font-medium">Actions</th>
+              <th className="px-4 py-3 text-center font-medium">Ativo</th>
+              <th className="px-4 py-3 text-center font-medium">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -172,12 +174,12 @@ export function McpAdminClient({ mcps, stats }: Props) {
               <tr>
                 <td colSpan={7} className="px-4 py-12 text-center">
                   <p className="font-semibold">
-                    {mcps.length === 0 ? "No MCP servers configured" : "No MCP servers found"}
+                    {mcps.length === 0 ? "Nenhum servidor MCP configurado" : "Nenhum servidor MCP encontrado"}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {mcps.length === 0
-                      ? "Add the first server to populate the MCP tool registry."
-                      : "Try searching by server name, endpoint or transport."}
+                      ? "Adicione o primeiro servidor para popular o registro de tools MCP."
+                      : "Tente buscar por nome, endpoint ou transporte."}
                   </p>
                 </td>
               </tr>
@@ -207,8 +209,10 @@ function McpRow({ mcp }: { mcp: McpServerRow }) {
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
   const [toggling, startToggle] = useTransition();
+  const [isDeleting, startDelete] = useTransition();
   const [enabled, setEnabled] = useState(mcp.enabled);
   const [error, setError] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const enabledTools = mcp.registryTools.filter((tool) => tool.enabled).length;
   const endpoint = mcp.transport === "stdio"
     ? [mcp.command, ...mcp.args].filter(Boolean).join(" ")
@@ -245,8 +249,8 @@ function McpRow({ mcp }: { mcp: McpServerRow }) {
               <Link
                 href={`/admin/mcp/${mcp.id}`}
                 className="truncate font-medium text-[var(--color-text-secondary)] transition hover:text-[var(--color-primary)] hover:underline"
-                aria-label={`Open details for ${mcp.name}`}
-                title="Open MCP server details"
+                aria-label={`Abrir detalhes de ${mcp.name}`}
+                title="Abrir detalhes do MCP Server"
               >
                 {mcp.name}
               </Link>
@@ -254,7 +258,7 @@ function McpRow({ mcp }: { mcp: McpServerRow }) {
                 className="mt-0.5 truncate font-mono text-xs text-muted-foreground"
                 title={endpoint ?? undefined}
               >
-                {endpoint || "No endpoint configured"}
+                {endpoint || "Sem endpoint configurado"}
               </p>
             </div>
           </div>
@@ -283,7 +287,7 @@ function McpRow({ mcp }: { mcp: McpServerRow }) {
               checked={enabled}
               disabled={toggling}
               onCheckedChange={toggleEnabled}
-              aria-label={enabled ? "Disable MCP server" : "Enable MCP server"}
+              aria-label={enabled ? "Desabilitar MCP Server" : "Habilitar MCP Server"}
             />
           </div>
         </td>
@@ -293,25 +297,33 @@ function McpRow({ mcp }: { mcp: McpServerRow }) {
               variant="ghost"
               size="icon"
               className="size-8 rounded-full text-muted-foreground hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)]"
+              asChild
+              aria-label="Editar MCP Server"
+              title="Editar MCP Server"
+            >
+              <Link href={`/admin/mcp/${mcp.id}`}><PencilLine /></Link>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8 rounded-full text-muted-foreground hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)]"
               onClick={refresh}
               disabled={refreshing || !enabled}
-              aria-label="Refresh MCP server"
-              title="Refresh MCP server"
+              aria-label="Atualizar MCP Server"
+              title="Atualizar MCP Server"
             >
               {refreshing ? <LoaderCircle className="animate-spin" /> : <RefreshCw />}
             </Button>
-            <form action={async () => deleteMcp(mcp.id)}>
-              <Button
-                type="submit"
-                variant="ghost"
-                size="icon"
-                className="size-8 rounded-full text-[var(--color-error)] hover:bg-[var(--color-error-soft)] hover:text-[var(--color-error)]"
-                aria-label="Delete MCP server"
-                title="Delete MCP server"
-              >
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8 rounded-full text-[var(--color-error)] hover:bg-[var(--color-error-soft)] hover:text-[var(--color-error)]"
+              aria-label="Excluir MCP Server"
+              title="Excluir MCP Server"
+              onClick={() => setDeleteOpen(true)}
+            >
               <Trash2 />
-              </Button>
-            </form>
+            </Button>
           </div>
           {error ? (
             <p className="mt-2 max-w-[220px] truncate text-center text-xs text-[var(--color-error)]" title={error}>
@@ -320,6 +332,26 @@ function McpRow({ mcp }: { mcp: McpServerRow }) {
           ) : null}
         </td>
       </tr>
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir servidor MCP</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir o servidor <strong>{mcp.name}</strong>? Esta ação não poderá ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={isDeleting}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              disabled={isDeleting}
+              onClick={() => startDelete(async () => { await deleteMcp(mcp.id); setDeleteOpen(false); router.refresh(); })}
+            >
+              {isDeleting ? "Excluindo..." : "Excluir servidor"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -363,17 +395,14 @@ function McpKpiCard({ icon: Icon, label, value, sub, tone }: {
 function getHealthStatusMeta(healthStatus: string) {
   switch (healthStatus) {
     case "connected":
-      return { label: "Connected", variant: "success" as const };
+      return { label: "Conectado", variant: "success" as const };
     case "authorization_required":
-      return { label: "Auth required", variant: "info" as const };
+      return { label: "Auth necessária", variant: "info" as const };
     case "error":
-      return { label: "Error", variant: "error" as const };
+      return { label: "Erro", variant: "error" as const };
     case "unknown":
-      return { label: "Unknown", variant: "secondary" as const };
+      return { label: "Desconhecido", variant: "secondary" as const };
     default:
-      return { label: healthStatus || "Unknown", variant: "secondary" as const };
+      return { label: healthStatus || "Desconhecido", variant: "secondary" as const };
   }
 }
-
-
-

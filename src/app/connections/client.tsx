@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { setMcpEnabled } from "./actions";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Cable, CheckCircle2, Globe, LoaderCircle, TerminalSquare, XCircle } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
@@ -40,17 +41,17 @@ function StatusBadge({ authType, status }: { authType: string; status: OAuthStat
   if (authType !== "oauth_delegated") {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-success)] bg-[var(--color-success-soft)] px-2.5 py-0.5 text-[10px] font-medium text-[var(--color-success)]">
-        <CheckCircle2 className="size-3" /> Configured by admin
+        <CheckCircle2 className="size-3" /> Configurado pelo admin
       </span>
     );
   }
 
   const map: Record<OAuthStatus, { label: string; cls: string; Icon: typeof CheckCircle2 }> = {
-    connected: { label: "Connected", cls: "border-[var(--color-success)] bg-[var(--color-success-soft)] text-[var(--color-success)]", Icon: CheckCircle2 },
-    disconnected: { label: "Not connected", cls: "border-[var(--color-border)] bg-[var(--color-surface-muted)] text-muted-foreground", Icon: XCircle },
-    expired: { label: "Expired", cls: "border-[var(--color-warning)] bg-[var(--color-warning-soft)] text-[var(--color-warning)]", Icon: XCircle },
-    pending: { label: "Connecting...", cls: "border-[var(--color-border)] bg-[var(--color-surface-muted)] text-muted-foreground", Icon: LoaderCircle },
-    error: { label: "Error", cls: "border-[var(--color-error)] bg-[var(--color-error-soft)] text-[var(--color-error)]", Icon: XCircle },
+    connected: { label: "Conectado", cls: "border-[var(--color-success)] bg-[var(--color-success-soft)] text-[var(--color-success)]", Icon: CheckCircle2 },
+    disconnected: { label: "Não conectado", cls: "border-[var(--color-border)] bg-[var(--color-surface-muted)] text-muted-foreground", Icon: XCircle },
+    expired: { label: "Expirado", cls: "border-[var(--color-warning)] bg-[var(--color-warning-soft)] text-[var(--color-warning)]", Icon: XCircle },
+    pending: { label: "Conectando...", cls: "border-[var(--color-border)] bg-[var(--color-surface-muted)] text-muted-foreground", Icon: LoaderCircle },
+    error: { label: "Erro", cls: "border-[var(--color-error)] bg-[var(--color-error-soft)] text-[var(--color-error)]", Icon: XCircle },
   };
 
   const { label, cls, Icon } = map[status];
@@ -90,6 +91,9 @@ export function ConnectionsClient({ items, namespaces, proxyUrl }: { items: Conn
   );
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [disconnectTarget, setDisconnectTarget] = useState<{ id: string; name: string } | null>(null);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [toolCountOverrides, setToolCountOverrides] = useState<Record<string, number>>({});
 
   function copyEndpoint(id: string, path: string) {
     const url = `${window.location.origin}${path}`;
@@ -140,7 +144,21 @@ export function ConnectionsClient({ items, namespaces, proxyUrl }: { items: Conn
           body: JSON.stringify({ mcpServerId: pending.mcpServerId, code, codeVerifier: pending.codeVerifier, redirectUri: pending.redirectUri, state }),
         });
         setStatuses((s) => ({ ...s, [mcpId]: exchangeRes.ok ? "connected" : "error" }));
-        if (exchangeRes.ok) router.refresh();
+        if (exchangeRes.ok) {
+          router.refresh();
+          fetch("/api/connections/inspect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ mcpServerId: mcpId }),
+          })
+            .then((r) => r.json())
+            .then((data: { toolCount?: number }) => {
+              if (typeof data.toolCount === "number") {
+                setToolCountOverrides((prev) => ({ ...prev, [mcpId]: data.toolCount! }));
+              }
+            })
+            .catch(() => undefined);
+        }
       };
 
       window.addEventListener("message", handleMessage);
@@ -167,15 +185,15 @@ export function ConnectionsClient({ items, namespaces, proxyUrl }: { items: Conn
     <div className="portal-page">
       <div className="portal-page-heading flex-row items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">My Connections</h1>
-          <p className="text-sm text-muted-foreground">All MCP tools available to your account.</p>
+          <h1 className="text-2xl font-bold">Minhas Conexões</h1>
+          <p className="text-sm text-muted-foreground">Todos os servidores MCP disponíveis para sua conta.</p>
         </div>
       </div>
 
       {items.length === 0 ? (
         <div className="portal-table-shell">
           <p className="px-4 py-12 text-center text-sm text-muted-foreground">
-            No MCP tools configured for your account yet.
+            Nenhum servidor MCP configurado para sua conta ainda.
           </p>
         </div>
       ) : (
@@ -183,12 +201,12 @@ export function ConnectionsClient({ items, namespaces, proxyUrl }: { items: Conn
           <table className="w-full text-left text-sm text-[var(--color-text-secondary)]">
             <thead>
               <tr>
-                <th className="px-4 py-3">MCP Server</th>
-                <th className="px-4 py-3">Transport</th>
+                <th className="px-4 py-3">Servidor MCP</th>
+                <th className="px-4 py-3">Transporte</th>
                 <th className="px-4 py-3">Tools</th>
                 <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Active</th>
-                <th className="px-4 py-3 text-center">Action</th>
+                <th className="px-4 py-3">Ativo</th>
+                <th className="px-4 py-3 text-center">Ação</th>
               </tr>
             </thead>
             <tbody>
@@ -214,11 +232,12 @@ export function ConnectionsClient({ items, namespaces, proxyUrl }: { items: Conn
                       </span>
                     </td>
                     <td className="px-4 py-4 text-xs text-muted-foreground">
-                      {item.toolCount > 0
-                        ? `${item.toolCount} tool${item.toolCount !== 1 ? "s" : ""}`
-                        : item.authType === "oauth_delegated" && statuses[item.id] !== "connected"
-                          ? <span className="italic">Not connected</span>
-                          : <span className="italic">Not inspected</span>}
+                      {(() => {
+                        const count = toolCountOverrides[item.id] ?? item.toolCount;
+                        if (count > 0) return `${count} tool${count !== 1 ? "s" : ""}`;
+                        if (isOAuth && statuses[item.id] !== "connected") return <span className="italic">Não conectado</span>;
+                        return <span className="italic">—</span>;
+                      })()}
                     </td>
                     <td className="px-4 py-4">
                       <StatusBadge authType={item.authType} status={status} />
@@ -228,13 +247,13 @@ export function ConnectionsClient({ items, namespaces, proxyUrl }: { items: Conn
                         checked={enabledMap[item.id] ?? true}
                         onCheckedChange={(v) => handleToggle(item.id, v)}
                         disabled={isPendingToggle || (item.authType === "oauth_delegated" && statuses[item.id] !== "connected")}
-                        aria-label={`${enabledMap[item.id] ? "Disable" : "Enable"} ${item.name}`}
+                        aria-label={`${enabledMap[item.id] ? "Desativar" : "Ativar"} ${item.name}`}
                       />
                     </td>
                     <td className="px-4 py-4 text-center">
                       {isOAuth && (
                         status === "connected" ? (
-                          <Button size="sm" className="bg-[var(--color-error)] text-white hover:bg-[var(--color-error)]/90" onClick={() => void disconnect(item.id)}>
+                          <Button size="sm" className="bg-[var(--color-error)] text-white hover:bg-[var(--color-error)]/90" onClick={() => setDisconnectTarget({ id: item.id, name: item.name })}>
                             Desvincular
                           </Button>
                         ) : (
@@ -252,81 +271,121 @@ export function ConnectionsClient({ items, namespaces, proxyUrl }: { items: Conn
         </div>
       )}
 
-      {namespaces.length > 0 && (
-        <div>
-          <div className="portal-page-heading">
-            <h2 className="text-lg font-semibold">Namespace Endpoints</h2>
-            <p className="text-sm text-muted-foreground">
-              MCP endpoints you can add to VS Code or Claude Desktop.
-            </p>
-          </div>
-          <div className="portal-table-shell overflow-x-auto">
-            <table className="w-full text-left text-sm text-[var(--color-text-secondary)]">
-              <thead>
-                <tr>
-                  <th className="px-4 py-3">Namespace</th>
-                  <th className="px-4 py-3">MCPs</th>
-                  <th className="px-4 py-3 text-center">Endpoint</th>
-                </tr>
-              </thead>
-              <tbody>
-                {namespaces.map((ns) => (
-                  <tr key={ns.id} className="border-t border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]/55">
-                    <td className="px-4 py-4">
-                      <p className="font-semibold text-[var(--color-text-secondary)]">{ns.name}</p>
-                      {ns.description && (
-                        <p className="text-xs text-muted-foreground">{ns.description}</p>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 text-xs text-muted-foreground">
-                      {ns.mcpCount} server{ns.mcpCount !== 1 ? "s" : ""}
-                    </td>
-                    <td className="px-4 py-4">
-                      <div className="flex items-center justify-center gap-2">
-                        <code className="font-mono text-xs text-muted-foreground">{ns.endpointUrl}</code>
-                        <button
-                          type="button"
-                          onClick={() => copyEndpoint(ns.id, ns.endpointUrl)}
-                          className="shrink-0 rounded p-1 text-muted-foreground transition hover:bg-[var(--color-surface-muted)] hover:text-foreground"
-                        >
-                          {copiedId === ns.id ? (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--color-success)]"><polyline points="20 6 9 17 4 12"/></svg>
-                          ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                          )}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      {/* Endpoints Section */}
+      <div className="flex flex-col gap-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_8px_24px_rgba(17,63,124,0.04)]">
+        <h2 className="text-base font-semibold">Endpoints</h2>
 
-      {/* MCP Proxy Endpoint */}
-      <div className="portal-section">
-        <div>
-          <h2 className="font-semibold">MCP Proxy Endpoint</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Endpoint para conectar VS Code, Claude Desktop ou qualquer cliente MCP usando seu token pessoal.
+        {/* Proxy */}
+        <div className="flex flex-col gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)]/40 p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-[var(--color-text-secondary)]">Proxy</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Acesso unificado a todos os servidores MCP disponíveis para sua conta.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2">
+            <span className="flex-1 truncate font-mono text-xs text-[var(--color-text-secondary)]">{proxyUrl}</span>
+            <Button
+              size="sm"
+              className="shrink-0 text-xs"
+              onClick={() => {
+                void navigator.clipboard.writeText(proxyUrl).then(() => {
+                  setCopiedId("proxy");
+                  setTimeout(() => setCopiedId((c) => c === "proxy" ? null : c), 2000);
+                });
+              }}
+            >
+              {copiedId === "proxy" ? "Copiado!" : "Copiar"}
+            </Button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Autenticação OAuth 2.1 automática. Para chamadas diretas à API, inclua o header{" "}
+            <code className="rounded bg-[var(--color-surface-muted)] px-1 py-0.5">Authorization: Bearer &lt;token&gt;</code>
+            {" "}disponível em <a href="/settings" className="font-medium text-[var(--color-primary)] hover:underline">Configurações</a>.
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-[12px] border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-2">
-          <code className="flex-1 truncate text-xs text-muted-foreground">{proxyUrl}</code>
-          <Button
-            size="sm"
-            className="shrink-0 text-xs"
-            onClick={() => void navigator.clipboard.writeText(proxyUrl)}
-          >
-            Copiar
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Header necessário: <code className="rounded bg-[var(--color-surface-muted)] px-1.5 py-0.5 text-xs">Authorization: Bearer &lt;seu-token&gt;</code>
-        </p>
+
+        {/* Namespaces */}
+        {namespaces.length > 0 && (
+          <div className="flex flex-col gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)]/40 p-4">
+            <div>
+              <p className="text-sm font-semibold text-[var(--color-text-secondary)]">Namespaces</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Cada namespace disponibiliza um subconjunto específico de servidores MCP. Use quando quiser limitar o acesso a um grupo de ferramentas.
+              </p>
+            </div>
+            <div className="portal-table-shell overflow-x-auto">
+              <table className="w-full text-left text-sm text-[var(--color-text-secondary)]">
+                <thead>
+                  <tr>
+                    <th className="px-4 py-2.5 text-xs font-medium">Namespace</th>
+                    <th className="px-4 py-2.5 text-xs font-medium">Servidores</th>
+                    <th className="px-4 py-2.5 text-center text-xs font-medium">Endpoint</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {namespaces.map((ns) => (
+                    <tr key={ns.id} className="border-t border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]/55">
+                      <td className="px-4 py-3">
+                        <p className="font-semibold text-[var(--color-text-secondary)]">{ns.name}</p>
+                        {ns.description && <p className="text-xs text-muted-foreground">{ns.description}</p>}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {ns.mcpCount} servidor{ns.mcpCount !== 1 ? "es" : ""}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-2">
+                          <code className="font-mono text-xs text-muted-foreground">{ns.endpointUrl}</code>
+                          <button
+                            type="button"
+                            onClick={() => copyEndpoint(ns.id, ns.endpointUrl)}
+                            className="shrink-0 rounded p-1 text-muted-foreground transition hover:bg-[var(--color-surface-muted)] hover:text-foreground"
+                          >
+                            {copiedId === ns.id ? (
+                              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--color-success)]"><polyline points="20 6 9 17 4 12"/></svg>
+                            ) : (
+                              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                            )}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
+
+      <Dialog open={disconnectTarget !== null} onOpenChange={(open) => { if (!open) setDisconnectTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Desvincular conexão</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja desvincular <strong>{disconnectTarget?.name}</strong>? Você precisará autenticar novamente para usar este servidor.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDisconnectTarget(null)} disabled={isDisconnecting}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              disabled={isDisconnecting}
+              onClick={async () => {
+                if (!disconnectTarget) return;
+                setIsDisconnecting(true);
+                await disconnect(disconnectTarget.id);
+                setIsDisconnecting(false);
+                setDisconnectTarget(null);
+              }}
+            >
+              {isDisconnecting ? "Desvinculando..." : "Desvincular"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

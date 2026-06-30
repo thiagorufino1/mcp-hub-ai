@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { requireAdmin } from "@/lib/auth-helpers";
@@ -8,7 +8,7 @@ import { decryptSecretJson } from "@/lib/secret-crypto";
 import { McpServerDetailClient } from "./client";
 
 export const metadata: Metadata = {
-  title: "MCP Server details - Admin",
+  title: "MCP Server - Administração",
 };
 
 export default async function McpServerDetailPage({
@@ -100,3 +100,4 @@ export default async function McpServerDetailPage({
     />
   );
 }
+

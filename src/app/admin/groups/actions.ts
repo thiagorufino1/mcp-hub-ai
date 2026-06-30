@@ -18,8 +18,8 @@ export type GroupRow = {
 export async function upsertGroup(formData: FormData): Promise<void> {
   const user = await requireAdmin();
 
-  const entraGroupId = formData.get("entraGroupId") as string;
-  const displayName = formData.get("displayName") as string;
+  const entraGroupId = requiredString(formData, "entraGroupId");
+  const displayName = requiredString(formData, "displayName");
   const syncResult = await syncEntraGroup(entraGroupId);
 
   const group = await prisma.entraGroup.upsert({
@@ -106,4 +106,10 @@ export async function deleteGroup(id: string): Promise<void> {
     resourceId: id,
   });
   revalidatePath("/admin/groups");
+}
+
+function requiredString(formData: FormData, key: string) {
+  const value = String(formData.get(key) ?? "").trim();
+  if (!value) throw new Error(`${key} é obrigatório.`);
+  return value;
 }

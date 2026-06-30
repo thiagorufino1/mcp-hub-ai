@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
+import { syncNamespaceToolsForMcpServer } from "@/lib/namespace-tool-sync";
 import {
   createInspectableServerConfig,
   inspectMcpServer,
@@ -11,7 +12,7 @@ import type {
   McpServerConfig,
 } from "@/types/mcp";
 
-const DEFAULT_CACHE_TTL_MS = 2 * 60 * 1000;
+const DEFAULT_CACHE_TTL_MS = 15 * 60 * 1000;
 
 type ResolveOptions = {
   forceRefresh?: boolean;
@@ -47,7 +48,6 @@ export async function resolveMcpServerTools(
     !options.forceRefresh &&
     dbServer?.healthStatus === "connected" &&
     lastHealthCheckAt !== null &&
-    Date.now() - lastHealthCheckAt.getTime() <= ttlMs &&
     dbServer.registryTools.length > 0;
 
   if (cacheIsFresh && dbServer) {
@@ -131,7 +131,22 @@ async function resolveUserDelegatedServerTools(server: McpServerConfig) {
       })
     )?.connectionTimeoutMs ?? 10_000;
 
+  // Check DB cache first — populated after first successful probe
+  const dbServer = await prisma.mcpServer.findUnique({
+    where: { id: server.id },
+    select: { healthStatus: true, lastHealthCheckAt: true, registryTools: { where: { enabled: true }, orderBy: { name: "asc" } } },
+  });
+  if (
+    !server.tools?.length &&
+    dbServer?.healthStatus === "connected" &&
+    dbServer.lastHealthCheckAt !== null &&
+    dbServer.registryTools.length > 0
+  ) {
+    return { ...server, connectionStatus: "connected" as const, tools: dbServer.registryTools.map(registryToolToDiscoveredTool) };
+  }
+
   try {
+    const startedAt = performance.now();
     const result = await withConnectionTimeout(
       inspectMcpServer(
         createInspectableServerConfig({
@@ -142,6 +157,12 @@ async function resolveUserDelegatedServerTools(server: McpServerConfig) {
       ),
       connectionTimeoutMs,
     );
+    if (result.server.connectionStatus === "connected" && result.server.tools.length > 0) {
+      const latencyMs = Math.max(0, Math.round(performance.now() - startedAt));
+      void persistToolSnapshot(server.id, result.server.tools, latencyMs)
+        .then(() => syncNamespaceToolsForMcpServer(server.id))
+        .catch(() => undefined);
+    }
     return result.server;
   } catch {
     return { ...server, connectionStatus: "error" as const, tools: [] };

@@ -61,15 +61,14 @@ function ActionBadge({ action }: { action: string }) {
 function StatusBadge({ ok, label }: { ok: boolean; label?: string }) {
   return ok ? (
     <span className="inline-flex items-center rounded-full border border-[var(--color-success)] bg-[var(--color-success-soft)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-success)]">
-      {label ?? "success"}
+      {label ?? "sucesso"}
     </span>
   ) : (
     <span className="inline-flex items-center rounded-full border border-[var(--color-error)] bg-[var(--color-error-soft)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-error)]">
-      {label ?? "error"}
+      {label ?? "erro"}
     </span>
   );
 }
-
 
 function EmptyRow({ cols, message }: { cols: number; message: string }) {
   return (
@@ -122,29 +121,28 @@ export function AuditClient({
   );
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: "activity",   label: "Admin Activity" },
-    { id: "executions", label: "MCP Executions" },
-    { id: "proxy",      label: "Proxy / Namespace" },
-    { id: "llm",        label: "LLM" },
+    { id: "activity", label: "Atividade Admin" },
+    { id: "executions", label: "Execuções MCP" },
+    { id: "proxy", label: "Proxy / Namespace" },
+    { id: "llm", label: "LLM" },
   ];
 
   return (
     <div className="portal-page">
       <div className="portal-page-heading">
-        <h1 className="text-2xl font-bold">Audit Log</h1>
+        <h1 className="text-2xl font-bold">Log de Auditoria</h1>
         <p className="text-sm text-muted-foreground">
           Atividade administrativa, execuções MCP, eventos de proxy e logs de LLM.
         </p>
       </div>
 
-      {/* Metrics */}
       <div className="grid grid-cols-3 overflow-hidden rounded-[18px] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[0_5px_18px_rgba(17,63,124,0.045)]">
         <div className="flex items-center gap-4 px-6 py-5">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[var(--color-primary-soft)]">
             <Activity className="size-5 text-[var(--color-primary)]" />
           </div>
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">MCP Execuções (24h)</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Execuções MCP (14d)</p>
             <p className="text-2xl font-bold tracking-tight text-foreground">{metrics.total24h}</p>
           </div>
         </div>
@@ -154,7 +152,7 @@ export function AuditClient({
             <AlertCircle className={cn("size-5", metrics.failures24h > 0 ? "text-[var(--color-error)]" : "text-[var(--color-success)]")} />
           </div>
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Falhas (24h)</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Falhas (14d)</p>
             <p className={cn("text-2xl font-bold tracking-tight", metrics.failures24h > 0 ? "text-[var(--color-error)]" : "text-foreground")}>
               {metrics.failures24h}
             </p>
@@ -168,12 +166,11 @@ export function AuditClient({
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Latência média</p>
             <p className="text-2xl font-bold tracking-tight text-foreground">{metrics.averageLatency} ms</p>
-            <p className="text-[11px] text-muted-foreground">últimas 24h</p>
+            <p className="text-[11px] text-muted-foreground">últimos 14 dias</p>
           </div>
         </div>
       </div>
 
-      {/* Tabs + Search - full width */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex flex-1 gap-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)]/50 p-1">
           {tabs.map((t) => (
@@ -215,7 +212,6 @@ export function AuditClient({
         </div>
       </div>
 
-      {/* Activity Tab */}
       {tab === "activity" && (
         <div className="portal-table-shell overflow-x-auto">
           <table className="w-full text-sm text-[var(--color-text-secondary)]">
@@ -250,7 +246,6 @@ export function AuditClient({
         </div>
       )}
 
-      {/* Executions Tab */}
       {tab === "executions" && (
         <div className="portal-table-shell overflow-x-auto">
           <table className="w-full text-sm text-[var(--color-text-secondary)]">
@@ -261,7 +256,7 @@ export function AuditClient({
                 <TH>Fonte</TH>
                 <TH>Status</TH>
                 <TH right>Latência</TH>
-                <TH>Ator</TH>
+                <TH>Usuário</TH>
                 <TH>Trace</TH>
               </tr>
             </thead>
@@ -281,7 +276,7 @@ export function AuditClient({
                   </td>
                   <td className="px-4 py-3 text-right text-xs font-mono text-muted-foreground">{exec.latencyMs} ms</td>
                   <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                    <p className="truncate max-w-[160px]">{exec.actorUserEmail ?? exec.actorUserId ?? "unknown"}</p>
+                    <p className="truncate max-w-[160px]">{exec.actorUserEmail ?? exec.actorUserId ?? "desconhecido"}</p>
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                     <p className="truncate max-w-[160px]">{exec.traceId ?? "-"}</p>
@@ -294,7 +289,6 @@ export function AuditClient({
         </div>
       )}
 
-      {/* Proxy Tab */}
       {tab === "proxy" && (
         <div className="portal-table-shell overflow-x-auto">
           <table className="w-full text-sm text-[var(--color-text-secondary)]">
@@ -328,7 +322,7 @@ export function AuditClient({
                       <p className="font-mono text-[10px] text-muted-foreground">{log.resource}</p>
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{toolName}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground truncate max-w-[140px]">{traceId ?? "-"}</td>
+                    <td className="px-4 py-3 truncate max-w-[140px] font-mono text-xs text-muted-foreground">{traceId ?? "-"}</td>
                   </tr>
                 );
               })}
@@ -338,7 +332,6 @@ export function AuditClient({
         </div>
       )}
 
-      {/* LLM Tab */}
       {tab === "llm" && (
         <div className="portal-table-shell overflow-x-auto">
           <table className="w-full text-sm text-[var(--color-text-secondary)]">

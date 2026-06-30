@@ -75,6 +75,19 @@ export function NamespaceForm({
 
   function submit(formData: FormData) {
     setError(null);
+    const description = String(formData.get("description") ?? "").trim();
+    if (!description) {
+      setError("A descrição é obrigatória.");
+      return;
+    }
+    if (selectedMcpIds.length === 0) {
+      setError("Selecione pelo menos um MCP Server.");
+      return;
+    }
+    if (!allUsers && selectedGroupIds.length === 0) {
+      setError("Selecione pelo menos um grupo de acesso ou habilite acesso para todos os usuários autenticados.");
+      return;
+    }
     formData.set("allUsers", String(allUsers));
     formData.set("enabled", String(enabled));
     formData.set("published", String(published));
@@ -88,7 +101,7 @@ export function NamespaceForm({
         router.refresh();
         onClose();
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "Failed to save namespace.");
+        setError(cause instanceof Error ? cause.message : "Não foi possível salvar o namespace.");
       }
     });
   }
@@ -100,7 +113,7 @@ export function NamespaceForm({
       >
         <DialogHeader className={`border-b ${BORDER} bg-[var(--color-surface)] px-6 py-4`}>
           <DialogTitle className="text-base font-semibold">
-            {namespace ? "Edit namespace" : "Add namespace"}
+            {namespace ? "Editar namespace" : "Adicionar namespace"}
           </DialogTitle>
         </DialogHeader>
 
@@ -113,14 +126,14 @@ export function NamespaceForm({
             <div className={CARD}>
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
-                  <p className={SECTION_LABEL}>Basics</p>
-                  <p className={cn(SECTION_HELPER, "mt-1")}>Core identity for the namespace and its endpoint.</p>
+                  <p className={SECTION_LABEL}>Dados básicos</p>
+                  <p className={cn(SECTION_HELPER, "mt-1")}>Identidade principal do namespace e do seu endpoint.</p>
                 </div>
               </div>
               <div className="space-y-3">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="ns-name">Name *</Label>
+                    <Label htmlFor="ns-name">Nome</Label>
                     <Input
                       id="ns-name"
                       name="name"
@@ -137,17 +150,22 @@ export function NamespaceForm({
                       defaultValue={namespace?.alias ?? ""}
                       required
                       placeholder="telecom"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      pattern="[a-z0-9-]+"
+                      title="Use apenas letras minúsculas, números e hífen. Sem espaços."
                     />
                   </div>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="ns-desc">Description</Label>
+                    <Label htmlFor="ns-desc">Descrição *</Label>
                   <Textarea
                     id="ns-desc"
                     name="description"
                     defaultValue={namespace?.description ?? ""}
                     rows={3}
-                    placeholder="Short description of what this namespace groups together."
+                    required
+                    placeholder="Ex.: reúne os MCP Servers do time de telecom."
                   />
                 </div>
               </div>
@@ -158,18 +176,18 @@ export function NamespaceForm({
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div>
                     <p className={SECTION_LABEL}>MCP Servers</p>
-                    <p className={cn(SECTION_HELPER, "mt-1")}>Choose which servers belong to this namespace.</p>
+                    <p className={cn(SECTION_HELPER, "mt-1")}>Escolha quais servidores pertencem a este namespace.</p>
                   </div>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs font-medium text-muted-foreground">Selected servers</p>
+                  <p className="text-xs font-medium text-muted-foreground">Servidores selecionados</p>
                   <Button
                     type="button"
                     variant="outline"
                     size="icon"
                     className="size-9 rounded-full"
                     onClick={openMcpPicker}
-                    aria-label="Add MCP server"
+                    aria-label="Adicionar MCP Server"
                   >
                     <Plus className="size-4" aria-hidden="true" />
                   </Button>
@@ -177,7 +195,7 @@ export function NamespaceForm({
 
                 <div className="mt-3 flex flex-col gap-2">
                   {selectedMcpIds.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No MCP servers selected.</p>
+                    <p className="text-sm text-muted-foreground">Nenhum MCP Server selecionado.</p>
                   ) : (
                     selectedMcpIds.map((mcpId) => {
                       const mcp = mcpServers.find((item) => item.id === mcpId);
@@ -192,7 +210,7 @@ export function NamespaceForm({
                               {mcp.name}
                             </p>
                             <p className="truncate text-xs text-muted-foreground">
-                              {mcp.description ?? "No description."}
+                              {mcp.description ?? "Sem descrição."}
                             </p>
                           </div>
                           <button
@@ -218,8 +236,8 @@ export function NamespaceForm({
               <div className={CARD}>
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div>
-                    <p className={SECTION_LABEL}>Access control</p>
-                    <p className={cn(SECTION_HELPER, "mt-1")}>Limit the namespace to specific groups or users.</p>
+                    <p className={SECTION_LABEL}>Controle de acesso</p>
+                    <p className={cn(SECTION_HELPER, "mt-1")}>Restrinja o namespace a grupos ou usuários específicos.</p>
                   </div>
                 </div>
                 <div className="space-y-4">
@@ -228,24 +246,24 @@ export function NamespaceForm({
                       id="ns-allusers"
                       checked={allUsers}
                       onCheckedChange={setAllUsers}
-                      aria-label="Available to all users"
+                      aria-label="Disponível para todos os usuários"
                     />
                     <Label htmlFor="ns-allusers" className="cursor-pointer text-sm font-medium normal-case tracking-normal text-muted-foreground">
-                      Available to all authenticated users
+                      Disponível para todos os usuários autenticados
                     </Label>
                   </div>
 
                   {!allUsers && (
                     <>
           <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-medium text-muted-foreground">Groups</p>
+            <p className="text-xs font-medium text-muted-foreground">Grupos</p>
             <Button
               type="button"
               variant="outline"
               size="icon"
               className="size-9 rounded-full"
               onClick={openGroupPicker}
-              aria-label="Add group"
+              aria-label="Adicionar grupo"
             >
               <Plus className="size-4" aria-hidden="true" />
             </Button>
@@ -254,7 +272,7 @@ export function NamespaceForm({
                       <div className="flex flex-col gap-2">
                         {selectedGroupIds.length === 0 ? (
                           <p className="text-sm text-muted-foreground">
-                            No groups selected.
+                            Nenhum grupo selecionado.
                           </p>
                         ) : (
                           selectedGroupIds.map((groupId) => {
@@ -270,7 +288,7 @@ export function NamespaceForm({
                                     {group.displayName}
                                   </p>
                                   <p className="truncate text-xs text-muted-foreground">
-                                    Entra group
+                                    Grupo do Entra
                                   </p>
                                 </div>
                                 <button
@@ -294,7 +312,7 @@ export function NamespaceForm({
                       {allUsers && <input type="hidden" name="allUsers" value="true" />}
                       {!allUsers && groups.length === 0 && (
                         <p className="text-sm text-muted-foreground">
-                          No groups configured. Namespace will be available to all authenticated users.
+                          Nenhum grupo configurado. O namespace ficará disponível para todos os usuários autenticados.
                         </p>
                       )}
                     </>
@@ -311,21 +329,21 @@ export function NamespaceForm({
               <div className={CARD}>
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div>
-                    <p className={SECTION_LABEL}>Settings</p>
-                    <p className={cn(SECTION_HELPER, "mt-1")}>Namespace status controls.</p>
+                    <p className={SECTION_LABEL}>Configurações</p>
+                    <p className={cn(SECTION_HELPER, "mt-1")}>Controles de status do namespace.</p>
                   </div>
                 </div>
                 <div className="space-y-3">
                   <div className={`flex items-center gap-2.5 rounded-xl border ${BORDER} bg-[var(--color-surface-muted)]/40 px-4 py-3`}>
-                    <Switch id="ns-enabled" checked={enabled} onCheckedChange={setEnabled} aria-label="Enabled" />
+                    <Switch id="ns-enabled" checked={enabled} onCheckedChange={setEnabled} aria-label="Habilitar" />
                     <Label htmlFor="ns-enabled" className="cursor-pointer text-sm font-medium normal-case tracking-normal text-muted-foreground">
-                      Enabled
+                      Habilitar
                     </Label>
                   </div>
                   <div className={`flex items-center gap-2.5 rounded-xl border ${BORDER} bg-[var(--color-surface-muted)]/40 px-4 py-3`}>
-                    <Switch id="ns-published" checked={published} onCheckedChange={setPublished} aria-label="Published endpoint" />
+                    <Switch id="ns-published" checked={published} onCheckedChange={setPublished} aria-label="Publicar Endpoint" />
                     <Label htmlFor="ns-published" className="cursor-pointer text-sm font-medium normal-case tracking-normal text-muted-foreground">
-                      Published endpoint
+                      Publicar Endpoint
                     </Label>
                   </div>
                 </div>
@@ -341,8 +359,8 @@ export function NamespaceForm({
           </div>
 
           <DialogFooter className={`flex-row items-center justify-end gap-2 border-t ${BORDER} bg-[var(--color-surface)] px-6 py-4`}>
-            <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save"}</Button>
+            <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
+            <Button type="submit" disabled={pending || selectedMcpIds.length === 0 || (!allUsers && selectedGroupIds.length === 0)}>{pending ? "Salvando…" : "Salvar"}</Button>
           </DialogFooter>
         </form>
 
@@ -354,13 +372,13 @@ export function NamespaceForm({
         >
           <DialogContent className="max-w-xl rounded-2xl">
             <DialogHeader>
-              <DialogTitle>Add groups</DialogTitle>
+              <DialogTitle>Adicionar grupos</DialogTitle>
             </DialogHeader>
 
             <div className="max-h-[55vh] space-y-3 overflow-y-auto">
               {availableGroups.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  There are no additional groups available to attach to this namespace.
+                  Não há grupos adicionais disponíveis para vincular a este namespace.
                 </p>
               ) : (
                   availableGroups.map((group) => (
@@ -395,7 +413,7 @@ export function NamespaceForm({
 
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setAddGroupOpen(false)}>
-                Cancel
+                Cancelar
               </Button>
               <Button
                 type="button"
@@ -405,7 +423,7 @@ export function NamespaceForm({
                 }}
                 disabled={availableGroups.length === 0}
               >
-                Add selected
+                Adicionar selecionados
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -419,13 +437,13 @@ export function NamespaceForm({
         >
           <DialogContent className="max-w-xl rounded-2xl">
             <DialogHeader>
-              <DialogTitle>Add MCP servers</DialogTitle>
+              <DialogTitle>Adicionar MCP Servers</DialogTitle>
             </DialogHeader>
 
             <div className="max-h-[55vh] space-y-3 overflow-y-auto">
               {availableMcps.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  There are no additional MCP servers available to attach to this namespace.
+                  Não há MCP Servers adicionais disponíveis para vincular a este namespace.
                 </p>
               ) : (
                 availableMcps.map((mcp) => (
@@ -460,7 +478,7 @@ export function NamespaceForm({
 
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setAddMcpOpen(false)}>
-                Cancel
+                Cancelar
               </Button>
               <Button
                 type="button"
@@ -470,7 +488,7 @@ export function NamespaceForm({
                 }}
                 disabled={availableMcps.length === 0}
               >
-                Add selected
+                Adicionar selecionados
               </Button>
             </DialogFooter>
           </DialogContent>

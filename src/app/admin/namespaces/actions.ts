@@ -30,6 +30,14 @@ export async function saveNamespace(formData: FormData): Promise<void> {
   const mcpServerIds = formData.getAll("mcpServerIds").map(String);
   const name = requiredString(formData, "name");
   const alias = normalizeAlias(requiredString(formData, "alias"));
+  const description = requiredString(formData, "description");
+  if (mcpServerIds.length === 0) {
+    throw new Error("Selecione pelo menos um MCP Server.");
+  }
+
+  if (!allUsers && groupIds.length === 0 && userIds.length === 0) {
+    throw new Error("Selecione pelo menos um grupo de acesso ou habilite acesso para todos os usuários autenticados.");
+  }
 
   const duplicate = await prisma.mcpNamespace.findFirst({
     where: id
@@ -50,7 +58,7 @@ export async function saveNamespace(formData: FormData): Promise<void> {
   }
 
   const data = {
-    description: optionalString(formData, "description"),
+    description,
     enabled: formData.get("enabled") === "true",
     groups: { set: groupIds.map((groupId) => ({ id: groupId })) },
     users: { set: userIds.map((userId) => ({ id: userId })) },
@@ -188,7 +196,7 @@ export async function deleteNamespace(id: string): Promise<void> {
 
 function requiredString(formData: FormData, key: string) {
   const value = optionalString(formData, key);
-  if (!value) throw new Error(`${key} is required.`);
+  if (!value) throw new Error(`${key} é obrigatório.`);
   return value;
 }
 
@@ -199,7 +207,7 @@ function optionalString(formData: FormData, key: string) {
 
 function normalizeAlias(value: string) {
   const alias = value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  if (!alias) throw new Error("A valid alias is required.");
+  if (!alias) throw new Error("Um alias válido é obrigatório.");
   return alias.slice(0, 80);
 }
 

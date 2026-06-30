@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { McpForm } from "@/components/admin/mcp-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   ArrowRight,
@@ -97,21 +98,23 @@ function transportLabel(transport: string) {
 function healthStatusMeta(healthStatus: string) {
   switch (healthStatus) {
     case "connected":
-      return { label: "Connected", variant: "success" as const };
+      return { label: "Conectado", variant: "success" as const };
     case "authorization_required":
-      return { label: "Auth required", variant: "info" as const };
+      return { label: "Auth necessária", variant: "info" as const };
     case "error":
-      return { label: "Error", variant: "error" as const };
+      return { label: "Erro", variant: "error" as const };
     case "unknown":
-      return { label: "Unknown", variant: "secondary" as const };
+      return { label: "Desconhecido", variant: "secondary" as const };
     default:
-      return { label: healthStatus || "Unknown", variant: "secondary" as const };
+      return { label: healthStatus || "Desconhecido", variant: "secondary" as const };
   }
 }
 
 export function McpServerDetailClient({ mcp }: { mcp: McpDetail }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [isDeleting, startDelete] = useTransition();
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -185,7 +188,7 @@ export function McpServerDetailClient({ mcp }: { mcp: McpDetail }) {
         setEnabled(nextEnabled);
         router.refresh();
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "Could not update the MCP server.");
+        setError(cause instanceof Error ? cause.message : "Não foi possível atualizar o MCP Server.");
       }
     });
   }
@@ -199,7 +202,7 @@ export function McpServerDetailClient({ mcp }: { mcp: McpDetail }) {
         setError(result.error ?? null);
         router.refresh();
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "Could not refresh the MCP server.");
+        setError(cause instanceof Error ? cause.message : "Não foi possível atualizar as configurações do MCP Server.");
       }
     });
   }
@@ -212,11 +215,11 @@ export function McpServerDetailClient({ mcp }: { mcp: McpDetail }) {
           className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-[var(--color-primary)]"
         >
           <ArrowRight aria-hidden="true" className="size-4 rotate-180" />
-          Back to MCP Servers
+          Voltar para MCP Servers
         </Link>
         <div className="flex items-center gap-2">
           <Badge variant={health.variant}>{health.label}</Badge>
-          <Badge variant={enabled ? "success" : "secondary"}>{enabled ? "Enabled" : "Disabled"}</Badge>
+          <Badge variant={enabled ? "success" : "secondary"}>{enabled ? "Habilitado" : "Desabilitado"}</Badge>
           <Badge variant="info">{transportLabel(mcp.transport)}</Badge>
         </div>
       </div>
@@ -229,13 +232,13 @@ export function McpServerDetailClient({ mcp }: { mcp: McpDetail }) {
               {mcp.description}
             </p>
           ) : (
-            <p className="mt-3 text-sm text-muted-foreground">No description.</p>
+            <p className="mt-3 text-sm text-muted-foreground">Sem descrição.</p>
           )}
         </div>
 
         <div className="flex max-w-full items-center gap-2">
           <code className="truncate rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-2 font-mono text-xs text-muted-foreground">
-            {endpoint ?? "No endpoint configured"}
+            {endpoint ?? "Sem endpoint configurado"}
           </code>
           <Button
             size="sm"
@@ -264,7 +267,7 @@ export function McpServerDetailClient({ mcp }: { mcp: McpDetail }) {
               enabled ? "text-[var(--color-success)]" : "text-muted-foreground",
             )}
             onClick={() => toggleEnabled(!enabled)}
-            aria-label={enabled ? "Disable MCP server" : "Enable MCP server"}
+            aria-label={enabled ? "Desabilitar MCP Server" : "Habilitar MCP Server"}
           >
             {enabled ? <CheckCircle2 aria-hidden="true" /> : <XCircle aria-hidden="true" />}
           </Button>
@@ -291,17 +294,15 @@ export function McpServerDetailClient({ mcp }: { mcp: McpDetail }) {
               <RefreshCw aria-hidden="true" />
             </Button>
           )}
-          <form action={async () => { await deleteMcp(mcp.id); }}>
-            <Button
-              type="submit"
-              size="sm"
-              variant="outline"
-              className="size-9 rounded-full px-0 text-[var(--color-error)] hover:bg-[var(--color-error-soft)] hover:text-[var(--color-error)]"
-              aria-label="Delete MCP server"
-            >
-              <Trash2 aria-hidden="true" />
-            </Button>
-          </form>
+          <Button
+            size="sm"
+            variant="outline"
+            className="size-9 rounded-full px-0 text-[var(--color-error)] hover:bg-[var(--color-error-soft)] hover:text-[var(--color-error)]"
+            aria-label="Delete MCP server"
+            onClick={() => setDeleteOpen(true)}
+          >
+            <Trash2 aria-hidden="true" />
+          </Button>
         </div>
       </div>
 
@@ -316,9 +317,9 @@ export function McpServerDetailClient({ mcp }: { mcp: McpDetail }) {
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Namespaces" value={String(mcp.namespaces.length)} tone="info" />
-        <KpiCard label="Active Namespaces" value={String(activeNamespaces)} tone="success" />
+        <KpiCard label="Namespaces Ativos" value={String(activeNamespaces)} tone="success" />
         <KpiCard label="Tools" value={String(mcp.registryTools.length)} tone="neutral" />
-        <KpiCard label="Enabled Tools" value={String(enabledTools)} tone="success" />
+        <KpiCard label="Tools Habilitadas" value={String(enabledTools)} tone="success" />
       </div>
 
       <section className="flex flex-col gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-[0_8px_24px_rgba(17,63,124,0.04)]">
@@ -326,7 +327,7 @@ export function McpServerDetailClient({ mcp }: { mcp: McpDetail }) {
           <div>
             <h2 className="text-base font-semibold">Tools</h2>
             <p className="text-sm text-muted-foreground">
-              Global tool permissions for this MCP server.
+              Permissões globais de tools para este MCP Server.
             </p>
           </div>
           <div className="relative w-full max-w-sm">
@@ -338,8 +339,8 @@ export function McpServerDetailClient({ mcp }: { mcp: McpDetail }) {
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search tools..."
-              aria-label="Search tools"
+              placeholder="Buscar tools..."
+              aria-label="Buscar tools"
               className="pl-9"
             />
           </div>
@@ -348,14 +349,14 @@ export function McpServerDetailClient({ mcp }: { mcp: McpDetail }) {
         <div className="portal-table-shell overflow-x-auto">
           <table className="w-full min-w-[1120px] table-fixed text-left text-sm text-[var(--color-text-secondary)]">
             <colgroup>
-              <col className="w-[34%]" />
-              <col className="w-[66%]" />
+              <col className="w-[56%]" />
+              <col className="w-[44%]" />
             </colgroup>
             <thead>
               <tr>
                 <th className="px-4 py-3 font-medium">Tool</th>
                 <th className="px-4 py-3 text-center font-medium">
-                  <span className="inline-block translate-x-48">Permission</span>
+                  <span className="inline-block">Permissão</span>
                 </th>
               </tr>
             </thead>
@@ -363,7 +364,7 @@ export function McpServerDetailClient({ mcp }: { mcp: McpDetail }) {
               {visibleTools.length === 0 ? (
                 <tr>
                   <td colSpan={2} className="px-4 py-10 text-center text-muted-foreground">
-                    No tools match this search.
+                    Nenhuma tool encontrada para esta busca.
                   </td>
                 </tr>
               ) : visibleTools.map((tool) => (
@@ -373,7 +374,7 @@ export function McpServerDetailClient({ mcp }: { mcp: McpDetail }) {
           </table>
         </div>
         <p className="text-right text-xs text-muted-foreground">
-          {visibleTools.length} tool{visibleTools.length === 1 ? "" : "s"} shown
+          {visibleTools.length} tool{visibleTools.length === 1 ? "" : "s"} exibida{visibleTools.length === 1 ? "" : "s"}
         </p>
       </section>
 
@@ -382,7 +383,7 @@ export function McpServerDetailClient({ mcp }: { mcp: McpDetail }) {
           <div>
             <h2 className="text-base font-semibold">Namespaces</h2>
             <p className="text-sm text-muted-foreground">
-              Namespaces that include this MCP server.
+              Namespaces que incluem este MCP Server.
             </p>
           </div>
         </div>
@@ -399,15 +400,15 @@ export function McpServerDetailClient({ mcp }: { mcp: McpDetail }) {
               <tr>
                 <th className="px-4 py-3 font-medium">Namespace</th>
                 <th className="px-4 py-3 text-center font-medium">Status</th>
-                <th className="px-4 py-3 text-center font-medium">Access</th>
-                <th className="px-4 py-3 text-center font-medium">Open</th>
+                <th className="px-4 py-3 text-center font-medium">Acesso</th>
+                <th className="px-4 py-3 text-center font-medium">Abrir</th>
               </tr>
             </thead>
             <tbody>
               {mcp.namespaces.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
-                    This MCP server is not assigned to any namespace.
+                    Este MCP Server não está atribuído a nenhum namespace.
                   </td>
                 </tr>
               ) : mcp.namespaces.map((entry) => (
@@ -425,19 +426,19 @@ export function McpServerDetailClient({ mcp }: { mcp: McpDetail }) {
                   </td>
                   <td className="px-4 py-4 text-center">
                     <Badge variant={entry.namespace.enabled ? "success" : "secondary"}>
-                      {entry.namespace.enabled ? "Enabled" : "Disabled"}
+                      {entry.namespace.enabled ? "Habilitado" : "Desabilitado"}
                     </Badge>
                   </td>
                   <td className="px-4 py-4 text-center">
                     <Badge variant={entry.namespace.published ? "info" : "secondary"}>
-                      {entry.namespace.published ? "Published" : "Private"}
+                      {entry.namespace.published ? "Publicado" : "Privado"}
                     </Badge>
                   </td>
                   <td className="px-4 py-4 text-center">
                     <Link
                       href={`/admin/namespaces/${entry.namespace.id}`}
                       className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)]"
-                      aria-label={`Open namespace ${entry.namespace.name}`}
+                      aria-label={`Abrir namespace ${entry.namespace.name}`}
                     >
                       <ArrowRight className="size-4" aria-hidden="true" />
                     </Link>
@@ -448,7 +449,7 @@ export function McpServerDetailClient({ mcp }: { mcp: McpDetail }) {
           </table>
         </div>
         <p className="text-right text-xs text-muted-foreground">
-          {mcp.namespaces.length} namespace{mcp.namespaces.length === 1 ? "" : "s"} total
+          {mcp.namespaces.length} namespace{mcp.namespaces.length === 1 ? "" : "s"} no total
         </p>
       </section>
 
@@ -458,6 +459,27 @@ export function McpServerDetailClient({ mcp }: { mcp: McpDetail }) {
         mcp={formMcp}
         onClose={() => setFormOpen(false)}
       />
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir servidor MCP</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir o servidor <strong>{mcp.name}</strong>? Esta ação não poderá ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={isDeleting}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              disabled={isDeleting}
+              onClick={() => startDelete(async () => { await deleteMcp(mcp.id); })}
+            >
+              {isDeleting ? "Excluindo..." : "Excluir servidor"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -480,8 +502,8 @@ function ToolRow({
     value: "allow" | "blocked";
     icon: typeof CheckCircle2;
   }> = [
-    { label: "Allow", value: "allow", icon: CheckCircle2 },
-    { label: "Blocked", value: "blocked", icon: XCircle },
+    { label: "Permitir", value: "allow", icon: CheckCircle2 },
+    { label: "Bloquear", value: "blocked", icon: XCircle },
   ];
 
   function changePermission(nextPermission: "allow" | "blocked") {
@@ -511,13 +533,13 @@ function ToolRow({
               {tool.displayName ?? tool.name}
             </p>
             <p className="mt-0.5 truncate text-xs text-muted-foreground" title={tool.description ?? undefined}>
-              {tool.description ?? "No description."}
+              {tool.description ?? "Sem descrição."}
             </p>
           </div>
         </div>
       </td>
       <td className="px-4 py-4 text-center">
-        <div className="inline-flex translate-x-48 items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-1" aria-label={`Permission for ${tool.displayName ?? tool.name}`}>
+        <div className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-1" aria-label={`Permission for ${tool.displayName ?? tool.name}`}>
             {options.map((option) => {
               const Icon = option.icon;
               const selected = permission === option.value;
@@ -584,3 +606,5 @@ function normalizeToolPermission(permissionMode: string, enabled: boolean): "all
   if (!enabled || permissionMode === "blocked") return "blocked";
   return "allow";
 }
+
+

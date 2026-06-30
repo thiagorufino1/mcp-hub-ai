@@ -62,15 +62,15 @@ export async function getUserContext(
       // Fetch enabled NamespaceTool entries for this namespace, with registryTool.mcpServerId
       const namespaceTools = await prisma.namespaceTool.findMany({
         where: { namespaceId: ns.id, enabled: true },
-        select: { alias: true, registryTool: { select: { mcpServerId: true } } },
+        select: { registryTool: { select: { mcpServerId: true, name: true } } },
       });
 
-      // Build a map of mcpServerId -> set of enabled aliases for this namespace
+      // Build a map of mcpServerId -> set of enabled tool names for this namespace
       const nsToolsByServer = new Map<string, Set<string>>();
       for (const nt of namespaceTools) {
         const sid = nt.registryTool.mcpServerId;
         if (!nsToolsByServer.has(sid)) nsToolsByServer.set(sid, new Set());
-        nsToolsByServer.get(sid)!.add(nt.alias);
+        nsToolsByServer.get(sid)!.add(nt.registryTool.name);
       }
 
       for (const entry of ns.servers) {

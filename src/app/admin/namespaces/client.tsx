@@ -13,6 +13,7 @@ import {
 } from "@/app/admin/namespaces/actions";
 import { NamespaceForm } from "@/components/admin/namespace-form";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Cable,
   Check,
@@ -60,6 +61,7 @@ export function NamespacesAdminClient({
   const [search, setSearch] = useState("");
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<NamespaceRow | null>(null);
   const router = useRouter();
   const [isDeleting, startDeleteTransition] = useTransition();
 
@@ -76,7 +78,7 @@ export function NamespacesAdminClient({
     <div className="portal-page">
       <div className="portal-page-heading">
         <h1 className="text-2xl font-bold">Namespaces</h1>
-        <p className="text-sm text-muted-foreground">Curated MCP server collections exposed as a single endpoint.</p>
+        <p className="text-sm text-muted-foreground">Agrupamentos lógicos de MCP Servers.</p>
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
@@ -84,7 +86,7 @@ export function NamespacesAdminClient({
           icon={Layers3}
           label="Namespaces"
           value={`${stats.enabled}/${stats.total}`}
-          sub="enabled namespaces"
+          sub="namespaces ativos"
           tone="success"
         />
         <NamespaceKpiCard
@@ -98,14 +100,14 @@ export function NamespacesAdminClient({
           icon={Cable}
           label="Servidores vinculados"
           value={String(stats.mcpLinks)}
-          sub="MCP servers linked"
+          sub="MCP Servers vinculados"
           tone={stats.mcpLinks > 0 ? "info" : "neutral"}
         />
         <NamespaceKpiCard
           icon={Wrench}
           label="Tools disponíveis"
           value={String(stats.toolLinks)}
-          sub="namespace tools"
+          sub="tools disponíveis"
           tone={stats.toolLinks > 0 ? "success" : "neutral"}
         />
       </div>
@@ -120,14 +122,14 @@ export function NamespacesAdminClient({
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search namespaces..."
-            aria-label="Search namespaces"
+            placeholder="Buscar namespaces..."
+            aria-label="Buscar namespaces"
             className="h-9 pl-9 text-[var(--color-text-secondary)]"
           />
         </div>
         <Button className="h-9 gap-1.5" onClick={() => setForm(null)}>
           <Plus className="size-4" />
-          Add
+          Adicionar
         </Button>
       </div>
 
@@ -139,7 +141,7 @@ export function NamespacesAdminClient({
             <col className="w-[8%]" />
             <col className="w-[8%]" />
             <col className="w-[8%]" />
-            <col className="w-[32%]" />
+            <col className="w-[28%]" />
             <col className="w-[12%]" />
           </colgroup>
           <thead>
@@ -147,10 +149,10 @@ export function NamespacesAdminClient({
               <th className="px-4 py-3 font-medium">Namespace</th>
               <th className="px-4 py-3 text-center font-medium">MCP Servers</th>
               <th className="px-4 py-3 text-center font-medium">Tools</th>
-              <th className="px-4 py-3 text-center font-medium">Enabled</th>
-              <th className="px-4 py-3 text-center font-medium">Publish</th>
+              <th className="px-4 py-3 text-center font-medium">Ativo</th>
+              <th className="px-4 py-3 text-center font-medium">Publicar</th>
               <th className="px-4 py-3 text-center font-medium">Endpoint</th>
-              <th className="px-4 py-3 text-center font-medium">Actions</th>
+              <th className="px-4 py-3 text-center font-medium">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -195,7 +197,7 @@ export function NamespacesAdminClient({
                           setPendingId(null);
                         }
                       }}
-                      aria-label={`${ns.enabled ? "Disable" : "Enable"} ${ns.name}`}
+                      aria-label={`${ns.enabled ? "Desabilitar" : "Habilitar"} ${ns.name}`}
                     />
                   </div>
                 </td>
@@ -213,7 +215,7 @@ export function NamespacesAdminClient({
                           setPendingId(null);
                         }
                       }}
-                      aria-label={`${ns.published ? "Unpublish" : "Publish"} ${ns.name}`}
+                      aria-label={`${ns.published ? "Despublicar" : "Publicar"} ${ns.name}`}
                     />
                   </div>
                 </td>
@@ -225,7 +227,7 @@ export function NamespacesAdminClient({
                     <button
                       type="button"
                       className="shrink-0 rounded p-1 text-muted-foreground transition hover:bg-[var(--color-surface-muted)] hover:text-foreground"
-                      aria-label={`Copy endpoint for ${ns.name}`}
+                      aria-label={`Copiar endpoint de ${ns.name}`}
                       onClick={async () => {
                         await navigator.clipboard.writeText(
                           `${window.location.origin}/api/mcp/namespaces/${ns.alias}`,
@@ -247,28 +249,20 @@ export function NamespacesAdminClient({
                     <Link
                       href={`/admin/namespaces/${ns.id}`}
                       className="inline-flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full p-0 leading-none text-muted-foreground transition-[background-color,color] duration-150 hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)] focus-visible:bg-[var(--color-primary-soft)] focus-visible:text-[var(--color-primary)]"
-                      title="Edit"
-                      aria-label={`Edit ${ns.name}`}
+                      title="Editar"
+                      aria-label={`Editar ${ns.name}`}
                     >
                       <PencilLine className="size-4" aria-hidden="true" />
                     </Link>
-                    <form
-                      action={async () => {
-                        startDeleteTransition(async () => {
-                          await deleteNamespace(ns.id);
-                          router.refresh();
-                        });
-                      }}
+                    <button
+                      type="button"
+                      disabled={isDeleting}
+                      className="inline-flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full p-0 leading-none text-[var(--color-error)] transition-[background-color,color] duration-150 hover:bg-[var(--color-error-soft)] hover:text-[var(--color-error)] focus-visible:bg-[var(--color-error-soft)] focus-visible:text-[var(--color-error)]"
+                      title="Excluir"
+                      onClick={() => setDeleteTarget(ns)}
                     >
-                      <button
-                        type="submit"
-                        disabled={isDeleting}
-                        className="inline-flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full p-0 leading-none text-[var(--color-error)] transition-[background-color,color] duration-150 hover:bg-[var(--color-error-soft)] hover:text-[var(--color-error)] focus-visible:bg-[var(--color-error-soft)] focus-visible:text-[var(--color-error)]"
-                        title="Delete"
-                      >
-                        <Trash2 className="size-4" aria-hidden="true" />
-                      </button>
-                    </form>
+                      <Trash2 className="size-4" aria-hidden="true" />
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -277,12 +271,12 @@ export function NamespacesAdminClient({
               <tr>
                 <td colSpan={7} className="px-4 py-12 text-center">
                   <p className="font-semibold">
-                    {namespaces.length === 0 ? "No namespaces configured" : "No namespaces found"}
+                    {namespaces.length === 0 ? "Nenhum namespace configurado" : "Nenhum namespace encontrado"}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {namespaces.length === 0
-                      ? "Create a namespace to publish MCP endpoints."
-                      : "Try a different search term."}
+                      ? "Crie um namespace para publicar endpoints MCP."
+                      : "Tente um termo de busca diferente."}
                   </p>
                 </td>
               </tr>
@@ -299,6 +293,39 @@ export function NamespacesAdminClient({
         mcpServers={mcpServers}
         onClose={() => setForm(undefined)}
       />
+
+      <Dialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir namespace</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir o namespace <strong>{deleteTarget?.name}</strong>? Esta ação não poderá ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          {(deleteTarget?.toolsCount ?? 0) > 0 && (
+            <div className="rounded-lg border border-[var(--color-warning)] bg-[var(--color-warning-soft)] p-3 text-sm text-[var(--color-warning)]">
+              ⚠ Este namespace possui {deleteTarget?.toolsCount} tool(s) vinculada(s).
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={isDeleting}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              disabled={isDeleting}
+              onClick={() => {
+                if (!deleteTarget) return;
+                startDeleteTransition(async () => {
+                  await deleteNamespace(deleteTarget.id);
+                  setDeleteTarget(null);
+                  router.refresh();
+                });
+              }}
+            >
+              {isDeleting ? "Excluindo..." : "Excluir namespace"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -88,17 +88,15 @@ export function GroupForm({
           | undefined;
 
         if (!response.ok) {
-          throw new Error(data?.error ?? "Failed to search Entra groups.");
+          throw new Error(data?.error ?? "Não foi possível pesquisar grupos do Entra.");
         }
 
         setSearchResults(data?.groups ?? []);
       } catch (requestError) {
-        if (controller.signal.aborted) {
-          return;
-        }
+        if (controller.signal.aborted) return;
         setSearchResults([]);
         setSearchError(
-          requestError instanceof Error ? requestError.message : "Failed to search Entra groups.",
+          requestError instanceof Error ? requestError.message : "Não foi possível pesquisar grupos do Entra.",
         );
       } finally {
         if (!controller.signal.aborted) {
@@ -115,12 +113,16 @@ export function GroupForm({
 
   function handleSubmit(formData: FormData) {
     setError(null);
+    if (!group && !selectedGroupId) {
+      setError("Selecione um grupo antes de salvar.");
+      return;
+    }
     startTransition(async () => {
       try {
         await upsertGroup(formData);
         onClose();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to save.");
+        setError(err instanceof Error ? err.message : "Não foi possível salvar.");
       }
     });
   }
@@ -140,7 +142,7 @@ export function GroupForm({
       >
         <DialogHeader className={`border-b ${BORDER} bg-[var(--color-surface)] px-6 py-4`}>
           <DialogTitle className="text-base font-semibold">
-            {group ? "Edit Group" : "Add Group from Entra ID"}
+            {group ? "Editar grupo" : "Adicionar Grupo"}
           </DialogTitle>
         </DialogHeader>
 
@@ -153,9 +155,9 @@ export function GroupForm({
                 <div className="flex items-center gap-2">
                   <IconSearch className="size-4 text-muted-foreground" />
                   <div>
-                    <p className="text-sm font-medium">Search Entra ID groups</p>
+                    <p className="text-sm font-medium">Pesquisar grupos do Entra ID</p>
                     <p className="text-xs text-muted-foreground">
-                      Search by display name. Select a result to fill the form automatically.
+                      Pesquise pelo nome de exibição. Selecione um resultado para preencher o formulário automaticamente.
                     </p>
                   </div>
                 </div>
@@ -163,13 +165,13 @@ export function GroupForm({
                 <Input
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Type a group name..."
+                  placeholder="Digite o nome de um grupo..."
                 />
 
                 {searchLoading && (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <IconLoader2 className="size-4 animate-spin" />
-                    Searching Entra groups...
+                    Pesquisando grupos do Entra...
                   </div>
                 )}
 
@@ -180,7 +182,7 @@ export function GroupForm({
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-[var(--color-text-secondary)]">
-                          Selected group
+                          Grupo selecionado
                         </p>
                         <p className="truncate text-sm text-[var(--color-text-secondary)]">
                           {selectedGroup.displayName}
@@ -195,7 +197,7 @@ export function GroupForm({
                 ) : null}
 
                 {!searchLoading && searchQuery.trim().length >= 2 && searchResults.length === 0 && !searchError && (
-                  <p className="text-xs text-muted-foreground">No groups found.</p>
+                  <p className="text-xs text-muted-foreground">Nenhum grupo encontrado.</p>
                 )}
 
                 {searchResults.length > 0 && (
@@ -246,18 +248,12 @@ export function GroupForm({
               value={group?.displayName ?? selectedGroup?.displayName ?? searchQuery}
             />
 
-            {!group && !selectedGroupId ? (
-              <p className="text-xs text-muted-foreground">
-                Select a group from the search results to continue.
-              </p>
-            ) : null}
-
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
 
           <DialogFooter className={`flex-row items-center justify-end gap-2 border-t ${BORDER} bg-[var(--color-surface)] px-6 py-4`}>
-            <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={isPending}>{isPending ? "Saving…" : "Save"}</Button>
+            <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
+            <Button type="submit" disabled={isPending || (!group && !selectedGroupId)}>{isPending ? "Salvando..." : "Salvar"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

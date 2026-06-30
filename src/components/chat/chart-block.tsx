@@ -231,7 +231,30 @@ export function parseChartSpec(raw: string): ChartSpec | null {
 
     if (parsed.type === "device-cards") {
       if (!Array.isArray(parsed.deviceCards) || parsed.deviceCards.length === 0) return null;
-      return { ...base, type: "device-cards", labels: [], series: [], deviceCards: parsed.deviceCards as DeviceCard[], cardBanner: parsed.cardBanner as CardBanner | undefined };
+      const deviceCards: DeviceCard[] = (parsed.deviceCards as Record<string, unknown>[]).map((card) => ({
+        label: String(card.label ?? ""),
+        status: card.status as DeviceCard["status"],
+        statusLabel: typeof card.statusLabel === "string" ? card.statusLabel : undefined,
+        metrics: Array.isArray(card.metrics)
+          ? (card.metrics as Record<string, unknown>[]).map((m) => ({
+              label: String(m.label ?? ""),
+              value: typeof m.value === "object" && m.value !== null
+                ? JSON.stringify(m.value)
+                : String(m.value ?? ""),
+              bar: typeof m.bar === "number" ? m.bar : undefined,
+              barColor: m.barColor as DeviceMetric["barColor"],
+            }))
+          : [],
+        details: Array.isArray(card.details)
+          ? card.details.map((d) =>
+              typeof d === "string" ? d : typeof d === "object" && d !== null
+                ? Object.entries(d as Record<string, unknown>).map(([k, v]) => `${k}: ${v}`).join(", ")
+                : String(d),
+            )
+          : undefined,
+        note: typeof card.note === "string" ? card.note : undefined,
+      }));
+      return { ...base, type: "device-cards", labels: [], series: [], deviceCards, cardBanner: parsed.cardBanner as CardBanner | undefined };
     }
 
     if (parsed.type === "info-cards") {

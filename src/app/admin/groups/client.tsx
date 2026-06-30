@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { GroupForm } from "@/components/admin/group-form";
 import { deleteGroup, syncAllGroups } from "./actions";
@@ -13,6 +14,8 @@ import { RefreshCw, Search, Trash2, User } from "@/components/ui/icons";
 export function GroupsAdminClient({ groups }: { groups: GroupRow[] }) {
   const [form, setForm] = useState<{ open: boolean; group?: GroupRow }>({ open: false });
   const [search, setSearch] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<GroupRow | null>(null);
+  const [isDeleting, startDelete] = useTransition();
 
   const filteredGroups = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -34,17 +37,17 @@ export function GroupsAdminClient({ groups }: { groups: GroupRow[] }) {
         <div>
           <h1 className="text-2xl font-bold">Groups</h1>
           <p className="text-sm text-muted-foreground">
-            Register Entra ID groups to control namespace access.
+            Registre grupos do Entra ID para controlar o acesso aos namespaces.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <form action={syncAllGroups}>
             <Button type="submit" variant="outline" className="rounded-lg">
               <RefreshCw className="size-4" aria-hidden="true" />
-              Sync groups
+              Sincronizar grupos
             </Button>
           </form>
-          <Button onClick={() => setForm({ open: true })}>+ Add Group</Button>
+          <Button onClick={() => setForm({ open: true })}>+ Adicionar grupo</Button>
         </div>
       </div>
 
@@ -57,7 +60,7 @@ export function GroupsAdminClient({ groups }: { groups: GroupRow[] }) {
           type="search"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search groups..."
+          placeholder="Buscar grupos..."
           className="pl-9 text-[var(--color-text-secondary)]"
         />
       </div>
@@ -74,12 +77,12 @@ export function GroupsAdminClient({ groups }: { groups: GroupRow[] }) {
           </colgroup>
           <thead>
             <tr>
-              <th className="px-4 py-3 font-medium">Group</th>
+              <th className="px-4 py-3 font-medium">Grupo</th>
               <th className="px-4 py-3 text-center font-medium">Entra Object ID</th>
-              <th className="px-4 py-3 text-center font-medium">Members</th>
-              <th className="px-4 py-3 text-center font-medium">Last sync</th>
+              <th className="px-4 py-3 text-center font-medium">Membros</th>
+              <th className="px-4 py-3 text-center font-medium">Última sincronização</th>
               <th className="px-4 py-3 text-center font-medium">Status</th>
-              <th className="px-4 py-3 text-center font-medium">Actions</th>
+              <th className="px-4 py-3 text-center font-medium">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -87,12 +90,12 @@ export function GroupsAdminClient({ groups }: { groups: GroupRow[] }) {
               <tr>
                 <td colSpan={6} className="px-4 py-12 text-center">
                   <p className="font-semibold text-[var(--color-text-secondary)]">
-                    {groups.length === 0 ? "No groups yet" : "No groups found"}
+                    {groups.length === 0 ? "Nenhum grupo cadastrado" : "Nenhum grupo encontrado"}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {groups.length === 0
-                      ? "Add a group to use it in namespace access control."
-                      : "Try a different search term."}
+                      ? "Adicione um grupo para usá-lo no controle de acesso aos namespaces."
+                      : "Tente um termo de busca diferente."}
                   </p>
                 </td>
               </tr>
@@ -123,7 +126,7 @@ export function GroupsAdminClient({ groups }: { groups: GroupRow[] }) {
                 </td>
                 <td className="px-4 py-4 text-center">
                   <span className="text-xs text-muted-foreground">
-                    {group.memberCount} members
+                    {group.memberCount} membros
                   </span>
                 </td>
                 <td className="px-4 py-4 text-center text-xs text-muted-foreground">
@@ -143,22 +146,20 @@ export function GroupsAdminClient({ groups }: { groups: GroupRow[] }) {
                         : "rounded-md border-red-200 bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-normal text-red-800"
                     }
                   >
-                    {group.isActive ? "Active" : "Inactive"}
+                    {group.isActive ? "Ativo" : "Inativo"}
                   </Badge>
                 </td>
                 <td className="px-4 py-4">
                   <div className="flex items-center justify-center">
-                    <form action={async () => { await deleteGroup(group.id); }} style={{ display: "inline" }}>
-                      <Button
-                        type="submit"
-                        variant="ghost"
-                        size="icon"
-                        className="rounded-full text-[var(--color-error)] hover:bg-[var(--color-error-soft)] hover:text-[var(--color-error)]"
-                        aria-label={`Delete ${group.displayName}`}
-                      >
-                        <Trash2 className="size-4" aria-hidden="true" />
-                      </Button>
-                    </form>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="rounded-full text-[var(--color-error)] hover:bg-[var(--color-error-soft)] hover:text-[var(--color-error)]"
+                      aria-label={`Excluir ${group.displayName}`}
+                      onClick={() => setDeleteTarget(group)}
+                    >
+                      <Trash2 className="size-4" aria-hidden="true" />
+                    </Button>
                   </div>
                 </td>
               </tr>
@@ -172,6 +173,33 @@ export function GroupsAdminClient({ groups }: { groups: GroupRow[] }) {
         group={form.group}
         onClose={() => setForm({ open: false })}
       />
+
+      <Dialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir grupo</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir o grupo <strong>{deleteTarget?.displayName}</strong>? Esta ação não poderá ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={isDeleting}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              disabled={isDeleting}
+              onClick={() => {
+                if (!deleteTarget) return;
+                startDelete(async () => {
+                  await deleteGroup(deleteTarget.id);
+                  setDeleteTarget(null);
+                });
+              }}
+            >
+              {isDeleting ? "Excluindo..." : "Excluir grupo"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

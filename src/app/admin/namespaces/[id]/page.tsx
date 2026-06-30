@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { requireAdmin } from "@/lib/auth-helpers";
@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db";
 import { NamespaceDetailClient } from "./client";
 
 export const metadata: Metadata = {
-  title: "Namespace details - Admin",
+  title: "Namespace - Administração",
 };
 
 export default async function NamespaceDetailPage({
@@ -193,3 +193,4 @@ function normalizePermissionMode(
   }
   return "allow";
 }
+

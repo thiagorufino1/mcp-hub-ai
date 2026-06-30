@@ -7,7 +7,6 @@ import { ChatThread } from "@/components/chat/chat-thread";
 import { useAppPreferences } from "@/components/providers/app-preferences-provider";
 import { MessageComposer } from "@/components/chat/message-composer";
 import { SidebarDrawer } from "@/components/chat/sidebar-drawer";
-import type { SystemPrompt } from "@/components/chat/system-prompt-section";
 import { PortalHeader } from "@/components/layout/portal-header";
 import { SESSION_LLM_CONFIG_KEY, readSessionJson } from "./storage";
 import { parseStreamChunks } from "@/lib/chat-stream";
@@ -16,7 +15,6 @@ import type { LLMConfig } from "@/types/llm-config";
 
 const MESSAGE_STORAGE_KEY = "ai-chat-messages";
 const TOOL_EVENT_STORAGE_KEY = "ai-chat-tool-events";
-const CUSTOM_PROMPT_KEY = "ai-chat-custom-prompt";
 const STORAGE_VERSION_KEY = "ai-chat-ui-version";
 const STORAGE_BACKUP_PREFIX = "ai-chat-storage-backup";
 const STORAGE_VERSION = "2026-03-30-ui-refresh-5";
@@ -30,9 +28,12 @@ type ThreadItem =
 
 function chatGreeting(userName: string | null): string {
   const hour = new Date().getHours();
-  const period = hour >= 5 && hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
+  const [emoji, period] =
+    hour >= 5 && hour < 12 ? ["🌅", "Bom dia"] :
+    hour < 18 ? ["🌞", "Boa tarde"] :
+    ["🌙", "Boa noite"];
   const first = userName ? `, ${userName.split(" ")[0]}` : "";
-  return `${period}${first}`;
+  return `${emoji} ${period}${first}`;
 }
 
 function buildInitialAssistantMessage(content: string): Message {
@@ -100,8 +101,6 @@ export function ChatShell({
   const [messages, setMessages] = useState<Message[]>(() => [buildInitialAssistantMessage(t("chat.welcome"))]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [systemPrompts, setSystemPrompts] = useState<SystemPrompt[]>([]);
-  const [activePromptId, setActivePromptId] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
   const [storageNotice, setStorageNotice] = useState<string | null>(null);
   const [llmConfig, setLlmConfig] = useState<LLMConfig | null>(null);
@@ -163,16 +162,6 @@ export function ChatShell({
         // Ignore corrupted tool events.
       }
 
-      try {
-        const storedPrompts = localStorage.getItem(CUSTOM_PROMPT_KEY);
-        if (storedPrompts) {
-          const parsed = JSON.parse(storedPrompts) as { prompts: SystemPrompt[]; activeId: string | null };
-          if (parsed.prompts) setSystemPrompts(parsed.prompts);
-          if (parsed.activeId !== undefined) setActivePromptId(parsed.activeId);
-        }
-      } catch {
-        // Ignore corrupted prompts.
-      }
     } catch {
       // Ignore corrupted local state.
     }
@@ -196,7 +185,7 @@ export function ChatShell({
           : "";
         const title = firstUserContent
           ? firstUserContent.slice(0, 42) + (firstUserContent.length > 42 ? "…" : "")
-          : "Nova Conversa";
+          : new Date().toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(",", " às");
         const newSession: ChatSession = { id: newId, title, createdAt: new Date().toISOString() };
         setSessions([newSession]);
         setActiveSessionId(newId);
@@ -338,7 +327,7 @@ export function ChatShell({
       const firstUser = msgs.find((m) => m.role === "user" && m.id !== "assistant-welcome");
       const title = firstUser?.content
         ? firstUser.content.slice(0, 42) + (firstUser.content.length > 42 ? "…" : "")
-        : "Nova Conversa";
+        : new Date().toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(",", " às");
       const updated = sessionList.map((s) => (s.id === id ? { ...s, title } : s));
       localStorage.setItem(SESSIONS_INDEX_KEY, JSON.stringify(updated));
       setSessions(updated);
@@ -358,7 +347,7 @@ export function ChatShell({
     persistSessionData(activeSessionId, messages, toolEvents, sessions);
     // Create fresh session
     const newId = crypto.randomUUID();
-    const newSession: ChatSession = { id: newId, title: "Nova Conversa", createdAt: new Date().toISOString() };
+    const newSession: ChatSession = { id: newId, title: new Date().toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(",", " às"), createdAt: new Date().toISOString() };
     const nextSessions = [newSession, ...sessions];
     setSessions(nextSessions);
     setActiveSessionId(newId);
@@ -471,7 +460,14 @@ export function ChatShell({
       status: "complete",
     };
 
-    const nextMessages = [...messages, userMessage];
+    const nextMessages = [...messages, userMessage, {
+      id: "__pending__",
+      requestId,
+      role: "assistant" as const,
+      content: "",
+      createdAt: new Date(Date.now() + 1).toISOString(),
+      status: "streaming" as const,
+    }];
     setMessages(nextMessages);
     setScrollRequest((current) => current + 1);
     setIsStreaming(true);
@@ -482,7 +478,6 @@ export function ChatShell({
     try {
       const response = await fetch("/api/chat", {
         body: JSON.stringify({
-          customPrompt: systemPrompts.find((p) => p.id === activePromptId)?.content || undefined,
           llmConfig: llmConfig ?? undefined,
           locale,
           message: content,
@@ -557,7 +552,7 @@ export function ChatShell({
         currentRequestIdRef.current = event.requestId ?? currentRequestIdRef.current;
         setScrollRequest((current) => current + 1);
         setMessages((current) => [
-          ...current,
+          ...current.filter((m) => m.id !== "__pending__"),
           {
             id: event.id,
             requestId: event.requestId,
@@ -664,7 +659,7 @@ export function ChatShell({
           }
 
           return [
-            ...current,
+            ...current.filter((m) => m.id !== "__pending__"),
             {
               id: `error-${crypto.randomUUID()}`,
               role: "assistant",
@@ -732,6 +727,7 @@ export function ChatShell({
   function markCurrentAssistantStopped() {
     const assistantId = currentAssistantIdRef.current;
     if (!assistantId) {
+      setMessages((current) => current.filter((m) => m.id !== "__pending__"));
       return;
     }
 
@@ -756,39 +752,6 @@ export function ChatShell({
     return id;
   }
 
-  function savePrompts(prompts: SystemPrompt[], activeId: string | null) {
-    localStorage.setItem(CUSTOM_PROMPT_KEY, JSON.stringify({ prompts, activeId }));
-  }
-
-  function handleAddPrompt(prompt: SystemPrompt) {
-    const next = [...systemPrompts, prompt];
-    setSystemPrompts(next);
-    setActivePromptId(prompt.id);
-    savePrompts(next, prompt.id);
-  }
-
-  function handleEditPrompt(prompt: SystemPrompt) {
-    const next = systemPrompts.map((p) => (p.id === prompt.id ? prompt : p));
-    setSystemPrompts(next);
-    const nextActive = activePromptId ?? prompt.id;
-    if (!activePromptId) {
-      setActivePromptId(prompt.id);
-    }
-    savePrompts(next, nextActive);
-  }
-
-  function handleDeletePrompt(id: string) {
-    const next = systemPrompts.filter((p) => p.id !== id);
-    const nextActive = activePromptId === id ? null : activePromptId;
-    setSystemPrompts(next);
-    setActivePromptId(nextActive);
-    savePrompts(next, nextActive);
-  }
-
-  function handleSelectPrompt(id: string | null) {
-    setActivePromptId(id);
-    savePrompts(systemPrompts, id);
-  }
 
   const tokenTotals = useMemo(
     () =>
@@ -822,14 +785,6 @@ export function ChatShell({
       ? ("available" as const)
       : ("unavailable" as const);
   }, [messages]);
-  const promptProps = {
-    systemPrompts,
-    activePromptId,
-    onAddPrompt: handleAddPrompt,
-    onEditPrompt: handleEditPrompt,
-    onDeletePrompt: handleDeletePrompt,
-    onSelectPrompt: handleSelectPrompt,
-  };
   const llmProps = {
     llmConfig,
     onChangeLlmConfig: setLlmConfig,
@@ -845,7 +800,7 @@ export function ChatShell({
   return (
     <div className="fixed inset-0 flex flex-col bg-[var(--color-bg)]">
       {/* Same header as admin pages */}
-      <PortalHeader isAdmin={isAdmin} section="Chat" userName={userName} userImage={userImage} />
+      <PortalHeader isAdmin={isAdmin} userName={userName} userImage={userImage} />
 
       {/* Same layout container as PortalShell */}
       <div className="mx-auto flex min-h-0 w-full max-w-[1500px] flex-1 gap-5 px-4 py-5 lg:px-6">
@@ -864,7 +819,6 @@ export function ChatShell({
         {/* Mobile overlay drawer */}
         <SidebarDrawer
           isOpen={isSidebarOpen}
-          {...promptProps}
           {...llmProps}
           {...corporateProps}
           onClose={() => setIsSidebarOpen(false)}
@@ -905,10 +859,10 @@ export function ChatShell({
               <div className="flex flex-1 flex-col items-center justify-center px-4 pb-8">
                 <div className="w-full max-w-[680px] space-y-8">
                   <div className="space-y-2 text-center">
-                    <h1 className="text-[2rem] font-semibold tracking-tight text-foreground">
+                    <h1 className="text-[2rem] font-semibold tracking-tight text-[var(--color-text-secondary)]">
                       {chatGreeting(userName ?? null)}
                     </h1>
-                    <p className="text-[14px] text-muted-foreground">
+                    <p className="text-[13px] text-[var(--color-text-secondary)]">
                       Como posso ajudá-lo hoje?
                     </p>
                   </div>

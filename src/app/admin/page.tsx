@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 
 import { requireAdmin } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/db";
@@ -15,7 +15,7 @@ import {
 import { ExecutionChart, type ExecDayData } from "@/components/admin/execution-chart";
 import { LlmUsageChart } from "@/components/admin/llm-usage-chart";
 
-export const metadata = { title: "Admin Dashboard - MCP Hub" };
+export const metadata = { title: "Dashboard Admin - MCP Hub" };
 
 export default async function AdminDashboardPage() {
   await requireAdmin();
@@ -159,53 +159,44 @@ export default async function AdminDashboardPage() {
 
   return (
     <div className="portal-page">
-      <div className="portal-page-heading">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">Dashboard</h1>
-            <p className="text-sm text-muted-foreground">Governed AI platform overview.</p>
-          </div>
-        </div>
-      </div>
 
       <div
         className="rounded-2xl border border-white/10 p-6 text-white shadow-[0_14px_32px_rgba(17,63,124,0.18)]"
         style={{ background: "var(--gradient-action)" }}
       >
-        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/60">Control center</p>
-        <h2 className="mt-2 text-xl font-semibold">Build your governed AI environment</h2>
-        <p className="mt-2 max-w-xl text-sm leading-6 text-white/72">
-          Connect MCP servers, configure an LLM provider, and publish namespaces for your users.
+        <h2 className="text-xl font-semibold">MCP Hub</h2>
+        <p className="mt-2 text-sm leading-6 text-white/72">
+          Gerencie servidores MCP, organize-os em namespaces e disponibilize conjuntos de ferramentas para a organização.
         </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard href="/admin/mcp" label="MCP Servers" value={String(mcpTotal)} sub="registered servers" icon={Cable} tone="info" />
-        <KpiCard href="/admin/namespaces" label="Namespaces" value={`${namespacePublished}/${namespaceTotal}`} sub="published endpoints" icon={Layers3} tone="info" />
-        <KpiCard href="/admin/audit" label="Executions (14d)" value={String(execTotal)} sub={`${successRate}% success rate`} icon={Zap} tone={execError > 0 && successRate < 90 ? "error" : "success"} />
-        <KpiCard href="/admin/llm" label="LLM" value={String(llmEnabled)} sub="enabled providers" icon={Bot} tone="info" />
-        <KpiCard href="/admin/mcp" label="MCP Tools" value={String(toolTotal)} sub="enabled tools" icon={Wrench} tone="info" />
-        <KpiCard label="OAuth Connections" value={String(oauthConnectionTotal)} sub="active connections" icon={RadioTower} tone="neutral" />
-        <KpiCard href="/admin/groups" label="Entra Groups" value={String(groupCount)} sub="registered groups" icon={Shield} tone="neutral" />
-        <KpiCard label="Users" value={String(userCount)} sub="authenticated" icon={User} tone="neutral" />
+        <KpiCard href="/admin/mcp" label="MCP Servers" value={String(mcpTotal)} sub="servidores registrados" icon={Cable} tone="info" />
+        <KpiCard href="/admin/namespaces" label="Namespaces" value={`${namespacePublished}/${namespaceTotal}`} sub="endpoints publicados" icon={Layers3} tone="info" />
+        <KpiCard href="/admin/audit" label="Execuções (14d)" value={String(execTotal)} sub={`${successRate}% de sucesso`} icon={Zap} tone={execError > 0 && successRate < 90 ? "error" : "success"} />
+        <KpiCard href="/admin/llm" label="LLM" value={String(llmEnabled)} sub="provedores habilitados" icon={Bot} tone="info" />
+        <KpiCard href="/admin/mcp" label="MCP Tools" value={String(toolTotal)} sub="tools habilitadas" icon={Wrench} tone="info" />
+        <KpiCard label="OAuth Connections" value={String(oauthConnectionTotal)} sub="conexões ativas" icon={RadioTower} tone="neutral" />
+        <KpiCard href="/admin/groups" label="Entra Groups" value={String(groupCount)} sub="grupos registrados" icon={Shield} tone="neutral" />
+        <KpiCard label="Users" value={String(userCount)} sub="autenticados" icon={User} tone="neutral" />
       </div>
 
       <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_8px_24px_rgba(17,63,124,0.04)]">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold">Tool executions - last 14 days</h2>
-            <p className="text-xs text-muted-foreground">{execTotal} calls in last 14d - {successRate}% success</p>
+            <h2 className="text-sm font-semibold">Execuções de tools - últimos 14 dias</h2>
+            <p className="text-xs text-muted-foreground">{execTotal} chamadas nos últimos 14d - {successRate}% de sucesso</p>
           </div>
           <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <span className="size-2 rounded-full bg-[var(--color-primary)]" />
-              Success
+              Sucesso
             </span>
             <span className="flex items-center gap-1.5">
               <span className="size-2 rounded-full bg-[var(--color-error)]" />
-              Error
+              Erro
             </span>
-            <Link href="/admin/audit" className="font-medium text-[var(--color-primary)] hover:underline">View log</Link>
+            <Link href="/admin/audit" className="font-medium text-[var(--color-primary)] hover:underline">Ver logs</Link>
           </div>
         </div>
         <ExecutionChart data={chartData} />
@@ -261,7 +252,7 @@ export default async function AdminDashboardPage() {
           )}
           {bySource.length > 0 && (
             <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_8px_24px_rgba(17,63,124,0.04)]">
-              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Execuções por Origem (14d)</p>
+              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Execuções por origem (14d)</p>
               <div className="flex flex-col gap-2">
                 {bySource.map((s) => (
                   <div key={s.source} className="flex items-center justify-between gap-2">
@@ -291,7 +282,7 @@ export default async function AdminDashboardPage() {
       <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_8px_24px_rgba(17,63,124,0.04)]">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold">Consumo de tokens LLM - ultimos 14 dias</h2>
+            <h2 className="text-sm font-semibold">Consumo de tokens LLM - últimos 14 dias</h2>
             <p className="text-xs text-muted-foreground">Total de tokens por dia (input + output)</p>
           </div>
           <div className="flex items-center gap-3">
@@ -351,3 +342,4 @@ function KpiCard({
 
   return href ? <Link href={href}>{content}</Link> : content;
 }
+

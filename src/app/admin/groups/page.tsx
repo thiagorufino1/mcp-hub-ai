@@ -2,7 +2,7 @@ import { requireAdmin } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/db";
 import { GroupsAdminClient } from "./client";
 
-export const metadata = { title: "Groups - Admin" };
+export const metadata = { title: "Groups - Administração" };
 
 export default async function AdminGroupsPage() {
   await requireAdmin();

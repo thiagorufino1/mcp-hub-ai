@@ -70,13 +70,13 @@ export function PortalHeader({ isAdmin, section, userName, userImage }: {
                 <TooltipTrigger asChild>
                   <button
                     type="submit"
-                    className="group flex items-center gap-2.5 rounded-full bg-white/[0.08] px-2 py-1 text-white/70 transition-colors duration-150 hover:bg-white/[0.14] hover:text-white"
+                    className="group flex h-9 items-center gap-2.5 rounded-full bg-white/[0.08] px-2 text-white/70 transition-colors duration-150 hover:bg-white/[0.14] hover:text-white"
                   >
                     {userImage ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={userImage} alt={userName || "User"} className="size-6 shrink-0 rounded-full object-cover" referrerPolicy="no-referrer" />
+                      <img src={userImage} alt={userName || "User"} className="size-7 shrink-0 rounded-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
-                      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-white/[0.15] text-[11px] font-semibold text-white">
+                      <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/[0.15] text-[11px] font-semibold text-white">
                         {(userName || "U").charAt(0).toUpperCase()}
                       </span>
                     )}

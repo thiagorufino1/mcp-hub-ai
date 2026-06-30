@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { SettingsClient } from "./client";
 import { PortalShell } from "@/components/layout/portal-shell";
 
-export const metadata = { title: "Settings - MCP Hub" };
+export const metadata = { title: "Configurações - MCP Hub" };
 
 export default async function SettingsPage() {
   const user = await requireAuth();
@@ -15,7 +15,7 @@ export default async function SettingsPage() {
   });
 
   return (
-    <PortalShell isAdmin={user.isAdmin} section="Settings" showUserNavigation userName={user.name}>
+    <PortalShell isAdmin={user.isAdmin} showUserNavigation userName={user.name} userImage={user.image ?? null}>
       <SettingsClient tokens={tokens} />
     </PortalShell>
   );

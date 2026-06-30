@@ -72,7 +72,7 @@ export function LlmForm({ open, onClose, llm }: Props) {
 
   async function testConnection() {
     if (!testConfig) {
-      setError("Fill in the provider credentials and model before testing.");
+      setError("Preencha as credenciais do provedor e o modelo antes de testar.");
       return;
     }
     setIsTesting(true);
@@ -84,11 +84,11 @@ export function LlmForm({ open, onClose, llm }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ llmConfig: testConfig }),
       });
-      const result = await response.json() as { ok?: boolean; error?: string };
-      if (!response.ok || !result.ok) throw new Error(result.error || "Connection test failed.");
+      const result = (await response.json()) as { ok?: boolean; error?: string };
+      if (!response.ok || !result.ok) throw new Error(result.error || "Falha no teste de conexão.");
       setTestSuccess(true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Connection test failed.");
+      setError(cause instanceof Error ? cause.message : "Falha no teste de conexão.");
     } finally {
       setIsTesting(false);
     }
@@ -102,7 +102,7 @@ export function LlmForm({ open, onClose, llm }: Props) {
       llm?.allowedModels[0] ||
       "";
     if (!provider || !model.trim()) {
-      setError("Choose a provider and fill in its model or deployment.");
+      setError("Escolha um provedor e preencha o modelo ou deployment.");
       return;
     }
     const formData = new FormData();
@@ -119,7 +119,7 @@ export function LlmForm({ open, onClose, llm }: Props) {
         else await createLlm(formData);
         onClose();
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "Failed to save.");
+        setError(cause instanceof Error ? cause.message : "Não foi possível salvar.");
       }
     });
   }
@@ -177,10 +177,10 @@ export function LlmForm({ open, onClose, llm }: Props) {
                       id="llm-enabled"
                       checked={enabled}
                       onCheckedChange={setEnabled}
-                      aria-label="Enabled"
+                      aria-label="Habilitado"
                     />
                     <Label htmlFor="llm-enabled" className="cursor-pointer text-sm text-muted-foreground">
-                      Enabled
+                      Habilitado
                     </Label>
                   </div>
                   <div className="flex items-center gap-2.5">
@@ -188,10 +188,10 @@ export function LlmForm({ open, onClose, llm }: Props) {
                       id="llm-default-provider"
                       checked={isDefault}
                       onCheckedChange={setIsDefault}
-                      aria-label="Default provider"
+                      aria-label="Provedor padrão"
                     />
                     <Label htmlFor="llm-default-provider" className="cursor-pointer text-sm text-muted-foreground">
-                      Default provider
+                      Provedor padrão
                     </Label>
                   </div>
                 </div>
@@ -199,7 +199,7 @@ export function LlmForm({ open, onClose, llm }: Props) {
             ) : null}
 
             {error ? <div className="rounded-xl border border-[var(--color-error-soft)] bg-[var(--color-error-soft)] p-3 text-xs text-[var(--color-error)]">{error}</div> : null}
-            {testSuccess ? <div className="flex items-center gap-2 rounded-xl border border-[var(--color-success-soft)] bg-[var(--color-success-soft)] p-3 text-xs text-[var(--color-success)]"><CheckCircle2 className="size-4" />Connection successful.</div> : null}
+            {testSuccess ? <div className="flex items-center gap-2 rounded-xl border border-[var(--color-success-soft)] bg-[var(--color-success-soft)] p-3 text-xs text-[var(--color-success)]"><CheckCircle2 className="size-4" />Conexão bem-sucedida.</div> : null}
           </div>
         </div>
 

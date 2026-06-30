@@ -2,7 +2,7 @@ import { requireAdmin } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/db";
 import { NamespacesAdminClient } from "./client";
 
-export const metadata = { title: "Namespaces - Admin" };
+export const metadata = { title: "Namespaces - Administração" };
 
 export default async function AdminNamespacesPage() {
   await requireAdmin();

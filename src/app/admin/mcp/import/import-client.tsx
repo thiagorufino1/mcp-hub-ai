@@ -137,7 +137,7 @@ export function McpImportDialog({ open, onOpenChange, onImported }: ImportDialog
       <DialogContent className="max-w-6xl max-h-[98vh] gap-0 overflow-hidden rounded-2xl border border-[#dbe4f1] bg-[var(--color-surface)] p-0 shadow-[0_20px_48px_rgba(15,23,42,0.10)]">
         <DialogHeader className="border-b border-[#dbe4f1] bg-[var(--color-surface)] px-6 py-4 text-left">
           <DialogTitle className="text-base font-semibold text-foreground">
-            Import Servers from JSON
+            Importar Servers a partir de JSON
           </DialogTitle>
         </DialogHeader>
 
@@ -149,7 +149,7 @@ export function McpImportDialog({ open, onOpenChange, onImported }: ImportDialog
               className="min-h-[750px] font-mono !text-[13px] !leading-[1.4]"
               style={{ fontSize: "13px", lineHeight: "1.4" }}
               spellCheck={false}
-              aria-label="Server configuration JSON"
+              aria-label="JSON de configuração do Server"
               placeholder='{"mcpServers":{}}'
             />
 
@@ -161,11 +161,11 @@ export function McpImportDialog({ open, onOpenChange, onImported }: ImportDialog
 
           <aside className="space-y-4">
             <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_8px_24px_rgba(17,63,124,0.04)]">
-              <h2 className="text-sm font-semibold">Validation</h2>
+              <h2 className="text-sm font-semibold">Validação</h2>
               {validation.ok ? (
                 <div className="mt-3 space-y-2 text-sm">
-                  <p className="font-medium text-[var(--color-success)]">JSON is valid.</p>
-                  <p className="text-muted-foreground">{validation.entries.length} server(s) detected.</p>
+                  <p className="font-medium text-[var(--color-success)]">JSON válido.</p>
+                  <p className="text-muted-foreground">{validation.entries.length} Server(s) detectado(s).</p>
                   <ul className="space-y-1 text-xs text-[var(--color-text-secondary)]">
                     {validation.entries.map((entry) => (
                       <li key={entry.name} className="flex items-center justify-between gap-3 rounded-lg bg-[var(--color-surface-muted)] px-3 py-2">
@@ -184,13 +184,13 @@ export function McpImportDialog({ open, onOpenChange, onImported }: ImportDialog
 
             {result && (
               <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_8px_24px_rgba(17,63,124,0.04)]">
-                <h2 className="text-sm font-semibold">Import result</h2>
+                <h2 className="text-sm font-semibold">Resultado da importação</h2>
                 <div className="mt-3 space-y-3 text-sm">
-                  <p className="text-[var(--color-success)]">{result.imported.length} imported</p>
+                  <p className="text-[var(--color-success)]">{result.imported.length} importado(s)</p>
                   {result.skipped.length > 0 && (
                     <div className="space-y-2">
                       <p className="text-[var(--color-warning)]">
-                        {result.skipped.length} skipped, already exists
+                        {result.skipped.length} ignorado(s), já existe(m)
                       </p>
                       <ul className="space-y-1 text-xs text-[var(--color-text-secondary)]">
                         {result.skipped.map((name) => (
@@ -201,7 +201,7 @@ export function McpImportDialog({ open, onOpenChange, onImported }: ImportDialog
                       </ul>
                     </div>
                   )}
-                  {result.errors.length > 0 && <p className="text-[var(--color-error)]">{result.errors.length} errors</p>}
+                  {result.errors.length > 0 && <p className="text-[var(--color-error)]">{result.errors.length} erro(s)</p>}
                 </div>
               </section>
             )}
@@ -216,7 +216,7 @@ export function McpImportDialog({ open, onOpenChange, onImported }: ImportDialog
             onClick={() => setJson(exampleJson)}
           >
             <Download className="size-4" />
-            Load example
+            Carregar exemplo
           </Button>
           <Button
             type="button"
@@ -225,7 +225,7 @@ export function McpImportDialog({ open, onOpenChange, onImported }: ImportDialog
             className="gap-1.5 rounded-lg"
           >
             <Upload className="size-4" />
-            {isPending ? "Importing..." : "Import"}
+            {isPending ? "Importando..." : "Importar"}
           </Button>
         </DialogFooter>
       </DialogContent>

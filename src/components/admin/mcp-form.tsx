@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
 
@@ -173,7 +173,7 @@ export function McpForm({ open, onClose, mcp }: Props) {
           onSubmit={handleSubmit}
         >
           <div className="space-y-1.5">
-            <Label htmlFor="admin-mcp-name" className={labelClass}>Nome</Label>
+            <Label htmlFor="admin-mcp-name" className={labelClass}>Nome *</Label>
             <Input
               id="admin-mcp-name"
               ref={firstFieldRef}
@@ -189,13 +189,14 @@ export function McpForm({ open, onClose, mcp }: Props) {
 
           <div className="space-y-1.5">
             <Label htmlFor="admin-mcp-description" className={labelClass}>
-              Descrição
+              Descrição *
             </Label>
             <Input
               id="admin-mcp-description"
               name="description"
               defaultValue={mcp?.description ?? ""}
               className={fieldClass}
+              required
             />
           </div>
 
@@ -357,7 +358,7 @@ export function McpForm({ open, onClose, mcp }: Props) {
                 <NumberField label="Read-only retries" name="maxRetries" value={mcp?.maxRetries ?? 1} min={0} />
                 <NumberField label="Failure threshold" name="failureThreshold" value={mcp?.failureThreshold ?? 3} min={1} />
                 <NumberField label="Circuit cooldown (ms)" name="circuitCooldownMs" value={mcp?.circuitCooldownMs ?? 60000} min={1000} />
-                <NumberField label="Max concurrent calls" name="maxConcurrentCalls" value={mcp?.maxConcurrentCalls ?? 5} min={1} />
+                <NumberField label="Max concurrent calls" name="maxConcurrentCalls" value={mcp?.maxConcurrentCalls ?? 0} min={0} />
                 <NumberField label="Rate limit requests" name="rateLimitRequests" value={mcp?.rateLimitRequests ?? 60} min={0} />
                 <NumberField label="Rate window (ms)" name="rateLimitWindowMs" value={mcp?.rateLimitWindowMs ?? 60000} min={1000} />
               </div>
@@ -501,7 +502,7 @@ function KeyValueRows({
           <Input
             aria-label="Value"
             value={item.value}
-            placeholder={item.isExisting ? "••••••  (leave blank to keep current)" : undefined}
+            placeholder={item.isExisting ? "•••••• (deixe em branco para manter o valor atual)" : undefined}
             onChange={(event) =>
               onChange(items.map((entry) =>
                 entry.id === item.id ? { ...entry, value: event.target.value, isExisting: false } : entry,
@@ -607,3 +608,4 @@ function NumberField({
     </div>
   );
 }
+

@@ -4,7 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { createToken, deleteToken } from "./actions";
 import type { TokenRow } from "./actions";
 
@@ -34,6 +34,8 @@ const statusStyles = {
 
 export function SettingsClient({ tokens }: Props) {
   const [isPending, startTransition] = useTransition();
+  const [isRevoking, startRevoke] = useTransition();
+  const [revokeTarget, setRevokeTarget] = useState<TokenRow | null>(null);
   const [newToken, setNewToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -47,7 +49,7 @@ export function SettingsClient({ tokens }: Props) {
         setNewToken(result.rawToken);
         formRef.current?.reset();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to create token.");
+        setError(err instanceof Error ? err.message : "Falha ao criar token.");
       }
     });
   }
@@ -62,14 +64,13 @@ export function SettingsClient({ tokens }: Props) {
   return (
     <div className="portal-page">
       <div className="portal-page-heading">
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-sm text-muted-foreground">Gerencie seus tokens pessoais de acesso ao MCP proxy.</p>
+        <h1 className="text-2xl font-bold">Configurações</h1>
+        <p className="text-sm text-muted-foreground">Gerencie seus tokens de acesso aos endpoints.</p>
       </div>
 
       <section className="portal-section gap-0 p-0">
         <div className="border-b border-[var(--color-border)] px-4 py-3">
-          <h2 className="font-semibold">Tokens Pessoais</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">Tokens para autenticação no MCP proxy.</p>
+          <h2 className="font-semibold">Tokens</h2>
         </div>
 
         {tokens.length === 0 ? (
@@ -112,11 +113,9 @@ export function SettingsClient({ tokens }: Props) {
                           : "—"}
                       </td>
                       <td className="px-4 py-3">
-                        <form action={async () => { await deleteToken(token.id); }}>
-                          <Button type="submit" size="sm" className="bg-[var(--color-error)] text-white hover:bg-[var(--color-error)]/90">
-                            Revogar
-                          </Button>
-                        </form>
+                        <Button size="sm" className="bg-[var(--color-error)] text-white hover:bg-[var(--color-error)]/90" onClick={() => setRevokeTarget(token)}>
+                          Revogar
+                        </Button>
                       </td>
                     </tr>
                   );
@@ -131,7 +130,7 @@ export function SettingsClient({ tokens }: Props) {
           <form ref={formRef} action={handleCreate} className="flex flex-wrap gap-2">
             <div className="flex-1 min-w-40">
               <Label htmlFor="name" className="sr-only">Nome do token</Label>
-              <Input id="name" name="name" placeholder="Ex.: VS Code pessoal" required />
+              <Input id="name" name="name" placeholder="Ex.: vscode" required />
             </div>
             <div>
               <Label htmlFor="expiry" className="sr-only">Expiração</Label>
@@ -174,6 +173,33 @@ export function SettingsClient({ tokens }: Props) {
             </Button>
             <Button onClick={() => setNewToken(null)} className="w-full">Fechar</Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={revokeTarget !== null} onOpenChange={(open) => { if (!open) setRevokeTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Revogar token</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja revogar o token <strong>{revokeTarget?.name}</strong>? Qualquer cliente usando este token perderá o acesso imediatamente.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRevokeTarget(null)} disabled={isRevoking}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              disabled={isRevoking}
+              onClick={() => {
+                if (!revokeTarget) return;
+                startRevoke(async () => {
+                  await deleteToken(revokeTarget.id);
+                  setRevokeTarget(null);
+                });
+              }}
+            >
+              {isRevoking ? "Revogando..." : "Revogar token"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

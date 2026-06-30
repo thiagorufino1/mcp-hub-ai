@@ -4,7 +4,7 @@ import { ADMIN_ACTIVITY_ACTIONS } from "@/lib/audit";
 import { AuditClient } from "./client";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Audit Log - Admin" };
+export const metadata = { title: "Audit Log - Administração" };
 
 export default async function AdminAuditPage() {
   await requireAdmin();
@@ -69,26 +69,26 @@ export default async function AdminAuditPage() {
         COUNT(*) FILTER (WHERE status <> 'success') AS failures,
         AVG("latencyMs")::double precision AS "averageLatency"
       FROM "McpToolExecution"
-      WHERE "createdAt" >= CURRENT_TIMESTAMP - INTERVAL '24 hours'
+      WHERE "createdAt" >= CURRENT_TIMESTAMP - INTERVAL '14 days'
     `,
     prisma.auditLog.count({
       where: {
-        createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+        createdAt: { gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000) },
         action: { in: [...ADMIN_ACTIVITY_ACTIONS] },
       },
     }),
     prisma.$queryRaw<Array<{ count: bigint }>>`
       SELECT COUNT(*) AS count FROM "McpToolExecution"
-      WHERE "createdAt" >= CURRENT_TIMESTAMP - INTERVAL '24 hours'
+      WHERE "createdAt" >= CURRENT_TIMESTAMP - INTERVAL '14 days'
     `.then((r) => Number(r[0]?.count ?? 0)),
     prisma.$queryRaw<Array<{ count: bigint }>>`
       SELECT COUNT(*) AS count FROM "AuditLog"
-      WHERE "createdAt" >= CURRENT_TIMESTAMP - INTERVAL '24 hours'
+      WHERE "createdAt" >= CURRENT_TIMESTAMP - INTERVAL '14 days'
         AND action IN ('mcp.proxy','mcp.namespace')
     `.then((r) => Number(r[0]?.count ?? 0)),
     prisma.$queryRaw<Array<{ count: bigint }>>`
       SELECT COUNT(*) AS count FROM "AuditLog"
-      WHERE "createdAt" >= CURRENT_TIMESTAMP - INTERVAL '24 hours'
+      WHERE "createdAt" >= CURRENT_TIMESTAMP - INTERVAL '14 days'
         AND action IN ('llm.test','llm.chat')
     `.then((r) => Number(r[0]?.count ?? 0)),
   ]);

@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_APP_VERSION: version,
   },
+  outputFileTracingIncludes: {
+    "/api/chat": ["./config/system-prompt.md"],
+  },
 };
 
 export default nextConfig;

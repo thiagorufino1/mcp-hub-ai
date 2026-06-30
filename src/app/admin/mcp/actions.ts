@@ -69,17 +69,26 @@ export type McpServerRow = {
 export async function createMcp(formData: FormData): Promise<void> {
   const user = await requireAdmin();
 
-  const nameValue = formData.get("name") as string;
+  const nameValue = requiredString(formData, "name");
   const existing = await prisma.mcpServer.findFirst({ where: { name: nameValue }, select: { id: true } });
   if (existing) {
     throw new Error("Já existe um MCP Server cadastrado com este nome.");
   }
 
-  const transport = formData.get("transport") as string;
+  const transport = requiredString(formData, "transport");
+  const command = optionalString(formData, "command");
+  const url = optionalString(formData, "url");
   const envRaw = (formData.get("env") as string | null) ?? "{}";
   const headersRaw = (formData.get("headers") as string | null) ?? "{}";
   const argsRaw = (formData.get("args") as string | null) ?? "";
   const authType = normalizeAuthType(transport, formData);
+  const description = requiredString(formData, "description");
+  if (transport === "stdio" && !command) {
+    throw new Error("O comando do MCP Server é obrigatório para transporte STDIO.");
+  }
+  if (transport !== "stdio" && !url) {
+    throw new Error("A URL do MCP Server é obrigatória para transporte remoto.");
+  }
   const headers = sanitizeMcpHeaders(
     JSON.parse(headersRaw) as Record<string, string>,
     authType,
@@ -89,12 +98,12 @@ export async function createMcp(formData: FormData): Promise<void> {
   try {
     mcp = await prisma.mcpServer.create({
       data: {
-        name: formData.get("name") as string,
-        description: (formData.get("description") as string | null) || null,
+        name: nameValue,
+        description,
         transport,
-        command: transport === "stdio" ? (formData.get("command") as string) : null,
+        command: transport === "stdio" ? command : null,
         args: argsRaw ? argsRaw.split("\n").map((a) => a.trim()).filter(Boolean) : [],
-        url: transport !== "stdio" ? (formData.get("url") as string) : null,
+        url: transport !== "stdio" ? url : null,
         env: encryptSecretJson(JSON.parse(envRaw) as Record<string, string>),
         headers: encryptSecretJson(headers),
         authType,
@@ -130,7 +139,7 @@ export async function createMcp(formData: FormData): Promise<void> {
 export async function updateMcp(id: string, formData: FormData): Promise<void> {
   const user = await requireAdmin();
 
-  const nameValue = formData.get("name") as string;
+  const nameValue = requiredString(formData, "name");
   const conflict = await prisma.mcpServer.findFirst({
     where: { name: nameValue, NOT: { id } },
     select: { id: true },
@@ -139,7 +148,9 @@ export async function updateMcp(id: string, formData: FormData): Promise<void> {
     throw new Error("Já existe um MCP Server cadastrado com este nome.");
   }
 
-  const transport = formData.get("transport") as string;
+  const transport = requiredString(formData, "transport");
+  const command = optionalString(formData, "command");
+  const url = optionalString(formData, "url");
   const envRaw = (formData.get("env") as string | null) ?? "{}";
   const headersRaw = (formData.get("headers") as string | null) ?? "{}";
   const argsRaw = (formData.get("args") as string | null) ?? "";
@@ -148,6 +159,13 @@ export async function updateMcp(id: string, formData: FormData): Promise<void> {
     select: { oauthClientSecret: true, sharedSecret: true, env: true, headers: true },
   });
   const authType = normalizeAuthType(transport, formData);
+  const description = requiredString(formData, "description");
+  if (transport === "stdio" && !command) {
+    throw new Error("O comando do MCP Server é obrigatório para transporte STDIO.");
+  }
+  if (transport !== "stdio" && !url) {
+    throw new Error("A URL do MCP Server é obrigatória para transporte remoto.");
+  }
 
   // For env and headers the form sends {key: newValue} where newValue may be "" if the user
   // did not re-enter the secret. In that case we fall back to the existing encrypted blob
@@ -171,12 +189,12 @@ export async function updateMcp(id: string, formData: FormData): Promise<void> {
       prisma.mcpServer.update({
         where: { id },
         data: {
-          name: formData.get("name") as string,
-          description: (formData.get("description") as string | null) || null,
+          name: nameValue,
+          description,
           transport,
-          command: transport === "stdio" ? (formData.get("command") as string) : null,
+          command: transport === "stdio" ? command : null,
           args: argsRaw ? argsRaw.split("\n").map((a) => a.trim()).filter(Boolean) : [],
-          url: transport !== "stdio" ? (formData.get("url") as string) : null,
+          url: transport !== "stdio" ? url : null,
           env: resolvedEnv,
           headers: resolvedHeaders,
           authType,
@@ -513,7 +531,7 @@ function runtimePolicyFromForm(formData: FormData) {
     circuitCooldownMs: integerField(formData, "circuitCooldownMs", 60_000, 1_000, 3_600_000),
     connectionTimeoutMs: integerField(formData, "connectionTimeoutMs", 10_000, 1_000, 120_000),
     failureThreshold: integerField(formData, "failureThreshold", 3, 1, 100),
-    maxConcurrentCalls: integerField(formData, "maxConcurrentCalls", 5, 1, 1_000),
+    maxConcurrentCalls: integerField(formData, "maxConcurrentCalls", 0, 0, 1_000),
     maxRetries: integerField(formData, "maxRetries", 1, 0, 10),
     rateLimitRequests: integerField(formData, "rateLimitRequests", 60, 0, 100_000),
     rateLimitWindowMs: integerField(formData, "rateLimitWindowMs", 60_000, 1_000, 3_600_000),
@@ -531,4 +549,15 @@ function integerField(
   const value = Number(formData.get(key));
   if (!Number.isInteger(value)) return fallback;
   return Math.min(maximum, Math.max(minimum, value));
+}
+
+function requiredString(formData: FormData, key: string) {
+  const value = optionalString(formData, key);
+  if (!value) throw new Error(`${key} é obrigatório.`);
+  return value;
+}
+
+function optionalString(formData: FormData, key: string) {
+  const value = String(formData.get(key) ?? "").trim();
+  return value || null;
 }

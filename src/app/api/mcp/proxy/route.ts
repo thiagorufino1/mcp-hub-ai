@@ -12,6 +12,14 @@ import { getUserContext } from "@/lib/user-context";
 import { resolveTokenUser } from "@/lib/token-auth";
 import type { McpServerConfig } from "@/types/mcp";
 
+function sanitizeProxyToolName(serverName: string, toolName: string): string {
+  return `${serverName} ${toolName}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 64);
+}
+
 function extractBearer(request: Request): string | null {
   const auth = request.headers.get("authorization") ?? "";
   if (!auth.toLowerCase().startsWith("bearer ")) return null;
@@ -110,7 +118,7 @@ async function handleProxyRequest(request: Request): Promise<Response> {
           : tools;
         for (const tool of filtered) {
           allTools.push({
-            name: `${mcpServer.name}.${tool.name}`,
+            name: sanitizeProxyToolName(mcpServer.name, tool.name),
             title: tool.displayName ?? tool.name,
             description: `[${mcpServer.name}] ${tool.description ?? ""}`.trim(),
             inputSchema: tool.inputSchema ?? { type: "object", properties: {} },
@@ -131,11 +139,6 @@ async function handleProxyRequest(request: Request): Promise<Response> {
   server.setRequestHandler(CallToolRequestSchema, async (toolRequest) => {
     const { name, arguments: args } = toolRequest.params;
 
-    // name format is "ServerName.toolName" — split on first dot only
-    const dotIndex = name.indexOf(".");
-    const requestedServerName = dotIndex !== -1 ? name.slice(0, dotIndex) : null;
-    const requestedToolName = dotIndex !== -1 ? name.slice(dotIndex + 1) : name;
-
     const toolIndex = new Map<string, { server: McpServerConfig; toolName: string }>();
     for (const serverCandidate of proxyServers) {
       try {
@@ -145,7 +148,7 @@ async function handleProxyRequest(request: Request): Promise<Response> {
           ? tools.filter((t) => serverCandidate.allowedToolNames!.includes(t.name))
           : tools;
         for (const tool of filtered) {
-          const indexKey = `${serverCandidate.name}.${tool.name}`;
+          const indexKey = sanitizeProxyToolName(serverCandidate.name, tool.name);
           if (!toolIndex.has(indexKey)) {
             toolIndex.set(indexKey, { server: serverCandidate, toolName: tool.name });
           }
@@ -155,14 +158,7 @@ async function handleProxyRequest(request: Request): Promise<Response> {
       }
     }
 
-    // Look up by prefixed key; fall back to unprefixed for backward compatibility
-    const lookupKey =
-      requestedServerName !== null ? name : requestedToolName;
-    const toolEntry =
-      toolIndex.get(lookupKey) ??
-      (requestedServerName === null
-        ? [...toolIndex.values()].find((e) => e.toolName === requestedToolName)
-        : undefined);
+    const toolEntry = toolIndex.get(name);
     const mcpServer = toolEntry?.server;
     const resolvedToolName = toolEntry?.toolName;
 

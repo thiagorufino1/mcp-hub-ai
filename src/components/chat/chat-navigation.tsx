@@ -66,12 +66,12 @@ export function ChatNavigation({
 
           <Link href="/connections" className="portal-nav-item">
             <Cable className="size-4" />
-            <span>My Connections</span>
+            <span>Minhas Conexões</span>
           </Link>
 
           <Link href="/settings" className="portal-nav-item">
             <Settings className="size-4" />
-            <span>Settings</span>
+            <span>Configurações</span>
           </Link>
         </nav>
 
@@ -81,7 +81,7 @@ export function ChatNavigation({
             <nav className="flex flex-col gap-1 p-3">
               <Link href="/admin" className="portal-nav-item">
                 <Shield className="size-4" />
-                <span>Administration</span>
+                <span>Administração</span>
               </Link>
             </nav>
           </>

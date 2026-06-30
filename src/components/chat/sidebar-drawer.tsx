@@ -6,18 +6,11 @@ import { useEffect, useId, useRef } from "react";
 import { SidebarToolsContent } from "@/components/chat/sidebar-tools";
 import { useAppPreferences } from "@/components/providers/app-preferences-provider";
 import type { LLMConfig } from "@/types/llm-config";
-import type { SystemPrompt } from "@/components/chat/system-prompt-section";
 import type { TokenUsage } from "@/types/chat";
 
 type Props = {
   isOpen: boolean;
   onClose: () => void;
-  systemPrompts: SystemPrompt[];
-  activePromptId: string | null;
-  onAddPrompt: (prompt: SystemPrompt) => void;
-  onEditPrompt: (prompt: SystemPrompt) => void;
-  onDeletePrompt: (id: string) => void;
-  onSelectPrompt: (id: string | null) => void;
   llmConfig: LLMConfig | null;
   onChangeLlmConfig: (config: LLMConfig | null) => void;
   usageTotals: TokenUsage;
@@ -31,12 +24,6 @@ type Props = {
 export function SidebarDrawer({
   isOpen,
   onClose,
-  systemPrompts,
-  activePromptId,
-  onAddPrompt,
-  onEditPrompt,
-  onDeletePrompt,
-  onSelectPrompt,
   llmConfig,
   onChangeLlmConfig,
   usageTotals,
@@ -51,23 +38,15 @@ export function SidebarDrawer({
   const { t } = useAppPreferences();
 
   useEffect(() => {
-    if (!isOpen) {
-      return undefined;
-    }
-
+    if (!isOpen) return undefined;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     closeButtonRef.current?.focus();
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-      }
+      if (event.key === "Escape") { event.preventDefault(); onClose(); }
     }
-
     document.addEventListener("keydown", handleKeyDown);
-
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", handleKeyDown);
@@ -102,12 +81,6 @@ export function SidebarDrawer({
             </button>
           </div>
           <SidebarToolsContent
-            systemPrompts={systemPrompts}
-            activePromptId={activePromptId}
-            onAddPrompt={onAddPrompt}
-            onEditPrompt={onEditPrompt}
-            onDeletePrompt={onDeletePrompt}
-            onSelectPrompt={onSelectPrompt}
             llmConfig={llmConfig}
             onChangeLlmConfig={onChangeLlmConfig}
             usageTotals={usageTotals}

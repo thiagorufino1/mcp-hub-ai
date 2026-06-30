@@ -1,9 +1,9 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { Activity, Bot, Cable, Layers3, MessageSquare, Settings, Shield, User } from "@/components/ui/icons";
+import { Activity, Bot, Cable, Layers3, MessageSquare, Shield, User } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 
 const items = [
@@ -12,19 +12,22 @@ const items = [
   { href: "/admin/mcp", label: "MCP Servers", icon: Cable },
   { href: "/admin/namespaces", label: "Namespaces", icon: Layers3 },
   { href: "/admin/llm", label: "LLM", icon: Bot },
-  { href: "/admin/groups", label: "Groups", icon: User },
-  { href: "/admin/audit", label: "Audit Log", icon: Shield },
+  { href: "/admin/groups", label: "Grupos", icon: User },
+  { href: "/admin/audit", label: "Log de Auditoria", icon: Shield },
 ];
 
 export function AdminNavigation() {
   const pathname = usePathname();
+  const pageLabel = getPageLabel(pathname);
   return (
     <aside className="portal-sidebar">
       <div className="flex items-center gap-3 border-b border-border/70 px-4 py-4">
-        <span className="flex size-9 items-center justify-center rounded-xl bg-[var(--color-primary)] text-white"><Shield className="size-4" /></span>
+        <span className="flex size-9 items-center justify-center rounded-xl bg-[var(--color-primary)] text-white">
+          <Shield className="size-4" />
+        </span>
         <div>
-          <p className="text-sm font-semibold text-[var(--color-text-secondary)]">Administration</p>
-          <p className="text-xs text-muted-foreground">Corporate control center</p>
+          <p className="text-sm font-semibold text-[var(--color-text-secondary)]">Administração</p>
+          <p className="text-xs text-muted-foreground">{pageLabel}</p>
         </div>
       </div>
       <nav className="flex flex-col gap-1 p-3">
@@ -42,3 +45,17 @@ export function AdminNavigation() {
     </aside>
   );
 }
+
+function getPageLabel(pathname: string) {
+  if (pathname === "/admin") return "Dashboard";
+  if (pathname === "/admin/mcp") return "MCP Servers";
+  if (pathname.startsWith("/admin/mcp/")) return "MCP Server";
+  if (pathname === "/admin/namespaces") return "Namespaces";
+  if (pathname.startsWith("/admin/namespaces/")) return "Namespace";
+  if (pathname === "/admin/llm") return "LLM";
+  if (pathname === "/admin/groups") return "Grupos";
+  if (pathname === "/admin/audit") return "Log de Auditoria";
+  if (pathname === "/chat") return "User Chat";
+  return "Dashboard";
+}
+

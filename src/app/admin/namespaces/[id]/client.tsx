@@ -100,6 +100,10 @@ export function NamespaceDetailClient({
   const [isPending, startTransition] = useTransition();
   const [isDeleting, startDeleteTransition] = useTransition();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [serverToRemove, setServerToRemove] = useState<McpServerEntry | null>(null);
+  const [isRemovingServer, startRemoveServer] = useTransition();
+  const [groupToRemove, setGroupToRemove] = useState<{ id: string; displayName: string } | null>(null);
+  const [isRemovingGroup, startRemoveGroup] = useTransition();
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [serverSearch, setServerSearch] = useState("");
@@ -124,7 +128,7 @@ export function NamespaceDetailClient({
           await setNamespaceAllUsers(namespace.id, true);
           router.refresh();
         } catch (cause) {
-          setError(cause instanceof Error ? cause.message : "Could not update namespace access.");
+          setError(cause instanceof Error ? cause.message : "Não foi possível atualizar o acesso ao namespace.");
         }
       });
     }
@@ -138,7 +142,7 @@ export function NamespaceDetailClient({
         setCopied(true);
         window.setTimeout(() => setCopied(false), 2000);
       })
-      .catch(() => setError("Could not copy the endpoint URL."));
+      .catch(() => setError("Não foi possível copiar a URL do endpoint."));
   }
 
   function handleDelete() {
@@ -155,7 +159,7 @@ export function NamespaceDetailClient({
         router.refresh();
       } catch (cause) {
         setError(
-          cause instanceof Error ? cause.message : "Could not update the MCP server.",
+          cause instanceof Error ? cause.message : "Não foi possível atualizar o MCP Server.",
         );
       }
     });
@@ -169,7 +173,7 @@ export function NamespaceDetailClient({
         router.refresh();
       } catch (cause) {
         setError(
-          cause instanceof Error ? cause.message : "Could not update the tool visibility.",
+          cause instanceof Error ? cause.message : "Não foi possível atualizar a visibilidade da tool.",
         );
       }
     });
@@ -244,14 +248,14 @@ export function NamespaceDetailClient({
           className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-[var(--color-primary)]"
         >
           <ArrowRight aria-hidden="true" className="size-4 rotate-180" />
-          Back to Namespaces
+          Voltar para Namespaces
         </Link>
         <div className="flex items-center gap-2">
           <Badge variant={namespace.enabled ? "success" : "secondary"}>
-            {namespace.enabled ? "Enabled" : "Disabled"}
+            {namespace.enabled ? "Habilitado" : "Desabilitado"}
           </Badge>
           <Badge variant={namespace.published ? "info" : "secondary"}>
-            {namespace.published ? "Published" : "Private"}
+            {namespace.published ? "Publicado" : "Privado"}
           </Badge>
         </div>
       </div>
@@ -265,7 +269,7 @@ export function NamespaceDetailClient({
               {namespace.description}
             </p>
           ) : (
-            <p className="mt-3 text-sm text-muted-foreground">No description.</p>
+            <p className="mt-3 text-sm text-muted-foreground">Sem descrição.</p>
           )}
         </div>
 
@@ -278,7 +282,7 @@ export function NamespaceDetailClient({
             variant="outline"
             className="size-9 rounded-full px-0"
             onClick={copyEndpoint}
-            aria-label="Copy namespace endpoint URL"
+            aria-label="Copiar URL do endpoint"
           >
             {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
           </Button>
@@ -287,7 +291,7 @@ export function NamespaceDetailClient({
             variant="outline"
             className="size-9 rounded-full px-0"
             onClick={() => setNamespaceFormOpen(true)}
-            aria-label="Edit namespace settings"
+            aria-label="Editar configurações do namespace"
           >
             <PencilLine aria-hidden="true" />
           </Button>
@@ -295,7 +299,7 @@ export function NamespaceDetailClient({
             size="sm"
             className="size-9 rounded-full border border-[var(--color-border)] bg-transparent px-0 text-[var(--color-error)] shadow-none hover:bg-[var(--color-error-soft)] hover:text-[var(--color-error)]"
             onClick={() => setDeleteDialogOpen(true)}
-            aria-label="Delete namespace"
+            aria-label="Excluir namespace"
           >
             <Trash2 className="size-4" aria-hidden="true" />
           </Button>
@@ -450,20 +454,7 @@ export function NamespaceDetailClient({
                             type="button"
                             size="icon"
                             className="rounded-full bg-transparent text-[var(--color-error)] shadow-none hover:bg-[var(--color-error-soft)] hover:text-[var(--color-error)]"
-                            onClick={() => {
-                              startTransition(async () => {
-                                try {
-                                  await deleteNamespaceMcpServer(namespace.id, mcp.mcpServerId);
-                                  router.refresh();
-                                } catch (cause) {
-                                  setError(
-                                    cause instanceof Error
-                                      ? cause.message
-                                      : "Could not remove the MCP server.",
-                                  );
-                                }
-                              });
-                            }}
+                            onClick={() => setServerToRemove(mcp)}
                             aria-label={`Remove ${mcp.name}`}
                             disabled={isPending}
                           >
@@ -656,7 +647,7 @@ export function NamespaceDetailClient({
                     setError(
                       cause instanceof Error
                         ? cause.message
-                        : "Could not add the MCP server.",
+                        : "Não foi possível adicionar o MCP Server.",
                     );
                   }
                 });
@@ -687,10 +678,11 @@ export function NamespaceDetailClient({
           await addNamespaceGroup(namespace.id, groupId);
           router.refresh();
         }}
-        onDeleteGroup={async (groupId) => {
+      onDeleteGroup={async (groupId) => {
           await deleteNamespaceGroup(namespace.id, groupId);
           router.refresh();
         }}
+        onRequestDeleteGroup={setGroupToRemove}
       />
 
       <NamespaceSettingsSection
@@ -699,6 +691,70 @@ export function NamespaceDetailClient({
         onSaved={() => router.refresh()}
         setError={setError}
       />
+
+      <Dialog open={serverToRemove !== null} onOpenChange={(open) => { if (!open) setServerToRemove(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remover servidor MCP</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja remover <strong>{serverToRemove?.name}</strong> deste namespace? Esta ação não poderá ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setServerToRemove(null)} disabled={isRemovingServer}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              disabled={isRemovingServer}
+              onClick={() => {
+                if (!serverToRemove) return;
+                startRemoveServer(async () => {
+                  try {
+                    await deleteNamespaceMcpServer(namespace.id, serverToRemove.mcpServerId);
+                    setServerToRemove(null);
+                    router.refresh();
+                  } catch (cause) {
+                    setError(cause instanceof Error ? cause.message : "Não foi possível remover o MCP Server.");
+                  }
+                });
+              }}
+            >
+              {isRemovingServer ? "Removendo..." : "Remover servidor"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={groupToRemove !== null} onOpenChange={(open) => { if (!open) setGroupToRemove(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remover grupo</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja remover o grupo <strong>{groupToRemove?.displayName}</strong> deste namespace?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setGroupToRemove(null)} disabled={isRemovingGroup}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              disabled={isRemovingGroup}
+              onClick={() => {
+                if (!groupToRemove) return;
+                startRemoveGroup(async () => {
+                  try {
+                    await deleteNamespaceGroup(namespace.id, groupToRemove.id);
+                    router.refresh();
+                    setGroupToRemove(null);
+                  } catch (cause) {
+                    setError(cause instanceof Error ? cause.message : "Não foi possível remover o grupo.");
+                  }
+                });
+              }}
+            >
+              {isRemovingGroup ? "Removendo..." : "Remover grupo"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
@@ -942,6 +998,7 @@ function NamespaceAccessControlSection({
   setError,
   onAddGroup,
   onDeleteGroup,
+  onRequestDeleteGroup,
 }: {
   namespace: NamespaceDetail;
   groups: Array<{ id: string; displayName: string; entraGroupId: string; memberCount: number }>;
@@ -959,6 +1016,7 @@ function NamespaceAccessControlSection({
   setError: (value: string | null) => void;
   onAddGroup: (groupId: string) => Promise<void>;
   onDeleteGroup: (groupId: string) => Promise<void>;
+  onRequestDeleteGroup: (value: { id: string; displayName: string } | null) => void;
 }) {
   const [isProcessing, startTransition] = useTransition();
   const router = useRouter();
@@ -1106,19 +1164,7 @@ function NamespaceAccessControlSection({
                           <button
                             type="button"
                             className="inline-flex h-8 w-8 items-center justify-center rounded-full border-0 bg-transparent p-0 leading-none text-[var(--color-error)] transition-[background-color,color] duration-150 hover:bg-[var(--color-error-soft)] hover:text-[var(--color-error)] focus-visible:bg-[var(--color-error-soft)] focus-visible:text-[var(--color-error)]"
-                            onClick={() => {
-                              startTransition(async () => {
-                                try {
-                                  await onDeleteGroup(group.id);
-                                } catch (cause) {
-                                  setError(
-                                    cause instanceof Error
-                                      ? cause.message
-                                      : "Could not remove the group.",
-                                  );
-                                }
-                              });
-                            }}
+                            onClick={() => onRequestDeleteGroup({ id: group.id, displayName: group.displayName })}
                             aria-label={`Remove ${group.displayName}`}
                             disabled={isPending || isProcessing}
                           >
@@ -1203,7 +1249,7 @@ function NamespaceAccessControlSection({
                     setAddGroupOpen(false);
                   } catch (cause) {
                     setError(
-                      cause instanceof Error ? cause.message : "Could not add the group.",
+                      cause instanceof Error ? cause.message : "Não foi possível adicionar o grupo.",
                     );
                   }
                 });
@@ -1251,7 +1297,7 @@ function NamespaceSettingsSection({
         await saveNamespace(formData);
         onSaved();
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "Could not save namespace settings.");
+        setError(cause instanceof Error ? cause.message : "Não foi possível salvar as configurações do namespace.");
       }
     });
   }

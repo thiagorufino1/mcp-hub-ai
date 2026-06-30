@@ -8,7 +8,7 @@ import { isOAuthConnectionActive } from "@/lib/oauth-server";
 import { ConnectionsClient } from "./client";
 import { PortalShell } from "@/components/layout/portal-shell";
 
-export const metadata = { title: "My Connections - MCP Hub" };
+export const metadata = { title: "Minhas Conexões - MCP Hub" };
 
 export default async function ConnectionsPage() {
   const user = await requireAuth();
@@ -138,7 +138,7 @@ export default async function ConnectionsPage() {
   const proxyUrl = `${protocol}://${host}/api/mcp/proxy`;
 
   return (
-    <PortalShell isAdmin={user.isAdmin} section="My Connections" showUserNavigation userName={user.name}>
+    <PortalShell isAdmin={user.isAdmin} showUserNavigation userName={user.name} userImage={user.image ?? null}>
       <ConnectionsClient
         key={[
           items.map((item) => `${item.id}:${item.userEnabled}:${item.connection?.status ?? "none"}`).join("|"),
