@@ -1,176 +1,124 @@
-# MCP Hub
+# 🧠 MCP Hub
 
-[![npm version](https://img.shields.io/npm/v/@thiagorufino/mcp-hub?color=blue)](https://www.npmjs.com/package/@thiagorufino/mcp-hub)
-[![npm downloads](https://img.shields.io/npm/dm/@thiagorufino/mcp-hub?color=blue)](https://www.npmjs.com/package/@thiagorufino/mcp-hub)
+Interface web para gerenciar servidores MCP e testar provedores de LLM. Conecte modelos a ferramentas, inspecione tráfego, publique namespaces e exponha um proxy MCP protegido por OAuth para outros clientes.
 
-**MCP Hub** is a local web UI for testing LLMs and MCP servers. Connect providers, inspect tool calls, and run multi-turn chats in one place.
+## 🏗️ Arquitetura
 
-![MCP Hub chat interface](docs/mcp-hub.png)
-
----
-
-## Architecture Overview
-
-```
-┌──────────────────────────────────────────────┐
-│                  Browser UI                  │
-│        (Next.js App Router + shadcn/ui)      │
-└─────────────────────┬────────────────────────┘
-                      │
-┌─────────────────────▼────────────────────────┐
-│           Next.js Server (local)             │
-│                                              │
-│  ┌──────────────────┐  ┌──────────────────┐  │
-│  │    AI Routes     │  │    MCP Routes    │  │
-│  │  Vercel AI SDK   │  │  @mcp/sdk client │  │
-│  └────────┬─────────┘  └────────┬─────────┘  │
-└───────────┼─────────────────────┼────────────┘
-            │                     │
-┌───────────▼────────┐  ┌─────────▼────────────┐
-│   LLM Providers    │  │     MCP Servers      │
-│   (10 providers)   │  │  stdio / SSE / HTTP  │
-└────────────────────┘  └──────────────────────┘
+```text
+Interface (Browser)
+(Next.js App Router + shadcn/ui)
+        |
+        v
+Servidor Next.js (Node.js)
+  |-- Chat  ──────────────────> Provedores LLM (AI SDK v6)
+  |-- Rotas MCP ───────────────> Servidores MCP (stdio / SSE / Streamable HTTP)
+  |-- Servidor OAuth 2.1
+  |-- API Admin + Auditoria
+        |
+        +--> Provedores LLM
+        |    Anthropic, Amazon Bedrock, Azure OpenAI, DeepSeek,
+        |    Google Gemini, Groq, Mistral AI, Ollama, OpenAI, xAI
+        |
+        +--> Servidores MCP
+             stdio / SSE / Streamable HTTP
+        |
+        +--> PostgreSQL (Prisma 6)
 ```
 
-MCP Hub consists of two components that work together:
+## 📋 Índice
 
-**MCP Hub Server**: A Next.js standalone server that runs locally via `npx`. It acts as the bridge between the browser and external services, spawning MCP stdio processes, connecting to remote MCP servers over SSE or Streamable HTTP, and forwarding LLM requests to the configured provider.
-
-**MCP Hub Client**: A React-based web UI served by the local server. It provides the interface for configuring providers, managing MCP connections, inspecting tool schemas, and running multi-turn chats with live tool call traces.
-
-All traffic stays on `localhost` except direct calls to the LLM providers you configure.
-
----
-
-## Table of Contents
-
-- [Quick Start](#quick-start)
-- [Features](#features)
-  - [LLM Providers](#llm-providers)
-  - [MCP Servers](#mcp-servers)
+- [Início Rápido](#-início-rápido)
+- [Funcionalidades](#-funcionalidades)
+  - [Provedores LLM](#provedores-llm)
   - [Chat](#chat)
-- [MCP Proxy - Connect Claude Desktop](#mcp-proxy--connect-claude-desktop)
-- [Stack](#stack)
-- [Security](#security)
-- [Limitations](#limitations)
-- [Links](#links)
+  - [Servidores MCP](#servidores-mcp)
+  - [Namespaces](#namespaces)
+  - [Administração](#administração)
+- [Proxy MCP](#-proxy-mcp)
+- [Docker](#-docker)
+- [Variáveis de Ambiente](#-variáveis-de-ambiente)
+- [Stack](#-stack)
+- [Segurança](#-segurança)
 
----
+## 🚀 Início Rápido
 
-## Quick Start
-
-```bash
-npx @thiagorufino/mcp-hub
-```
-
-Starts on `http://127.0.0.1:3000` by default and opens the browser automatically. If the port is already taken, the CLI picks the next free local port.
-
-To update to the latest version:
+**Requisitos:** Node.js 20+, PostgreSQL 14+
 
 ```bash
-npx @thiagorufino/mcp-hub@latest
+# 1. Instalar dependências
+npm install
+
+# 2. Configurar ambiente
+cp .env.example .env
+# Editar .env: mínimo DATABASE_URL, NEXTAUTH_SECRET, AZURE_AD_*
+
+# 3. Executar migrações do banco
+npx prisma migrate deploy
+
+# 4. Iniciar servidor de desenvolvimento
+npm run dev
 ```
+
+Acesse em `http://localhost:3000`.
+
+**Build de produção:**
 
 ```bash
-# Custom port
-npx @thiagorufino/mcp-hub --port 4010
-
-# Bind explicitly to localhost without auto-opening the browser
-npx @thiagorufino/mcp-hub --host localhost --port 3000 --no-open
-
-# IPv6 loopback is also allowed
-npx @thiagorufino/mcp-hub --host ::1
-
-# Show all options
-npx @thiagorufino/mcp-hub --help
+npm run build
+npm start
 ```
 
-**Requires Node.js 20+**
+## ✨ Funcionalidades
 
-The public CLI refuses non-local host binding. Allowed hosts: `127.0.0.1`, `localhost`, `::1`.
+### Provedores LLM
 
----
+Configure provedores pela interface admin. Credenciais armazenadas criptografadas no banco de dados.
 
-## Features
-
-### LLM Providers
-
-Configure any of the 10 supported providers directly in the UI:
-
-| Provider | Supported |
-|---|:---:|
-| Anthropic | ✅ |
-| AWS Bedrock | ✅ |
-| DeepSeek | ✅ |
-| Google Gemini | ✅ |
-| Groq | ✅ |
-| Microsoft Foundry | ✅ |
-| Mistral AI | ✅ |
-| Ollama | ✅ |
-| OpenAI | ✅ |
-| xAI | ✅ |
-
-### MCP Servers
-
-Connect to MCP servers over all three transports:
-
-| Transport | Description |
+| Provedor | Pacote |
 |---|---|
-| **stdio** | Local process spawned by the app |
-| **SSE** | Remote server-sent events endpoint |
-| **Streamable HTTP** | Modern MCP transport |
-
-Inspect tools, schemas, and execute calls directly from the sidebar.
-
-- Remote MCP auth support: custom headers or OAuth 2.0 when the server requires it
-- OAuth discovery follows MCP protected-resource metadata and authorization-server metadata
-- Discovery fallback supports root metadata, path-based metadata such as `/mcp`, and `WWW-Authenticate` hints
-
-- Automatic health revalidation: MCP status updates when a server goes offline or comes back
-- Per-server recovery logic: one failing MCP does not block others from being revalidated
-- Manual retest controls: force validation whenever you want from the sidebar
+| Anthropic | `@ai-sdk/anthropic` |
+| Amazon Bedrock | `@ai-sdk/amazon-bedrock` |
+| Azure OpenAI | `@ai-sdk/azure` |
+| DeepSeek | `@ai-sdk/deepseek` |
+| Google Gemini | `@ai-sdk/google` |
+| Groq | `@ai-sdk/groq` |
+| Mistral AI | `@ai-sdk/mistral` |
+| Ollama | `@ai-sdk/openai` (compat) |
+| OpenAI | `@ai-sdk/openai` |
+| xAI | `@ai-sdk/xai` |
 
 ### Chat
 
-- Streaming responses with live token display
-- Multi-turn conversation history
-- System Prompt support
-- Token usage tracking: input, output, and total tokens per message and accumulated per session
-- Tool activity trace: see every MCP tool call and result in real time
-- Chart rendering: ask for charts, get interactive visualizations inline
-- Audio input support
-- MCP-aware chat requests: fresh validated MCP snapshot before exposing tools to the model
+- Respostas em streaming via Vercel AI SDK v6
+- Sessões multi-turno persistidas no navegador
+- Suporte a system prompt (inline ou carregado de arquivo)
+- Inspeção de tool calls com argumentos, resultados e status por chamada
+- Renderização de gráficos a partir de blocos ` ```chart ``` ` (Recharts)
+- Transcrição de voz em navegadores compatíveis
+- Requisições MCP-aware: snapshot de ferramentas atualizado antes de cada execução
+- Preferências de personalização por usuário
 
----
+### Servidores MCP
 
-## MCP Proxy - Connect Claude Desktop
+Conecte servidores MCP pelos três transportes suportados:
 
-MCP Hub exposes a Streamable HTTP MCP endpoint at `/api/mcp/proxy` that aggregates all your configured servers into a single connection. Claude Desktop and other MCP clients can connect to it without any manual token setup.
+| Transporte | Descrição |
+|---|---|
+| `stdio` | Processo local iniciado pelo servidor |
+| `SSE` | Endpoint server-sent events |
+| `Streamable HTTP` | Transporte HTTP padrão MCP |
 
-### OAuth 2.1 (recommended)
+Capacidades adicionais:
 
-The hub implements a full OAuth 2.1 Authorization Server with Dynamic Client Registration (DCR). Clients that support MCP OAuth discovery (Claude Desktop, VS Code extension) authenticate automatically:
+- Validação e inspeção de schema antes de conectar
+- Monitoramento de saúde com recuperação automática
+- Autenticação remota via headers customizados ou OAuth 2.0
+- Descoberta de metadados OAuth via endpoints MCP protected-resource e authorization-server
+- Importação e exportação de definições de servidores pela interface admin
 
-1. Client hits `/api/mcp/proxy` → receives `401` with `WWW-Authenticate` pointing to well-known metadata
-2. Client discovers the AS at `/.well-known/oauth-authorization-server`
-3. Client registers itself via DCR at `/api/oauth/register` (no manual setup)
-4. Browser opens the hub's approval page - user approves once
-5. Client stores tokens and renews them automatically
+### Namespaces
 
-**Claude Desktop config** (`claude_desktop_config.json`):
-
-```json
-{
-  "mcpServers": {
-    "mcp-hub": {
-      "url": "http://localhost:3000/api/mcp/proxy",
-      "type": "http"
-    }
-  }
-}
-```
-
-For a specific published namespace:
+Agrupe servidores e ferramentas MCP em conjuntos nomeados e publique como endpoints de proxy separados:
 
 ```json
 {
@@ -183,164 +131,117 @@ For a specific published namespace:
 }
 ```
 
-No token required. The OAuth flow runs once per client, then renews silently.
+Cada namespace tem seu próprio escopo OAuth (`mcp:namespace:{alias}`) e pode ser compartilhado de forma independente.
 
-### Import example
+### Administração
 
-Use this JSON in the Admin import dialog to seed common stdio, HTTP, Bearer token, OAuth, and SSE servers:
+Rotas admin exigem membership no grupo Entra ID configurado em `ADMIN_GROUP_ID`.
+
+- **Dashboard**: cards KPI, gráficos de execução (14 dias), consumo de tokens LLM por modelo, latência P95 por servidor, top tools, top clientes
+- **Servidores MCP**: registrar, editar, testar, importar/exportar
+- **Namespaces**: criar e publicar conjuntos curados de ferramentas
+- **LLM**: configurar e habilitar/desabilitar provedores
+- **Grupos**: gerenciar grupos Entra ID para controle de acesso
+- **Auditoria**: log completo de ações privilegiadas e execuções de ferramentas
+
+## 🔌 Proxy MCP
+
+O MCP Hub expõe um endpoint Streamable HTTP em `/api/mcp/proxy` que agrega todos os servidores registrados em uma única conexão.
 
 ```json
 {
   "mcpServers": {
-    "Everything MCP Server": {
-      "type": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-everything"
-      ]
-    },
-    "Microsoft Learn": {
-      "url": "https://learn.microsoft.com/api/mcp",
+    "mcp-hub": {
+      "url": "http://localhost:3000/api/mcp/proxy",
       "type": "http"
-    },
-    "http-example-token": {
-      "url": "https://localhost:8000/mcp",
-      "type": "http",
-      "headers": {
-        "Authorization": "Bearer your-token"
-      }
-    },
-    "http-example-oauth": {
-      "url": "https://localhost:8000/mcp",
-      "type": "http",
-      "authType": "oauth_delegated"
-    },
-    "http-example-sse": {
-      "url": "https://localhost:8000/mcp",
-      "type": "sse"
     }
   }
 }
 ```
 
-### Personal Access Tokens (legacy)
+### OAuth 2.1
 
-Tokens created in the UI still work as Bearer tokens and will continue to do so during a deprecation window. Pass them via `Authorization: Bearer <token>` or configure them directly in the MCP client.
+O hub implementa OAuth 2.1 com Dynamic Client Registration. Clientes com suporte a OAuth discovery MCP autenticam sem tratamento manual de tokens.
 
-### OAuth endpoints
+Fluxo:
 
-| Endpoint | Purpose |
+1. Cliente requisita `/api/mcp/proxy`
+2. Hub retorna `401` com metadados de descoberta OAuth
+3. Cliente descobre o authorization server e registra dinamicamente
+4. Navegador abre a página de aprovação
+5. Tokens são emitidos e renovados automaticamente
+
+Endpoints OAuth:
+
+| Endpoint | Finalidade |
 |---|---|
-| `GET /.well-known/oauth-authorization-server` | AS metadata (RFC 8414) |
-| `GET /.well-known/oauth-protected-resource` | Resource metadata (RFC 9728) |
-| `POST /api/oauth/register` | Dynamic Client Registration (RFC 7591) |
-| `GET /api/oauth/authorize` | Authorization endpoint (PKCE S256 mandatory) |
-| `POST /api/oauth/token` | Token exchange and refresh rotation |
-| `POST /api/oauth/revoke` | Token revocation (RFC 7009) |
+| `GET /.well-known/oauth-authorization-server` | Metadados do authorization server |
+| `GET /.well-known/oauth-protected-resource` | Metadados do protected resource |
+| `POST /api/oauth/register` | Registro dinâmico de cliente |
+| `GET /api/oauth/authorize` | Endpoint de autorização |
+| `POST /api/oauth/token` | Troca e renovação de tokens |
+| `POST /api/oauth/revoke` | Revogação de tokens |
 
-### Scopes
+Escopos:
 
-| Scope | Access |
+| Escopo | Acesso |
 |---|---|
-| `mcp:proxy` | All tools via the proxy endpoint |
-| `mcp:namespace:{alias}` | Tools in a specific published namespace |
+| `mcp:proxy` | Todas as ferramentas via endpoint proxy |
+| `mcp:namespace:{alias}` | Ferramentas de um namespace publicado específico |
 
----
+## 🐳 Docker
 
-## Stack
-
-| Layer | Technology |
-|---|---|
-| Framework | Next.js 16 (App Router, standalone output) |
-| AI | Vercel AI SDK 6, unified streaming across all providers |
-| MCP | @modelcontextprotocol/sdk |
-| UI | Tailwind CSS 4 + Radix UI + shadcn/ui |
-| Icons | @lobehub/icons, official AI provider brand icons |
-
----
-
-## Security
-
-Runs locally on loopback interfaces only. Credentials are sent only to providers you configure and never stored in any remote backend.
-
-- LLM credentials and MCP auth headers/env stored only in browser `sessionStorage`
-- OAuth state, tokens, and related MCP auth config stay in browser session storage too
-- Closing the tab clears all sensitive config
-- Chat history and non-sensitive UI preferences may persist locally
-- MCP `stdio` servers are spawned as child processes, so only connect to servers you trust
-- CLI refuses non-local host binding by design
-
-See [SECURITY.md](./SECURITY.md) for the full security model.
-
----
-
-## Limitations
-
-- CLI app distributed via npm, not a library API
-- First launch downloads the standalone Next.js bundle, which may take a moment
-- Provider credentials are session-scoped, so you must re-enter them in new browser sessions
-- Remote MCP OAuth config is also session-scoped, so re-auth may be needed after session end
-- Remote multi-user deployment is out of scope
-- OAuth 2.1 Personal Token deprecation window: legacy tokens remain valid for 90 days, then OAuth 2.1 only
-
----
-
-## Executar com Docker
-
-### Pré-requisitos
-
-- Docker e Docker Compose instalados
-- Credenciais Azure AD/Entra ID configuradas
-
-### Configuração
+**Pré-requisitos:** Docker + Docker Compose, credenciais Azure AD / Entra ID
 
 ```bash
+# 1. Configurar
 cp .env.example .env
-# Edite .env com suas variáveis reais
-```
+# Preencher .env com valores reais
 
-Gere os valores obrigatórios:
+# Gerar secrets
+openssl rand -base64 32   # NEXTAUTH_SECRET
+openssl rand -hex 32      # MCP_HUB_ENCRYPTION_KEY
 
-```bash
-# NEXTAUTH_SECRET
-openssl rand -base64 32
-
-# MCP_HUB_ENCRYPTION_KEY
-openssl rand -hex 32
-```
-
-### Subir o ambiente
-
-```bash
+# 2. Iniciar
 docker compose up --build
 ```
 
-O app estará disponível em http://localhost:3000.
+Aplicação disponível em `http://localhost:3000`. Dados do Postgres persistidos no volume `postgres_data`. Migrações executadas automaticamente na inicialização.
 
-As migrações do banco de dados são aplicadas automaticamente na inicialização.
+## ⚙️ Variáveis de Ambiente
 
-### Parar
+| Variável | Obrigatória | Descrição |
+|---|:---:|---|
+| `DATABASE_URL` | Sim | String de conexão PostgreSQL |
+| `NEXTAUTH_SECRET` | Sim | Chave de criptografia de sessão (`openssl rand -base64 32`) |
+| `NEXTAUTH_URL` | Sim | URL pública da aplicação (ex: `http://localhost:3000`) |
+| `MCP_HUB_ENCRYPTION_KEY` | Não | Chave para secrets armazenados (usa `NEXTAUTH_SECRET` como fallback) |
+| `MCP_TOOL_CACHE_TTL_MS` | Não | TTL do cache do registro de ferramentas em ms (padrão: `300000`) |
+| `AZURE_AD_CLIENT_ID` | Sim | Client ID do registro de app no Entra ID |
+| `AZURE_AD_CLIENT_SECRET` | Sim | Client secret do registro de app no Entra ID |
+| `AZURE_AD_TENANT_ID` | Sim | Tenant ID do Entra ID |
+| `ADMIN_GROUP_ID` | Sim | Object ID do grupo Entra que concede acesso admin |
 
-```bash
-docker compose down
-```
+Consulte `.env.example` para referência completa.
 
-### Resetar banco de dados
+## 🛠️ Stack
 
-```bash
-docker compose down -v
-docker compose up --build
-```
+| Camada | Tecnologia |
+|---|---|
+| Framework | Next.js 16 (App Router) + React 19 + TypeScript |
+| Estilização | Tailwind CSS 4 + Radix UI + shadcn/ui |
+| Integração LLM | Vercel AI SDK v6 (`ai`, `@ai-sdk/*`) |
+| MCP | `@modelcontextprotocol/sdk` |
+| Banco de dados | PostgreSQL 16 + Prisma 6 |
+| Autenticação | NextAuth v5 + Azure AD / Entra ID |
+| Gráficos | Recharts |
+| Validação | Zod v4 |
 
----
+## 🔒 Segurança
 
-## Links
-
-- GitHub: https://github.com/thiagorufino1/mcp-hub
-- Issues: https://github.com/thiagorufino1/mcp-hub/issues
-- npm: https://www.npmjs.com/package/@thiagorufino/mcp-hub
-
-## License
-
-Apache License 2.0. See [LICENSE](./LICENSE).
+- Autenticação via Entra ID, sem acesso anônimo
+- Autorização admin baseada em grupo (`ADMIN_GROUP_ID`)
+- Todos os secrets armazenados (chaves LLM, tokens MCP, credenciais OAuth) criptografados em repouso
+- OAuth 2.1 com PKCE para clientes do proxy MCP
+- Saída de streaming e inspeção de ferramentas sanitizadas na interface
+- Log de auditoria completo para ações privilegiadas e execuções de ferramentas
