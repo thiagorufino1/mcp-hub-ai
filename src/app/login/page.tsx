@@ -10,9 +10,6 @@ export default function LoginPage() {
         <p className="text-[24px] font-semibold tracking-[-0.05em] text-white">
           MCP <span className="text-white/70">Hub</span>
         </p>
-        <p className="max-w-xl text-balance text-center text-sm leading-6 text-white/72">
-          Corporate AI workspace with governed models, agents and MCP tools.
-        </p>
       </div>
       <div className="login-panel">
         <div className="flex size-12 items-center justify-center rounded-2xl bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
@@ -22,8 +19,8 @@ export default function LoginPage() {
           </svg>
         </div>
         <div className="flex flex-col gap-2 text-center">
-          <h1 className="text-2xl font-semibold tracking-[-0.03em]">Welcome back</h1>
-          <p className="text-sm text-muted-foreground">Sign in with your corporate Microsoft account.</p>
+          <h1 className="text-2xl font-semibold tracking-[-0.03em]">Bem-vindo</h1>
+          <p className="text-sm text-muted-foreground">Entre com sua conta Microsoft corporativa.</p>
         </div>
         <form action={async () => {
           "use server";
@@ -31,12 +28,9 @@ export default function LoginPage() {
         }} className="w-full">
           <Button type="submit" size="lg" className="w-full rounded-xl">
             <MicrosoftMark />
-            Sign in with Microsoft
+            Entrar com Microsoft
           </Button>
         </form>
-        <p className="text-center text-xs leading-5 text-muted-foreground">
-          Access is controlled by your Microsoft Entra ID groups.
-        </p>
       </div>
     </div>
   );
